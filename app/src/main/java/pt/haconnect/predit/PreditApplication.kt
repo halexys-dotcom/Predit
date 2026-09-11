@@ -22,7 +22,8 @@ class PreditApplication : Application() {
             applicationContext,
             PreditDatabase::class.java,
             "predit.db"
-        ).addCallback(object : RoomDatabase.Callback() {
+        ).addMigrations(PreditDatabase.MIGRATION_1_2)
+        .addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
                 CoroutineScope(Dispatchers.IO).launch {

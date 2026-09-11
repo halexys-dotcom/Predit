@@ -1,0 +1,76 @@
+package pt.haconnect.predit.data.repository
+
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import pt.haconnect.predit.data.local.*
+import pt.haconnect.predit.domain.model.*
+
+class RotacaoRepository(private val dao: RotacaoDao) {
+
+    fun observarTodas(): Flow<List<Rotacao>> {
+        return dao.observarTodas().map { lista -> lista.map { it.paraModelo() } }
+    }
+
+    fun observarPorId(id: Long): Flow<RotacaoDetalhada?> {
+        return dao.observarPorId(id).map { it?.paraModeloDetalhado() }
+    }
+
+    suspend fun porId(id: Long): RotacaoDetalhada? {
+        return dao.porId(id)?.paraModeloDetalhado()
+    }
+
+    suspend fun salvarRotacaoComSlots(rotacao: Rotacao, slots: List<RotacaoSlot>): Long {
+        val entidadeRotacao = rotacao.paraEntidade()
+        val entidadesSlots = slots.map { it.paraEntidade() }
+        return dao.salvarRotacaoComSlots(entidadeRotacao, entidadesSlots)
+    }
+
+    suspend fun apagarRotacao(id: Long) {
+        dao.apagarRotacao(id)
+    }
+
+    fun observarAplicacaoVigente(epochDay: Long): Flow<AplicacaoRotacao?> {
+        return dao.observarAplicacaoVigente(epochDay).map { it?.paraModelo() }
+    }
+
+    suspend fun aplicarNovaRotacao(rotacaoId: Long, dataAncora: Long, validoDe: Long): Long {
+        return dao.aplicarNovaRotacao(rotacaoId, dataAncora, validoDe)
+    }
+
+    private fun RotacaoEntity.paraModelo() = Rotacao(
+        id = id,
+        nome = nome,
+        comprimentoCiclo = comprimentoCiclo
+    )
+
+    private fun Rotacao.paraEntidade() = RotacaoEntity(
+        id = id,
+        nome = nome,
+        comprimentoCiclo = comprimentoCiclo
+    )
+
+    private fun RotacaoSlotEntity.paraModelo() = RotacaoSlot(
+        rotacaoId = rotacaoId,
+        posicao = posicao,
+        tipoTurnoId = tipoTurnoId
+    )
+
+    private fun RotacaoSlot.paraEntidade() = RotacaoSlotEntity(
+        rotacaoId = rotacaoId,
+        posicao = posicao,
+        tipoTurnoId = tipoTurnoId
+    )
+
+    private fun RotacaoComSlots.paraModeloDetalhado() = RotacaoDetalhada(
+        rotacao = rotacao.paraModelo(),
+        slots = slots.map { it.paraModelo() }
+    )
+
+    private fun AplicacaoRotacaoEntity.paraModelo() = AplicacaoRotacao(
+        id = id,
+        rotacaoId = rotacaoId,
+        dataAncora = dataAncora,
+        validoDe = validoDe,
+        validoAte = validoAte
+    )
+}
