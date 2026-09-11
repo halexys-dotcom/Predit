@@ -157,6 +157,7 @@ fun TurnosScreen(
         if (mostrarCriadorTurno) {
             EditorTipoTurnoDialog(
                 tipo = null,
+                tiposExistentes = tiposTurno,
                 onDismiss = { mostrarCriadorTurno = false },
                 onSalvar = { novoTipo ->
                     turnosViewModel.salvarTipoTurno(novoTipo)
@@ -168,6 +169,7 @@ fun TurnosScreen(
         tipoParaEditar?.let { tipo ->
             EditorTipoTurnoDialog(
                 tipo = tipo,
+                tiposExistentes = tiposTurno,
                 onDismiss = { tipoParaEditar = null },
                 onSalvar = { tipoAtualizado ->
                     turnosViewModel.salvarTipoTurno(tipoAtualizado)

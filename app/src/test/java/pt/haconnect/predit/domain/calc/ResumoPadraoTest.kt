@@ -12,14 +12,34 @@ class ResumoPadraoTest {
     private val mapa = mapOf(1L to tipoTarde, 2L to tipoFolga)
 
     @Test
-    fun `gerar resumo para ciclo 4 mais 2`() {
-        val slots = listOf(1L, 1L, 1L, 1L, 2L, 2L, 1L, 1L, 1L, 1L, 2L, 2L, 1L, 1L, 1L, 1L, 2L)
-        val resultado = gerarResumoPadrao(slots, mapa)
-        assertEquals("4T08H · 2F · 4T08H · 2F · 4T08H · 1F", resultado)
+    fun `cenario 1 - ciclo vazio`() {
+        assertEquals("Ciclo vazio", gerarResumoPadrao(emptyList(), mapa))
     }
 
     @Test
-    fun `gerar resumo para ciclo vazio`() {
-        assertEquals("Ciclo vazio", gerarResumoPadrao(emptyList(), mapa))
+    fun `cenario 2 - um unico dia`() {
+        assertEquals("T08H", gerarResumoPadrao(listOf(1L), mapa))
+    }
+
+    @Test
+    fun `cenario 3 - todos iguais`() {
+        assertEquals("3T08H", gerarResumoPadrao(listOf(1L, 1L, 1L), mapa))
+    }
+
+    @Test
+    fun `cenario 4 - alternados`() {
+        val slots = listOf(1L, 2L, 1L, 2L)
+        assertEquals("T08H · F · T08H · F", gerarResumoPadrao(slots, mapa))
+    }
+
+    @Test
+    fun `cenario 5 - ciclo real de 17 dias`() {
+        val slots = listOf(
+            1L, 1L, 1L, 1L, 2L, 2L,
+            1L, 1L, 1L, 1L, 2L, 2L,
+            1L, 1L, 1L, 1L, 2L
+        )
+        val resultado = gerarResumoPadrao(slots, mapa)
+        assertEquals("4T08H · 2F · 4T08H · 2F · 4T08H · F", resultado)
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -22,9 +23,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.RotacaoRepository
@@ -66,6 +71,12 @@ fun EditorRotacaoScreen(
 
     var tipoSelecionado by remember { mutableStateOf<TipoTurno?>(null) }
     var carregado by remember { mutableStateOf(false) }
+
+    var alturaPainelPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val alturaPainelDp = remember(alturaPainelPx, density) {
+        with(density) { alturaPainelPx.toDp() }
+    }
 
     var mostrarDialogoLimpar by remember { mutableStateOf(false) }
     var mostrarDialogoDescartar by remember { mutableStateOf(false) }
@@ -136,7 +147,11 @@ fun EditorRotacaoScreen(
             Surface(
                 tonalElevation = 8.dp,
                 shadowElevation = 8.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { coordinates ->
+                        alturaPainelPx = coordinates.size.height
+                    }
             ) {
                 Column(
                     modifier = Modifier
@@ -183,7 +198,10 @@ fun EditorRotacaoScreen(
                                     Text(
                                         text = tipo.abreviatura,
                                         fontWeight = if (selecionado) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (selecionado) corTexto else MaterialTheme.colorScheme.onSurface
+                                        color = if (selecionado) corTexto else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 },
                                 colors = FilterChipDefaults.filterChipColors(
@@ -288,12 +306,20 @@ fun EditorRotacaoScreen(
                                     val tipo = mapaTipos[tipoId]
                                     val corFundo = tipo?.let { Color(it.cor) } ?: MaterialTheme.colorScheme.surfaceVariant
                                     val corTexto = tipo?.let { calcularCorTexto(it.cor) } ?: MaterialTheme.colorScheme.onSurface
+                                    val abrev = tipo?.abreviatura ?: "?"
+
+                                    val (fontSize, letterSpacing, forma) = when {
+                                        abrev.length <= 2 -> Triple(12.sp, 0.sp, CircleShape)
+                                        abrev.length == 3 -> Triple(10.sp, (-0.2).sp, CircleShape)
+                                        abrev.length == 4 -> Triple(8.5.sp, (-0.5).sp, CircleShape)
+                                        else -> Triple(8.sp, (-0.5).sp, RoundedCornerShape(8.dp))
+                                    }
 
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .aspectRatio(1f)
-                                            .clip(CircleShape)
+                                            .clip(forma)
                                             .background(corFundo)
                                             .combinedClickable(
                                                 onClick = {
@@ -308,9 +334,12 @@ fun EditorRotacaoScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = tipo?.abreviatura ?: "?",
-                                            style = MaterialTheme.typography.labelMedium,
+                                            text = abrev,
+                                            fontSize = fontSize,
+                                            letterSpacing = letterSpacing,
                                             fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            softWrap = false,
                                             color = corTexto
                                         )
                                     }
@@ -374,6 +403,8 @@ fun EditorRotacaoScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline
             )
+
+            Spacer(modifier = Modifier.height(alturaPainelDp + 16.dp))
         }
 
         if (mostrarDialogoLimpar) {

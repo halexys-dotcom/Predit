@@ -4,7 +4,7 @@ import pt.haconnect.predit.domain.model.TipoTurno
 
 /**
  * Gera uma representação resumida em texto do padrão de um ciclo de rotação.
- * Exemplo: 4x Tarde 8h + 2x Folga + 4x Tarde 8h + 1x Folga -> "4T08H · 2F · 4T08H · 1F"
+ * Exemplo: 4x Tarde 8h + 2x Folga + 4x Tarde 8h + 1x Folga -> "4T08H · 2F · 4T08H · 2F · 4T08H · F"
  */
 fun gerarResumoPadrao(slots: List<Long>, mapaTipos: Map<Long, TipoTurno>): String {
     if (slots.isEmpty()) return "Ciclo vazio"
@@ -31,5 +31,7 @@ fun gerarResumoPadrao(slots: List<Long>, mapaTipos: Map<Long, TipoTurno>): Strin
         blocos.add(abreviatura to contagemAtual)
     }
 
-    return blocos.joinToString(" · ") { (abrev, count) -> "${count}${abrev}" }
+    return blocos.joinToString(" · ") { (abrev, count) ->
+        if (count > 1) "${count}${abrev}" else abrev
+    }
 }

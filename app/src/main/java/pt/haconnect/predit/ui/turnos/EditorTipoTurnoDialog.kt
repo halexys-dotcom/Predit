@@ -37,14 +37,25 @@ val CORES_PREDEFINIDAS = listOf(
 @Composable
 fun EditorTipoTurnoDialog(
     tipo: TipoTurno?,
+    tiposExistentes: List<TipoTurno> = emptyList(),
     onDismiss: () -> Unit,
     onSalvar: (TipoTurno) -> Unit
 ) {
+    val coresEmUso = remember(tiposExistentes, tipo) {
+        tiposExistentes
+            .filter { it.id != tipo?.id && it.ativo }
+            .associateBy({ it.cor }, { it.nome })
+    }
+
+    val primeiraCorLivre = remember(coresEmUso) {
+        CORES_PREDEFINIDAS.firstOrNull { it !in coresEmUso } ?: CORES_PREDEFINIDAS.first()
+    }
+
     var nome by remember { mutableStateOf(tipo?.nome ?: "") }
     var abreviatura by remember { mutableStateOf(tipo?.abreviatura ?: "") }
     var emoji by remember { mutableStateOf(tipo?.emoji ?: "") }
     var categoria by remember { mutableStateOf(tipo?.categoria ?: CategoriaTurno.TRABALHO) }
-    var cor by remember { mutableStateOf(tipo?.cor ?: CORES_PREDEFINIDAS.first()) }
+    var cor by remember { mutableStateOf(tipo?.cor ?: primeiraCorLivre) }
     var ativo by remember { mutableStateOf(tipo?.ativo ?: true) }
 
     var inicioHoraTexto by remember { mutableStateOf(formatarHoraMin(tipo?.inicioMin ?: (13 * 60))) }
@@ -187,6 +198,7 @@ fun EditorTipoTurnoDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     CORES_PREDEFINIDAS.forEach { corHex ->
+                        val emUso = corHex in coresEmUso
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
@@ -197,9 +209,29 @@ fun EditorTipoTurnoDialog(
                                     color = if (cor == corHex) MaterialTheme.colorScheme.onSurface else Color.Transparent,
                                     shape = CircleShape
                                 )
-                                .clickable { cor = corHex }
-                        )
+                                .clickable { cor = corHex },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (emUso && cor != corHex) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surface)
+                                )
+                            }
+                        }
                     }
+                }
+
+                val nomeTurnoComMesmaCor = coresEmUso[cor]
+                if (nomeTurnoComMesmaCor != null) {
+                    Text(
+                        text = "Aviso: Esta cor já está a ser utilizada pelo turno '$nomeTurnoComMesmaCor'.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
 
                 Row(
