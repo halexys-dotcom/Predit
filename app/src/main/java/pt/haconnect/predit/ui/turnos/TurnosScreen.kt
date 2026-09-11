@@ -1,0 +1,225 @@
+package pt.haconnect.predit.ui.turnos
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import pt.haconnect.predit.PreditApplication
+import pt.haconnect.predit.data.repository.TipoTurnoRepository
+import pt.haconnect.predit.domain.calc.duracaoMinutos
+import pt.haconnect.predit.domain.calc.formatarHoraMin
+import pt.haconnect.predit.domain.model.CategoriaTurno
+import pt.haconnect.predit.domain.model.TipoTurno
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TurnosScreen(
+    modifier: Modifier = Modifier,
+    viewModel: TurnosViewModel = viewModel(
+        factory = TurnosViewModel.Factory(
+            TipoTurnoRepository(
+                (LocalContext.current.applicationContext as PreditApplication).database.tipoTurnoDao()
+            )
+        )
+    )
+) {
+    val tiposTurno by viewModel.tiposTurno.collectAsState()
+    var tipoParaEditar by remember { mutableStateOf<TipoTurno?>(null) }
+    var mostrarCriador by remember { mutableStateOf(false) }
+    var abaSelecionada by remember { mutableIntStateOf(0) }
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            Column {
+                TopAppBar(
+                    title = { Text("Turnos") }
+                )
+                TabRow(selectedTabIndex = abaSelecionada) {
+                    Tab(
+                        selected = abaSelecionada == 0,
+                        onClick = { abaSelecionada = 0 },
+                        text = { Text("Turnos") }
+                    )
+                    Tab(
+                        selected = abaSelecionada == 1,
+                        onClick = { abaSelecionada = 1 },
+                        text = { Text("Rotações") }
+                    )
+                }
+            }
+        },
+        floatingActionButton = {
+            if (abaSelecionada == 0) {
+                FloatingActionButton(
+                    onClick = { mostrarCriador = true }
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Adicionar tipo de turno")
+                }
+            }
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if (abaSelecionada == 0) {
+                if (tiposTurno.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Sem tipos de turno registados")
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(tiposTurno, key = { it.id }) { tipo ->
+                            CartaoTipoTurno(
+                                tipo = tipo,
+                                onClick = { tipoParaEditar = tipo }
+                            )
+                        }
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Editor de Rotações (Fase 2)")
+                }
+            }
+        }
+
+        if (mostrarCriador) {
+            EditorTipoTurnoDialog(
+                tipo = null,
+                onDismiss = { mostrarCriador = false },
+                onSalvar = { novoTipo ->
+                    viewModel.salvarTipoTurno(novoTipo)
+                    mostrarCriador = false
+                }
+            )
+        }
+
+        tipoParaEditar?.let { tipo ->
+            EditorTipoTurnoDialog(
+                tipo = tipo,
+                onDismiss = { tipoParaEditar = null },
+                onSalvar = { tipoAtualizado ->
+                    viewModel.salvarTipoTurno(tipoAtualizado)
+                    tipoParaEditar = null
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CartaoTipoTurno(
+    tipo: TipoTurno,
+    onClick: () -> Unit
+) {
+    val alpha = if (tipo.ativo) 1f else 0.5f
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(tipo.cor).copy(alpha = alpha)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(tipo.emoji ?: tipo.abreviatura.take(2))
+                }
+
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = tipo.nome,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
+                        )
+                        Text(
+                            text = "(${tipo.abreviatura})",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+                        )
+                        if (!tipo.ativo) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = MaterialTheme.shapes.extraSmall
+                            ) {
+                                Text(
+                                    text = "Inativo",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+
+                    val textoHorario = if (tipo.categoria == CategoriaTurno.TRABALHO) {
+                        val duracao = duracaoMinutos(tipo.inicioMin, tipo.fimMin, tipo.pausaMin)
+                        "${formatarHoraMin(tipo.inicioMin)} - ${formatarHoraMin(tipo.fimMin)} (${formatarHoraMin(duracao)})"
+                    } else {
+                        "Sem horário"
+                    }
+
+                    Text(
+                        text = textoHorario,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+                    )
+                }
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Editar tipo de turno",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+            )
+        }
+    }
+}

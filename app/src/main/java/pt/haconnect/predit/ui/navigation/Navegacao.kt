@@ -25,6 +25,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import pt.haconnect.predit.ui.turnos.TurnosScreen
 
 enum class Destino(val rota: String, val titulo: String, val icone: ImageVector) {
     CALENDARIO("calendario", "Escala", Icons.Default.DateRange),
@@ -74,9 +75,10 @@ fun PreditApp() {
             startDestination = Destino.CALENDARIO.rota,
             modifier = Modifier.padding(padding)
         ) {
-            Destino.entries.forEach { destino ->
-                composable(destino.rota) { EcraVazio(destino.titulo) }
-            }
+            composable(Destino.CALENDARIO.rota) { EcraVazio(Destino.CALENDARIO.titulo) }
+            composable(Destino.HORARIO.rota) { EcraVazio(Destino.HORARIO.titulo) }
+            composable(Destino.TURNOS.rota) { TurnosScreen() }
+            composable(Destino.MAIS.rota) { EcraVazio(Destino.MAIS.titulo) }
         }
     }
 }
