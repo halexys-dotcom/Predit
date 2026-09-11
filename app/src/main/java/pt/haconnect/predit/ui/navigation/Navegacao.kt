@@ -21,10 +21,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import pt.haconnect.predit.ui.turnos.AplicarRotacaoScreen
+import pt.haconnect.predit.ui.turnos.EditorRotacaoScreen
 import pt.haconnect.predit.ui.turnos.TurnosScreen
 
 enum class Destino(val rota: String, val titulo: String, val icone: ImageVector) {
@@ -40,32 +44,36 @@ fun PreditApp() {
     val entradaAtual by navController.currentBackStackEntryAsState()
     val rotaAtual = entradaAtual?.destination?.route
 
+    val exibeBarraInferior = Destino.entries.any { it.rota == rotaAtual }
+
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                Destino.entries.forEach { destino ->
-                    NavigationBarItem(
-                        selected = rotaAtual == destino.rota,
-                        onClick = {
-                            navController.navigate(destino.rota) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+            if (exibeBarraInferior) {
+                NavigationBar {
+                    Destino.entries.forEach { destino ->
+                        NavigationBarItem(
+                            selected = rotaAtual == destino.rota,
+                            onClick = {
+                                navController.navigate(destino.rota) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
+                            },
+                            icon = { Icon(destino.icone, contentDescription = destino.titulo) },
+                            label = {
+                                Text(
+                                    text = destino.titulo,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Visible,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
                             }
-                        },
-                        icon = { Icon(destino.icone, contentDescription = destino.titulo) },
-                        label = {
-                            Text(
-                                text = destino.titulo,
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Visible,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -77,8 +85,49 @@ fun PreditApp() {
         ) {
             composable(Destino.CALENDARIO.rota) { EcraVazio(Destino.CALENDARIO.titulo) }
             composable(Destino.HORARIO.rota) { EcraVazio(Destino.HORARIO.titulo) }
-            composable(Destino.TURNOS.rota) { TurnosScreen() }
+            composable(Destino.TURNOS.rota) {
+                TurnosScreen(
+                    onNavegarParaEditorRotacao = { id ->
+                        if (id == null || id == 0L) {
+                            navController.navigate("turnos/rotacao/nova")
+                        } else {
+                            navController.navigate("turnos/rotacao/$id")
+                        }
+                    },
+                    onNavegarParaAplicarRotacao = { id ->
+                        navController.navigate("turnos/rotacao/$id/aplicar")
+                    }
+                )
+            }
             composable(Destino.MAIS.rota) { EcraVazio(Destino.MAIS.titulo) }
+
+            // Rotas de ecrã completo para Rotações
+            composable("turnos/rotacao/nova") {
+                EditorRotacaoScreen(
+                    rotacaoId = 0L,
+                    onVoltar = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "turnos/rotacao/{id}",
+                arguments = listOf(navArgument("id") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getLong("id") ?: 0L
+                EditorRotacaoScreen(
+                    rotacaoId = id,
+                    onVoltar = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "turnos/rotacao/{id}/aplicar",
+                arguments = listOf(navArgument("id") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getLong("id") ?: 0L
+                AplicarRotacaoScreen(
+                    rotacaoId = id,
+                    onVoltar = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

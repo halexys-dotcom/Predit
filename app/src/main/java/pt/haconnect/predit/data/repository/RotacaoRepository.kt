@@ -11,6 +11,10 @@ class RotacaoRepository(private val dao: RotacaoDao) {
         return dao.observarTodas().map { lista -> lista.map { it.paraModelo() } }
     }
 
+    fun observarTodasDetalhadas(): Flow<List<RotacaoDetalhada>> {
+        return dao.observarTodasComSlots().map { lista -> lista.map { it.paraModeloDetalhado() } }
+    }
+
     fun observarPorId(id: Long): Flow<RotacaoDetalhada?> {
         return dao.observarPorId(id).map { it?.paraModeloDetalhado() }
     }

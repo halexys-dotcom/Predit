@@ -23,6 +23,13 @@ class RotacoesViewModel(private val repository: RotacaoRepository) : ViewModel()
             initialValue = emptyList()
         )
 
+    val rotacoesDetalhadas: StateFlow<List<RotacaoDetalhada>> = repository.observarTodasDetalhadas()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val aplicacaoVigente: StateFlow<AplicacaoRotacao?> = repository.observarAplicacaoVigente(LocalDate.now().toEpochDay())
         .stateIn(
             scope = viewModelScope,

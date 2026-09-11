@@ -19,6 +19,10 @@ interface RotacaoDao {
     fun observarTodas(): Flow<List<RotacaoEntity>>
 
     @Transaction
+    @Query("SELECT * FROM rotacao ORDER BY nome")
+    fun observarTodasComSlots(): Flow<List<RotacaoComSlots>>
+
+    @Transaction
     @Query("SELECT * FROM rotacao WHERE id = :id")
     fun observarPorId(id: Long): Flow<RotacaoComSlots?>
 

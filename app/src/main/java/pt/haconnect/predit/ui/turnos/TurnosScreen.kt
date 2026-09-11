@@ -20,7 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.launch
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
@@ -31,7 +30,9 @@ import pt.haconnect.predit.domain.model.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TurnosScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavegarParaEditorRotacao: (Long?) -> Unit = {},
+    onNavegarParaAplicarRotacao: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext as PreditApplication
     val db = context.database
@@ -44,18 +45,15 @@ fun TurnosScreen(
     )
 
     val tiposTurno by turnosViewModel.tiposTurno.collectAsState()
-    val rotacoes by rotacoesViewModel.rotacoes.collectAsState()
+    val rotacoesDetalhadas by rotacoesViewModel.rotacoesDetalhadas.collectAsState()
     val aplicacaoVigente by rotacoesViewModel.aplicacaoVigente.collectAsState()
+
+    val mapaTipos = remember(tiposTurno) { tiposTurno.associateBy { it.id } }
 
     var tipoParaEditar by remember { mutableStateOf<TipoTurno?>(null) }
     var mostrarCriadorTurno by remember { mutableStateOf(false) }
 
-    var rotacaoParaEditar by remember { mutableStateOf<RotacaoDetalhada?>(null) }
-    var mostrarCriadorRotacao by remember { mutableStateOf(false) }
-    var rotacaoParaAplicar by remember { mutableStateOf<RotacaoDetalhada?>(null) }
-
     var abaSelecionada by remember { mutableIntStateOf(0) }
-    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         modifier = modifier,
@@ -84,7 +82,7 @@ fun TurnosScreen(
                     if (abaSelecionada == 0) {
                         mostrarCriadorTurno = true
                     } else {
-                        mostrarCriadorRotacao = true
+                        onNavegarParaEditorRotacao(null)
                     }
                 }
             ) {
@@ -123,7 +121,7 @@ fun TurnosScreen(
                     }
                 }
             } else {
-                if (rotacoes.isEmpty()) {
+                if (rotacoesDetalhadas.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -136,22 +134,17 @@ fun TurnosScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(rotacoes, key = { it.id }) { rotacao ->
-                            val ehVigente = aplicacaoVigente?.rotacaoId == rotacao.id
+                        items(rotacoesDetalhadas, key = { it.rotacao.id }) { detalhe ->
+                            val ehVigente = aplicacaoVigente?.rotacaoId == detalhe.rotacao.id
                             CartaoRotacao(
-                                rotacao = rotacao,
+                                rotacaoDetalhada = detalhe,
+                                mapaTipos = mapaTipos,
                                 ehVigente = ehVigente,
                                 onClickEditar = {
-                                    coroutineScope.launch {
-                                        val detalhe = rotacoesViewModel.carregarDetalhes(rotacao.id)
-                                        rotacaoParaEditar = detalhe
-                                    }
+                                    onNavegarParaEditorRotacao(detalhe.rotacao.id)
                                 },
                                 onClickAplicar = {
-                                    coroutineScope.launch {
-                                        val detalhe = rotacoesViewModel.carregarDetalhes(rotacao.id)
-                                        rotacaoParaAplicar = detalhe
-                                    }
+                                    onNavegarParaAplicarRotacao(detalhe.rotacao.id)
                                 }
                             )
                         }
@@ -179,49 +172,6 @@ fun TurnosScreen(
                 onSalvar = { tipoAtualizado ->
                     turnosViewModel.salvarTipoTurno(tipoAtualizado)
                     tipoParaEditar = null
-                }
-            )
-        }
-
-        // Dialogs for Rotações
-        if (mostrarCriadorRotacao) {
-            val tiposAtivos = tiposTurno.filter { it.ativo }
-            EditorRotacaoDialog(
-                rotacaoExistente = null,
-                slotsIniciais = emptyList(),
-                tiposTurnoAtivos = tiposAtivos,
-                onDismiss = { mostrarCriadorRotacao = false },
-                onSalvar = { rotacao, slots ->
-                    rotacoesViewModel.salvarRotacaoComSlots(rotacao, slots)
-                    mostrarCriadorRotacao = false
-                }
-            )
-        }
-
-        rotacaoParaEditar?.let { detalhe ->
-            val tiposAtivos = tiposTurno.filter { it.ativo }
-            EditorRotacaoDialog(
-                rotacaoExistente = detalhe.rotacao,
-                slotsIniciais = detalhe.slots,
-                tiposTurnoAtivos = tiposAtivos,
-                onDismiss = { rotacaoParaEditar = null },
-                onSalvar = { rotacao, slots ->
-                    rotacoesViewModel.salvarRotacaoComSlots(rotacao, slots)
-                    rotacaoParaEditar = null
-                }
-            )
-        }
-
-        rotacaoParaAplicar?.let { detalhe ->
-            val tiposAtivos = tiposTurno.filter { it.ativo }
-            AplicarRotacaoDialog(
-                rotacaoDetalhada = detalhe,
-                tiposTurnoAtivos = tiposAtivos,
-                onDismiss = { rotacaoParaAplicar = null },
-                onConfirmarAplicacao = { rotacaoId, dataAncora, validoDe ->
-                    rotacoesViewModel.aplicarRotacao(rotacaoId, dataAncora, validoDe) {
-                        rotacaoParaAplicar = null
-                    }
                 }
             )
         }
@@ -319,11 +269,15 @@ private fun CartaoTipoTurno(
 
 @Composable
 private fun CartaoRotacao(
-    rotacao: Rotacao,
+    rotacaoDetalhada: RotacaoDetalhada,
+    mapaTipos: Map<Long, TipoTurno>,
     ehVigente: Boolean,
     onClickEditar: () -> Unit,
     onClickAplicar: () -> Unit
 ) {
+    val rotacao = rotacaoDetalhada.rotacao
+    val slots = rotacaoDetalhada.slots.sortedBy { it.posicao }
+
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -336,7 +290,10 @@ private fun CartaoRotacao(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -370,6 +327,37 @@ private fun CartaoRotacao(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                if (slots.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        slots.take(10).forEach { slot ->
+                            val tipo = mapaTipos[slot.tipoTurnoId]
+                            val cor = tipo?.let { Color(it.cor) } ?: MaterialTheme.colorScheme.surfaceVariant
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .background(cor),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = tipo?.emoji ?: tipo?.abreviatura?.take(1) ?: "",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                        if (slots.size > 10) {
+                            Text(
+                                text = "+${slots.size - 10}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
                             )
                         }
                     }
