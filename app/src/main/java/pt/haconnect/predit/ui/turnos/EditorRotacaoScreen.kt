@@ -1,21 +1,23 @@
 package pt.haconnect.predit.ui.turnos
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,11 +29,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
+import pt.haconnect.predit.domain.calc.gerarResumoPadrao
 import pt.haconnect.predit.domain.model.Rotacao
 import pt.haconnect.predit.domain.model.RotacaoSlot
 import pt.haconnect.predit.domain.model.TipoTurno
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalFoundationApi::class,
+    ExperimentalMaterial3Api::class,
+    ExperimentalLayoutApi::class
+)
 @Composable
 fun EditorRotacaoScreen(
     rotacaoId: Long,
@@ -51,10 +58,17 @@ fun EditorRotacaoScreen(
     val tiposAtivos = remember(tiposTurno) { tiposTurno.filter { it.ativo } }
     val mapaTipos = remember(tiposTurno) { tiposTurno.associateBy { it.id } }
 
-    var nome by remember { mutableStateOf("") }
+    var nome by rememberSaveable { mutableStateOf("") }
+    var nomeInicial by rememberSaveable { mutableStateOf("") }
+
     val slots = remember { mutableStateListOf<Long>() }
+    var slotsIniciaisList by remember { mutableStateOf<List<Long>>(emptyList()) }
+
     var tipoSelecionado by remember { mutableStateOf<TipoTurno?>(null) }
     var carregado by remember { mutableStateOf(false) }
+
+    var mostrarDialogoLimpar by remember { mutableStateOf(false) }
+    var mostrarDialogoDescartar by remember { mutableStateOf(false) }
 
     LaunchedEffect(rotacaoId, tiposAtivos) {
         if (!carregado) {
@@ -62,8 +76,11 @@ fun EditorRotacaoScreen(
                 val detalhe = rotacoesViewModel.carregarDetalhes(rotacaoId)
                 if (detalhe != null) {
                     nome = detalhe.rotacao.nome
+                    nomeInicial = detalhe.rotacao.nome
+                    val listaOrdenada = detalhe.slots.sortedBy { it.posicao }.map { it.tipoTurnoId }
                     slots.clear()
-                    slots.addAll(detalhe.slots.sortedBy { it.posicao }.map { it.tipoTurnoId })
+                    slots.addAll(listaOrdenada)
+                    slotsIniciaisList = listaOrdenada
                 }
             }
             if (tipoSelecionado == null && tiposAtivos.isNotEmpty()) {
@@ -73,6 +90,20 @@ fun EditorRotacaoScreen(
         }
     }
 
+    val temAlteracoesNaoGuardadas = nome != nomeInicial || slots.toList() != slotsIniciaisList
+
+    fun tentarSair() {
+        if (temAlteracoesNaoGuardadas) {
+            mostrarDialogoDescartar = true
+        } else {
+            onVoltar()
+        }
+    }
+
+    BackHandler {
+        tentarSair()
+    }
+
     val podeSalvar = nome.isNotBlank() && slots.isNotEmpty()
 
     Scaffold(
@@ -80,22 +111,23 @@ fun EditorRotacaoScreen(
             TopAppBar(
                 title = { Text(if (rotacaoId == 0L) "Nova Rotação" else "Editar Rotação") },
                 navigationIcon = {
-                    IconButton(onClick = onVoltar) {
+                    IconButton(onClick = { tentarSair() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
                     }
                 },
                 actions = {
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = MaterialTheme.shapes.small,
-                        modifier = Modifier.padding(end = 12.dp)
+                    Text(
+                        text = "${slots.size} Dias",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    IconButton(
+                        onClick = { mostrarDialogoLimpar = true },
+                        enabled = slots.isNotEmpty()
                     ) {
-                        Text(
-                            text = "${slots.size} Dias",
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            fontWeight = FontWeight.Bold
-                        )
+                        Icon(Icons.Default.Delete, contentDescription = "Limpar tudo")
                     }
                 }
             )
@@ -118,24 +150,47 @@ fun EditorRotacaoScreen(
                         fontWeight = FontWeight.Medium
                     )
 
-                    LazyRow(
+                    FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(tiposAtivos, key = { it.id }) { tipo ->
+                        tiposAtivos.forEach { tipo ->
                             val selecionado = tipoSelecionado?.id == tipo.id
+                            val corTexto = calcularCorTexto(tipo.cor)
+
                             FilterChip(
                                 selected = selecionado,
                                 onClick = { tipoSelecionado = tipo },
                                 leadingIcon = {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(16.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(tipo.cor))
+                                    if (selecionado) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = corTexto
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(14.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(tipo.cor))
+                                        )
+                                    }
+                                },
+                                label = {
+                                    Text(
+                                        text = tipo.abreviatura,
+                                        fontWeight = if (selecionado) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selecionado) corTexto else MaterialTheme.colorScheme.onSurface
                                     )
                                 },
-                                label = { Text(tipo.abreviatura) } // Compact abbreviation label
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color(tipo.cor),
+                                    selectedLabelColor = corTexto,
+                                    selectedLeadingIconColor = corTexto
+                                )
                             )
                         }
                     }
@@ -145,10 +200,10 @@ fun EditorRotacaoScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         OutlinedButton(
-                            onClick = onVoltar,
+                            onClick = { tentarSair() },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Voltar")
+                            Text("Cancelar")
                         }
 
                         Button(
@@ -195,25 +250,34 @@ fun EditorRotacaoScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Text("Grelha do Ciclo (7 colunas)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                text = "Toca num dia para pintar ou mantém premido para remover",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
 
-            // Calculate grid rows (7 columns)
+            // Grid calculation (7 columns)
             val totalSlots = slots.size
             val totalMostrados = totalSlots + 1
             val totalLinhas = (totalMostrados + 6) / 7
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 for (linha in 0 until totalLinhas) {
+                    val inicioDia = linha * 7 + 1
+                    val fimDiaCalculado = (linha + 1) * 7
+                    val fimDia = minOf(fimDiaCalculado, maxOf(totalSlots, inicioDia))
+                    val textoIntervalo = if (inicioDia == fimDia) "$inicioDia" else "$inicioDia-$fimDia"
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "${linha + 1}",
+                            text = textoIntervalo,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.width(18.dp)
+                            modifier = Modifier.width(36.dp)
                         )
 
                         for (col in 0 until 7) {
@@ -222,20 +286,21 @@ fun EditorRotacaoScreen(
                                 if (index < totalSlots) {
                                     val tipoId = slots[index]
                                     val tipo = mapaTipos[tipoId]
-                                    val cor = tipo?.let { Color(it.cor) } ?: MaterialTheme.colorScheme.surfaceVariant
+                                    val corFundo = tipo?.let { Color(it.cor) } ?: MaterialTheme.colorScheme.surfaceVariant
+                                    val corTexto = tipo?.let { calcularCorTexto(it.cor) } ?: MaterialTheme.colorScheme.onSurface
 
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .aspectRatio(1f)
                                             .clip(CircleShape)
-                                            .background(cor)
+                                            .background(corFundo)
                                             .combinedClickable(
                                                 onClick = {
                                                     tipoSelecionado?.let { slots[index] = it.id }
                                                 },
                                                 onLongClick = {
-                                                    if (index == slots.size - 1) {
+                                                    if (index in 0 until slots.size) {
                                                         slots.removeAt(index)
                                                     }
                                                 }
@@ -243,10 +308,10 @@ fun EditorRotacaoScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = tipo?.emoji ?: tipo?.abreviatura ?: "?",
+                                            text = tipo?.abreviatura ?: "?",
                                             style = MaterialTheme.typography.labelMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                            color = corTexto
                                         )
                                     }
                                 } else if (index == totalSlots) {
@@ -281,6 +346,88 @@ fun EditorRotacaoScreen(
                     }
                 }
             }
+
+            // Pattern Summary
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Padrão da Rotação",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Text(
+                        text = gerarResumoPadrao(slots, mapaTipos),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            Text(
+                text = "Nota: O dia de início do ciclo (âncora) é definido no momento de aplicar a rotação à escala.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+
+        if (mostrarDialogoLimpar) {
+            AlertDialog(
+                onDismissRequest = { mostrarDialogoLimpar = false },
+                title = { Text("Limpar tudo?") },
+                text = { Text("Tem a certeza que deseja limpar todos os dias da rotação?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            slots.clear()
+                            mostrarDialogoLimpar = false
+                        }
+                    ) {
+                        Text("Limpar", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { mostrarDialogoLimpar = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
+        }
+
+        if (mostrarDialogoDescartar) {
+            AlertDialog(
+                onDismissRequest = { mostrarDialogoDescartar = false },
+                title = { Text("Descartar alterações?") },
+                text = { Text("Existem alterações não guardadas. Deseja sair sem guardar?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            mostrarDialogoDescartar = false
+                            onVoltar()
+                        }
+                    ) {
+                        Text("Descartar", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { mostrarDialogoDescartar = false }) {
+                        Text("Continuar a editar")
+                    }
+                }
+            )
         }
     }
+}
+
+private fun calcularCorTexto(corFundoHex: Long): Color {
+    val r = ((corFundoHex shr 16) and 0xFF) / 255.0
+    val g = ((corFundoHex shr 8) and 0xFF) / 255.0
+    val b = (corFundoHex and 0xFF) / 255.0
+    val luminancia = 0.299 * r + 0.587 * g + 0.114 * b
+    return if (luminancia > 0.55) Color.Black else Color.White
 }
