@@ -24,9 +24,12 @@ data class DiaMesEscala(
     val pertenceAoMesAtual: Boolean,
     val ehHoje: Boolean,
     val tipoTurnoProjetado: TipoTurno?,
-    val ausencia: Ausencia?,
+    val ausenciaBruta: Ausencia?,
+    val ausenciaEfetiva: Ausencia?,
     val tipoTurnoEfetivo: TipoTurno?
-)
+) {
+    val ausencia: Ausencia? get() = ausenciaBruta
+}
 
 data class EstatisticasMes(
     val numTurnos: Int,
@@ -71,6 +74,7 @@ class EscalaViewModel(
     ) { mes, aplicacoes, tipos, listaAusencias ->
         val temEscala = aplicacoes.isNotEmpty()
         val mapaTipos = tipos.associateBy { it.id }
+        val categoriasPorTipo = tipos.associate { it.id to it.categoria }
 
         // Calcular primeiro dia da grelha (semana começa à segunda-feira)
         val primeiroDiaMes = mes.atDay(1)
@@ -91,7 +95,7 @@ class EscalaViewModel(
             )
         } else emptyList()
 
-        val diasComEstado = aplicarAusencias(diasProjetados, listaAusencias)
+        val diasComEstado = aplicarAusencias(diasProjetados, listaAusencias, categoriasPorTipo)
         val mapaComEstado = diasComEstado.associateBy { it.epochDay }
 
         val listaDiasGrelha = mutableListOf<DiaMesEscala>()
@@ -100,7 +104,8 @@ class EscalaViewModel(
             val estado = mapaComEstado[curr.toEpochDay()]
             val tipoProjetado = estado?.tipoTurnoProjetadoId?.let { mapaTipos[it] }
             val tipoEfetivo = estado?.tipoTurnoEfetivoId?.let { mapaTipos[it] }
-            val ausencia = estado?.ausencia
+            val ausenciaBruta = estado?.ausenciaBruta
+            val ausenciaEfetiva = estado?.ausenciaEfetiva
 
             listaDiasGrelha.add(
                 DiaMesEscala(
@@ -108,20 +113,21 @@ class EscalaViewModel(
                     pertenceAoMesAtual = curr.year == mes.year && curr.month == mes.month,
                     ehHoje = curr == hoje,
                     tipoTurnoProjetado = tipoProjetado,
-                    ausencia = ausencia,
+                    ausenciaBruta = ausenciaBruta,
+                    ausenciaEfetiva = ausenciaEfetiva,
                     tipoTurnoEfetivo = tipoEfetivo
                 )
             )
             curr = curr.plusDays(1)
         }
 
-        // Estatísticas do mês atual (apenas turnos efetivos sem ausência contam para horas)
+        // Estatísticas do mês atual (apenas turnos efetivos de trabalho sem ausência contam para horas)
         val diasDoMesAtual = listaDiasGrelha.filter { it.pertenceAoMesAtual }
-        val numTurnos = diasDoMesAtual.count { it.ausencia == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.TRABALHO }
-        val numFolgas = diasDoMesAtual.count { it.ausencia == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.FOLGA }
-        val numAusencias = diasDoMesAtual.count { it.ausencia != null }
+        val numTurnos = diasDoMesAtual.count { it.ausenciaEfetiva == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.TRABALHO }
+        val numFolgas = diasDoMesAtual.count { it.tipoTurnoEfetivo?.categoria == CategoriaTurno.FOLGA }
+        val numAusencias = diasDoMesAtual.count { it.ausenciaEfetiva != null }
         val totalMinutos = diasDoMesAtual
-            .filter { it.ausencia == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.TRABALHO }
+            .filter { it.ausenciaEfetiva == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.TRABALHO }
             .sumOf { dia ->
                 val t = dia.tipoTurnoEfetivo
                 if (t != null) duracaoMinutos(t.inicioMin, t.fimMin, t.pausaMin) else 0

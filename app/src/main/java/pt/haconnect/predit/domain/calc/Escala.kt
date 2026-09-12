@@ -1,6 +1,7 @@
 package pt.haconnect.predit.domain.calc
 
 import pt.haconnect.predit.domain.model.Ausencia
+import pt.haconnect.predit.domain.model.CategoriaTurno
 
 data class AplicacaoVigente(
     val validoDe: Long,
@@ -17,9 +18,10 @@ data class DiaProjetado(
 data class DiaComEstado(
     val epochDay: Long,
     val tipoTurnoProjetadoId: Long?,
-    val ausencia: Ausencia? = null
+    val ausenciaBruta: Ausencia? = null,
+    val ausenciaEfetiva: Ausencia? = null
 ) {
-    val tipoTurnoEfetivoId: Long? get() = ausencia?.tipoTurnoId ?: tipoTurnoProjetadoId
+    val tipoTurnoEfetivoId: Long? get() = ausenciaEfetiva?.tipoTurnoId ?: tipoTurnoProjetadoId
 }
 
 fun aplicacaoPara(
@@ -46,16 +48,25 @@ fun projetarIntervalo(
 
 fun aplicarAusencias(
     dias: List<DiaProjetado>,
-    ausencias: List<Ausencia>
+    ausencias: List<Ausencia>,
+    categoriasPorTipo: Map<Long, CategoriaTurno> = emptyMap()
 ): List<DiaComEstado> {
     return dias.map { dia ->
         val ausenciaNoDia = ausencias.firstOrNull { ap ->
             dia.epochDay >= ap.dataInicio && dia.epochDay <= ap.dataFim
         }
+        val categoriaProjetada = dia.tipoTurnoId?.let { categoriasPorTipo[it] }
+
+        val eSubstituivel = dia.tipoTurnoId == null ||
+                categoriaProjetada == CategoriaTurno.TRABALHO
+
+        val ausenciaEfetiva = if (eSubstituivel) ausenciaNoDia else null
+
         DiaComEstado(
             epochDay = dia.epochDay,
             tipoTurnoProjetadoId = dia.tipoTurnoId,
-            ausencia = ausenciaNoDia
+            ausenciaBruta = ausenciaNoDia,
+            ausenciaEfetiva = ausenciaEfetiva
         )
     }
 }

@@ -479,7 +479,8 @@ fun EscalaScreen(
                     }
 
                     // Ação de Ausência
-                    if (dia.ausencia == null) {
+                    val ausBruta = dia.ausenciaBruta
+                    if (ausBruta == null) {
                         OutlinedButton(
                             onClick = {
                                 val d = dia.data.toEpochDay()
@@ -495,7 +496,7 @@ fun EscalaScreen(
                     } else {
                         OutlinedButton(
                             onClick = {
-                                ausenciaParaRemoverId = dia.ausencia.id
+                                ausenciaParaRemoverId = ausBruta.id
                             },
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error
