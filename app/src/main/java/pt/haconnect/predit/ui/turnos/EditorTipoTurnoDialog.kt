@@ -226,12 +226,22 @@ fun EditorTipoTurnoDialog(
 
                 val nomeTurnoComMesmaCor = coresEmUso[cor]
                 if (nomeTurnoComMesmaCor != null) {
-                    Text(
-                        text = "Aviso: Esta cor já está a ser utilizada pelo turno '$nomeTurnoComMesmaCor'.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Column(verticalArrangement = dpToArrangement(4)) {
+                        Text(
+                            text = "Aviso: Esta cor já está a ser utilizada pelo turno '$nomeTurnoComMesmaCor'.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            fontWeight = FontWeight.Medium
+                        )
+                        if (primeiraCorLivre != cor) {
+                            OutlinedButton(
+                                onClick = { cor = primeiraCorLivre },
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                Text("Usar cor livre sugerida", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
                 }
 
                 Row(

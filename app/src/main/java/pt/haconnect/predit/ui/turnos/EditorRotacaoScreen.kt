@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -60,6 +61,7 @@ fun EditorRotacaoScreen(
     )
 
     val tiposTurno by turnosViewModel.tiposTurno.collectAsState()
+    val rotacoes by rotacoesViewModel.rotacoes.collectAsState()
     val tiposAtivos = remember(tiposTurno) { tiposTurno.filter { it.ativo } }
     val mapaTipos = remember(tiposTurno) { tiposTurno.associateBy { it.id } }
 
@@ -115,32 +117,46 @@ fun EditorRotacaoScreen(
         tentarSair()
     }
 
-    val podeSalvar = nome.isNotBlank() && slots.isNotEmpty()
+    val nomeLimpo = nome.trim()
+    val temPeloMenos2LetrasOuDigitos = nomeLimpo.filter { it.isLetterOrDigit() }.length >= 2
+    val nomeInvalido = nomeLimpo.isNotEmpty() && !temPeloMenos2LetrasOuDigitos
+    val existeNomeDuplicado = remember(nomeLimpo, rotacoes, rotacaoId) {
+        rotacoes.any { it.id != rotacaoId && it.nome.trim().equals(nomeLimpo, ignoreCase = true) }
+    }
+    val nomeValido = temPeloMenos2LetrasOuDigitos && !existeNomeDuplicado
+    val podeSalvar = nomeValido && slots.isNotEmpty()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text(if (rotacaoId == 0L) "Nova Rotação" else "Editar Rotação") },
+                title = {
+                    Text(
+                        text = if (rotacaoId == 0L) "Nova Rotação" else "Editar Rotação",
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = { tentarSair() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
                     }
                 },
                 actions = {
-                    Text(
-                        text = "${slots.size} Dias",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
                     IconButton(
                         onClick = { mostrarDialogoLimpar = true },
                         enabled = slots.isNotEmpty()
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = "Limpar tudo")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                scrollBehavior = scrollBehavior
             )
         },
         bottomBar = {
@@ -265,115 +281,121 @@ fun EditorRotacaoScreen(
                 onValueChange = { nome = it },
                 label = { Text("Nome da rotação *") },
                 singleLine = true,
+                isError = nomeInvalido || existeNomeDuplicado,
+                supportingText = if (nomeInvalido) {
+                    { Text("O nome deve ter pelo menos 2 letras ou números", color = MaterialTheme.colorScheme.error) }
+                } else if (existeNomeDuplicado) {
+                    { Text("Já existe uma rotação com o nome '$nomeLimpo'", color = MaterialTheme.colorScheme.error) }
+                } else null,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Text(
-                text = "Toca num dia para pintar ou mantém premido para remover",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Toca num dia para pintar ou mantém premido para remover",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = MaterialTheme.shapes.extraSmall,
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text(
+                        text = "${slots.size} Dias",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        softWrap = false,
+                        maxLines = 1
+                    )
+                }
+            }
 
             // Grid calculation (7 columns)
             val totalSlots = slots.size
-            val totalMostrados = totalSlots + 1
-            val totalLinhas = (totalMostrados + 6) / 7
+            val totalLinhas = if (totalSlots == 0) 0 else (totalSlots + 6) / 7
 
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                for (linha in 0 until totalLinhas) {
-                    val inicioDia = linha * 7 + 1
-                    val fimDiaCalculado = (linha + 1) * 7
-                    val fimDia = minOf(fimDiaCalculado, maxOf(totalSlots, inicioDia))
-                    val textoIntervalo = if (inicioDia == fimDia) "$inicioDia" else "$inicioDia-$fimDia"
+            if (totalSlots > 0) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    for (linha in 0 until totalLinhas) {
+                        val inicioDia = linha * 7 + 1
+                        val fimDiaCalculado = (linha + 1) * 7
+                        val fimDia = minOf(fimDiaCalculado, totalSlots)
+                        val textoIntervalo = if (inicioDia == fimDia) "$inicioDia" else "$inicioDia-$fimDia"
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = textoIntervalo,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.width(36.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = textoIntervalo,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline,
+                                softWrap = false,
+                                maxLines = 1,
+                                modifier = Modifier.widthIn(min = 44.dp)
+                            )
 
-                        for (col in 0 until 7) {
-                            val index = linha * 7 + col
-                            Box(modifier = Modifier.weight(1f)) {
-                                if (index < totalSlots) {
-                                    val tipoId = slots[index]
-                                    val tipo = mapaTipos[tipoId]
-                                    val corFundo = tipo?.let { Color(it.cor) } ?: MaterialTheme.colorScheme.surfaceVariant
-                                    val corTexto = tipo?.let { calcularCorTexto(it.cor) } ?: MaterialTheme.colorScheme.onSurface
-                                    val abrev = tipo?.abreviatura ?: "?"
+                            for (col in 0 until 7) {
+                                val index = linha * 7 + col
+                                Box(modifier = Modifier.weight(1f)) {
+                                    if (index < totalSlots) {
+                                        val tipoId = slots[index]
+                                        val tipo = mapaTipos[tipoId]
 
-                                    val (fontSize, letterSpacing, forma) = when {
-                                        abrev.length <= 2 -> Triple(12.sp, 0.sp, CircleShape)
-                                        abrev.length == 3 -> Triple(10.sp, (-0.2).sp, CircleShape)
-                                        abrev.length == 4 -> Triple(8.5.sp, (-0.5).sp, CircleShape)
-                                        else -> Triple(8.sp, (-0.5).sp, RoundedCornerShape(8.dp))
-                                    }
-
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .aspectRatio(1f)
-                                            .clip(forma)
-                                            .background(corFundo)
-                                            .combinedClickable(
-                                                onClick = {
-                                                    tipoSelecionado?.let { slots[index] = it.id }
-                                                },
-                                                onLongClick = {
-                                                    if (index in 0 until slots.size) {
-                                                        slots.removeAt(index)
+                                        CelulaTipoTurno(
+                                            tipo = tipo,
+                                            tamanho = 40.dp,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1f)
+                                                .combinedClickable(
+                                                    onClick = {
+                                                        tipoSelecionado?.let { slots[index] = it.id }
+                                                    },
+                                                    onLongClick = {
+                                                        if (index in 0 until slots.size) {
+                                                            slots.removeAt(index)
+                                                        }
                                                     }
-                                                }
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = abrev,
-                                            fontSize = fontSize,
-                                            letterSpacing = letterSpacing,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            color = corTexto
+                                                )
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1f)
+                                                .clip(CircleShape)
+                                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), CircleShape)
                                         )
                                     }
-                                } else if (index == totalSlots) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .aspectRatio(1f)
-                                            .clip(CircleShape)
-                                            .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                            .clickable {
-                                                tipoSelecionado?.let { slots.add(it.id) }
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Add,
-                                            contentDescription = "Adicionar slot",
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .aspectRatio(1f)
-                                            .clip(CircleShape)
-                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), CircleShape)
-                                    )
                                 }
                             }
                         }
                     }
                 }
+            }
+
+            OutlinedButton(
+                onClick = { tipoSelecionado?.let { slots.add(it.id) } },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Adicionar dia ao ciclo (+)", fontWeight = FontWeight.Medium)
             }
 
             // Pattern Summary
@@ -453,12 +475,4 @@ fun EditorRotacaoScreen(
             )
         }
     }
-}
-
-private fun calcularCorTexto(corFundoHex: Long): Color {
-    val r = ((corFundoHex shr 16) and 0xFF) / 255.0
-    val g = ((corFundoHex shr 8) and 0xFF) / 255.0
-    val b = (corFundoHex and 0xFF) / 255.0
-    val luminancia = 0.299 * r + 0.587 * g + 0.114 * b
-    return if (luminancia > 0.55) Color.Black else Color.White
 }

@@ -15,7 +15,9 @@ data class RotacaoSlot(
 data class RotacaoDetalhada(
     val rotacao: Rotacao,
     val slots: List<RotacaoSlot>
-)
+) {
+    val comprimentoReal: Int get() = slots.size
+}
 
 data class AplicacaoRotacao(
     val id: Long = 0,

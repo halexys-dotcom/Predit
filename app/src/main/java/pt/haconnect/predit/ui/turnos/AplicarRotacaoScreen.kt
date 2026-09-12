@@ -59,6 +59,8 @@ fun AplicarRotacaoScreen(
     var dataAncoraTexto by remember { mutableStateOf(dataAtual.format(formatter)) }
     var validoDeTexto by remember { mutableStateOf(dataAtual.format(formatter)) }
 
+    var mostrarConfirmacao by remember { mutableStateOf(false) }
+
     val dataAncoraParsed = parseData(dataAncoraTexto)
     val validoDeParsed = parseData(validoDeTexto)
 
@@ -102,13 +104,7 @@ fun AplicarRotacaoScreen(
                         enabled = formValido,
                         onClick = {
                             if (dataAncoraParsed != null && validoDeParsed != null) {
-                                rotacoesViewModel.aplicarRotacao(
-                                    rotacaoId = rotacaoId,
-                                    dataAncora = dataAncoraParsed.toEpochDay(),
-                                    validoDe = validoDeParsed.toEpochDay()
-                                ) {
-                                    onVoltar()
-                                }
+                                mostrarConfirmacao = true
                             }
                         },
                         modifier = Modifier.weight(1f)
@@ -217,6 +213,37 @@ fun AplicarRotacaoScreen(
                     }
                 }
             }
+        }
+
+        if (mostrarConfirmacao && dataAncoraParsed != null && validoDeParsed != null) {
+            AlertDialog(
+                onDismissRequest = { mostrarConfirmacao = false },
+                title = { Text("Aplicar rotação à escala?") },
+                text = {
+                    Text("A aplicação atual da escala será encerrada e a nova rotação ficará em vigor a partir de $validoDeTexto. Deseja continuar?")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            mostrarConfirmacao = false
+                            rotacoesViewModel.aplicarRotacao(
+                                rotacaoId = rotacaoId,
+                                dataAncora = dataAncoraParsed.toEpochDay(),
+                                validoDe = validoDeParsed.toEpochDay()
+                            ) {
+                                onVoltar()
+                            }
+                        }
+                    ) {
+                        Text("Aplicar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { mostrarConfirmacao = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
         }
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
@@ -49,6 +50,15 @@ fun TurnosScreen(
     val aplicacaoVigente by rotacoesViewModel.aplicacaoVigente.collectAsState()
 
     val mapaTipos = remember(tiposTurno) { tiposTurno.associateBy { it.id } }
+
+    val mapaColisoesCor = remember(tiposTurno) {
+        val ativos = tiposTurno.filter { it.ativo }
+        val contagem = ativos.groupBy { it.cor }
+        ativos.associate { tipo ->
+            val outrosComMesmaCor = contagem[tipo.cor]?.filter { it.id != tipo.id }
+            tipo.id to outrosComMesmaCor?.firstOrNull()?.nome
+        }
+    }
 
     var tipoParaEditar by remember { mutableStateOf<TipoTurno?>(null) }
     var mostrarCriadorTurno by remember { mutableStateOf(false) }
@@ -84,7 +94,9 @@ fun TurnosScreen(
                     } else {
                         onNavegarParaEditorRotacao(null)
                     }
-                }
+                },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -113,8 +125,10 @@ fun TurnosScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(tiposTurno, key = { it.id }) { tipo ->
+                            val nomeColisao = mapaColisoesCor[tipo.id]
                             CartaoTipoTurno(
                                 tipo = tipo,
+                                nomeColisaoCor = nomeColisao,
                                 onClick = { tipoParaEditar = tipo }
                             )
                         }
@@ -183,6 +197,7 @@ fun TurnosScreen(
 @Composable
 private fun CartaoTipoTurno(
     tipo: TipoTurno,
+    nomeColisaoCor: String? = null,
     onClick: () -> Unit
 ) {
     val alpha = if (tipo.ativo) 1f else 0.5f
@@ -230,6 +245,19 @@ private fun CartaoTipoTurno(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
                         )
+                        if (nomeColisaoCor != null && tipo.ativo) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = MaterialTheme.shapes.extraSmall
+                            ) {
+                                Text(
+                                    text = "Cor igual a '$nomeColisaoCor'",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
                         if (!tipo.ativo) {
                             Surface(
                                 color = MaterialTheme.colorScheme.errorContainer,
@@ -303,7 +331,10 @@ private fun CartaoRotacao(
                     Text(
                         text = rotacao.nome,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
 
                     Surface(
@@ -311,10 +342,12 @@ private fun CartaoRotacao(
                         shape = MaterialTheme.shapes.extraSmall
                     ) {
                         Text(
-                            text = "${rotacao.comprimentoCiclo} Dias",
+                            text = "${rotacaoDetalhada.comprimentoReal} Dias",
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
 
@@ -328,7 +361,9 @@ private fun CartaoRotacao(
                                 style = MaterialTheme.typography.labelSmall,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -339,28 +374,30 @@ private fun CartaoRotacao(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        slots.take(10).forEach { slot ->
+                        val maxVisiveis = 7
+                        slots.take(maxVisiveis).forEach { slot ->
                             val tipo = mapaTipos[slot.tipoTurnoId]
-                            val cor = tipo?.let { Color(it.cor) } ?: MaterialTheme.colorScheme.surfaceVariant
-                            Box(
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clip(CircleShape)
-                                    .background(cor),
-                                contentAlignment = Alignment.Center
+                            CelulaTipoTurno(
+                                tipo = tipo,
+                                tamanho = 22.dp,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        if (slots.size > maxVisiveis) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = MaterialTheme.shapes.extraSmall
                             ) {
                                 Text(
-                                    text = tipo?.emoji ?: tipo?.abreviatura?.take(1) ?: "",
-                                    style = MaterialTheme.typography.labelSmall
+                                    text = "+${slots.size - maxVisiveis}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    softWrap = false,
+                                    maxLines = 1
                                 )
                             }
-                        }
-                        if (slots.size > 10) {
-                            Text(
-                                text = "+${slots.size - 10}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
                         }
                     }
                 }
@@ -368,15 +405,26 @@ private fun CartaoRotacao(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                IconButton(onClick = onClickAplicar) {
+                FilledTonalButton(
+                    onClick = onClickAplicar,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Aplicar rotação",
-                        tint = MaterialTheme.colorScheme.primary
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Aplicar",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        softWrap = false
                     )
                 }
+
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = "Editar rotação",
