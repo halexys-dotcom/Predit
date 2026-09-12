@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import pt.haconnect.predit.data.local.ContratoUtilizadorEntity
 import pt.haconnect.predit.data.local.PreditDatabase
 import pt.haconnect.predit.data.local.TipoTurnoEntity
 import pt.haconnect.predit.domain.model.CategoriaTurno
@@ -22,7 +23,11 @@ class PreditApplication : Application() {
             applicationContext,
             PreditDatabase::class.java,
             "predit.db"
-        ).addMigrations(PreditDatabase.MIGRATION_1_2, PreditDatabase.MIGRATION_2_3)
+        ).addMigrations(
+            PreditDatabase.MIGRATION_1_2,
+            PreditDatabase.MIGRATION_2_3,
+            PreditDatabase.MIGRATION_3_4
+        )
         .addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
@@ -30,7 +35,33 @@ class PreditApplication : Application() {
                     preencherDadosIniciais()
                 }
             }
+
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                super.onOpen(db)
+                CoroutineScope(Dispatchers.IO).launch {
+                    garantirContratoInicial()
+                }
+            }
         }).build()
+    }
+
+    private suspend fun garantirContratoInicial() {
+        val dao = database.contratoDao()
+        if (dao.contar() == 0) {
+            dao.guardar(
+                ContratoUtilizadorEntity(
+                    id = 1,
+                    categoriaNivel = "XIII, Vigilante Aeroportuário/APA-A",
+                    dataAdmissao = null,
+                    regimeHorario = "NORMAL",
+                    horarioSemanalH = 40,
+                    numeroDependentes = 0,
+                    estadoCivil = "SOLTEIRO",
+                    titulares = 1,
+                    primeiroArranqueConcluido = false
+                )
+            )
+        }
     }
 
     private suspend fun preencherDadosIniciais() {
