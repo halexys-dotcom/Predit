@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -240,20 +241,24 @@ fun EscalaScreen(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         semanas.forEach { semana ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                semana.forEach { dia ->
-                                    CelulaDiaCalendario(
-                                        dia = dia,
-                                        onClick = { diaSelecionadoParaDetalhe = dia },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                    )
+                            key(semana.firstOrNull()?.data?.toEpochDay() ?: 0L) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    semana.forEach { dia ->
+                                        key(dia.data.toEpochDay()) {
+                                            CelulaDiaCalendario(
+                                                dia = dia,
+                                                onClick = { diaSelecionadoParaDetalhe = dia },
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .fillMaxHeight()
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
