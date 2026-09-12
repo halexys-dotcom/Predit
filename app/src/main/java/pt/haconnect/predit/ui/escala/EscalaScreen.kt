@@ -1,0 +1,358 @@
+package pt.haconnect.predit.ui.escala
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import pt.haconnect.predit.PreditApplication
+import pt.haconnect.predit.data.repository.RotacaoRepository
+import pt.haconnect.predit.data.repository.TipoTurnoRepository
+import pt.haconnect.predit.ui.turnos.CelulaTipoTurno
+import pt.haconnect.predit.ui.turnos.TextoSemQuebra
+import java.time.YearMonth
+import java.time.format.TextStyle
+import java.util.Locale
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EscalaScreen(
+    modifier: Modifier = Modifier,
+    onNavegarParaTurnos: () -> Unit = {}
+) {
+    val context = LocalContext.current.applicationContext as PreditApplication
+    val db = context.database
+
+    val viewModel: EscalaViewModel = viewModel(
+        factory = EscalaViewModel.Factory(
+            rotacaoRepository = RotacaoRepository(db.rotacaoDao()),
+            tipoTurnoRepository = TipoTurnoRepository(db.tipoTurnoDao())
+        )
+    )
+
+    val uiState by viewModel.uiState.collectAsState()
+
+    val diasDaSemana = remember { listOf("S", "T", "Q", "Q", "S", "S", "D") }
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text("Escala") },
+                actions = {
+                    if (uiState.anoMesAtual != YearMonth.now()) {
+                        TextButton(onClick = { viewModel.irParaHoje() }) {
+                            Text("Hoje", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            if (!uiState.temEscalaAplicada) {
+                // B4 — Estado Vazio
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ElevatedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(24.dp)
+                                .fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+
+                            Text(
+                                text = "Ainda não há escala. Cria uma rotação em Turnos e aplica-a.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            Button(
+                                onClick = onNavegarParaTurnos,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Ir para Turnos")
+                            }
+                        }
+                    }
+                }
+            } else {
+                // B1 — Vista Mensal Sem Scroll
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Cabeçalho com mês/ano e setas
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { viewModel.mesAnterior() }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                contentDescription = "Mês anterior"
+                            )
+                        }
+
+                        TextoSemQuebra(
+                            texto = uiState.anoMesAtual.nomeMesFormatado(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        IconButton(onClick = { viewModel.mesSeguinte() }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = "Mês seguinte"
+                            )
+                        }
+                    }
+
+                    // Cabeçalho dos dias da semana (S T Q Q S S D)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        diasDaSemana.forEach { dia ->
+                            Text(
+                                text = dia,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.outline,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Divider(modifier = Modifier.padding(bottom = 4.dp))
+
+                    // Grelha do mês em 7 colunas (com suporte a swipe horizontal)
+                    var dragOffset by remember { mutableFloatStateOf(0f) }
+
+                    val semanas = remember(uiState.diasGrelha) {
+                        uiState.diasGrelha.chunked(7)
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .pointerInput(uiState.anoMesAtual) {
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        if (dragOffset > 50f) {
+                                            viewModel.mesAnterior()
+                                        } else if (dragOffset < -50f) {
+                                            viewModel.mesSeguinte()
+                                        }
+                                        dragOffset = 0f
+                                    },
+                                    onHorizontalDrag = { _, dragAmount ->
+                                        dragOffset += dragAmount
+                                    }
+                                )
+                            },
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        semanas.forEach { semana ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                semana.forEach { dia ->
+                                    CelulaDiaCalendario(
+                                        dia = dia,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Rodapé do Mês ( Totais: Turnos, Folgas, Horas )
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Turnos",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                            Text(
+                                text = "${uiState.estatisticas.numTurnos}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        Divider(
+                            modifier = Modifier
+                                .height(24.dp)
+                                .width(1.dp)
+                        )
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Folgas",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                            Text(
+                                text = "${uiState.estatisticas.numFolgas}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+
+                        Divider(
+                            modifier = Modifier
+                                .height(24.dp)
+                                .width(1.dp)
+                        )
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Total Horas",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                            val horas = uiState.estatisticas.totalMinutosTrabalho / 60
+                            val minutos = uiState.estatisticas.totalMinutosTrabalho % 60
+                            val textoHoras = if (minutos > 0) "${horas}h ${minutos}m" else "${horas}h"
+                            Text(
+                                text = textoHoras,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CelulaDiaCalendario(
+    dia: DiaMesEscala,
+    modifier: Modifier = Modifier
+) {
+    val alpha = if (dia.pertenceAoMesAtual) 1f else 0.38f
+
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(4.dp),
+        modifier = modifier
+            .alpha(alpha)
+            .then(
+                if (dia.ehHoje) {
+                    Modifier.border(
+                        width = 1.5.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                } else Modifier
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(2.dp)
+                .fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "${dia.data.dayOfMonth}",
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 10.sp,
+                fontWeight = if (dia.ehHoje) FontWeight.Bold else FontWeight.Normal,
+                color = if (dia.ehHoje) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
+
+            if (dia.tipoTurno != null) {
+                CelulaTipoTurno(
+                    tipo = dia.tipoTurno,
+                    tamanho = 22.dp,
+                    modifier = Modifier.size(22.dp)
+                )
+            } else {
+                Spacer(modifier = Modifier.size(22.dp))
+            }
+        }
+    }
+}
+
+private fun YearMonth.nomeMesFormatado(): String {
+    val mesNome = this.month.getDisplayName(TextStyle.FULL, Locale("pt", "PT"))
+    val mesCapitalizado = mesNome.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("pt", "PT")) else it.toString() }
+    return "$mesCapitalizado ${this.year}"
+}

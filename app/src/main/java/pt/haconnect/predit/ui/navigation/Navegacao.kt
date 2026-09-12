@@ -27,6 +27,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import pt.haconnect.predit.ui.escala.EscalaScreen
 import pt.haconnect.predit.ui.turnos.AplicarRotacaoScreen
 import pt.haconnect.predit.ui.turnos.EditorRotacaoScreen
 import pt.haconnect.predit.ui.turnos.EditorTipoTurnoScreen
@@ -84,7 +85,19 @@ fun PreditApp() {
             startDestination = Destino.CALENDARIO.rota,
             modifier = Modifier.padding(padding)
         ) {
-            composable(Destino.CALENDARIO.rota) { EcraVazio(Destino.CALENDARIO.titulo) }
+            composable(Destino.CALENDARIO.rota) {
+                EscalaScreen(
+                    onNavegarParaTurnos = {
+                        navController.navigate(Destino.TURNOS.rota) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
             composable(Destino.HORARIO.rota) { EcraVazio(Destino.HORARIO.titulo) }
             composable(Destino.TURNOS.rota) {
                 TurnosScreen(
