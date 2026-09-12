@@ -29,6 +29,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import pt.haconnect.predit.ui.turnos.AplicarRotacaoScreen
 import pt.haconnect.predit.ui.turnos.EditorRotacaoScreen
+import pt.haconnect.predit.ui.turnos.EditorTipoTurnoScreen
 import pt.haconnect.predit.ui.turnos.TurnosScreen
 
 enum class Destino(val rota: String, val titulo: String, val icone: ImageVector) {
@@ -87,6 +88,13 @@ fun PreditApp() {
             composable(Destino.HORARIO.rota) { EcraVazio(Destino.HORARIO.titulo) }
             composable(Destino.TURNOS.rota) {
                 TurnosScreen(
+                    onNavegarParaEditorTipoTurno = { id ->
+                        if (id == null || id == 0L) {
+                            navController.navigate("turnos/tipo/novo")
+                        } else {
+                            navController.navigate("turnos/tipo/$id")
+                        }
+                    },
                     onNavegarParaEditorRotacao = { id ->
                         if (id == null || id == 0L) {
                             navController.navigate("turnos/rotacao/nova")
@@ -100,6 +108,24 @@ fun PreditApp() {
                 )
             }
             composable(Destino.MAIS.rota) { EcraVazio(Destino.MAIS.titulo) }
+
+            // Rotas de ecrã completo para Tipos de Turno
+            composable("turnos/tipo/novo") {
+                EditorTipoTurnoScreen(
+                    tipoId = 0L,
+                    onVoltar = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "turnos/tipo/{id}",
+                arguments = listOf(navArgument("id") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getLong("id") ?: 0L
+                EditorTipoTurnoScreen(
+                    tipoId = id,
+                    onVoltar = { navController.popBackStack() }
+                )
+            }
 
             // Rotas de ecrã completo para Rotações
             composable("turnos/rotacao/nova") {

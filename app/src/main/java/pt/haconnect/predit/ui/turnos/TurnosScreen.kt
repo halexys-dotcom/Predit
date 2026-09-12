@@ -32,6 +32,7 @@ import pt.haconnect.predit.domain.model.*
 @Composable
 fun TurnosScreen(
     modifier: Modifier = Modifier,
+    onNavegarParaEditorTipoTurno: (Long?) -> Unit = {},
     onNavegarParaEditorRotacao: (Long?) -> Unit = {},
     onNavegarParaAplicarRotacao: (Long) -> Unit = {}
 ) {
@@ -50,18 +51,6 @@ fun TurnosScreen(
     val aplicacaoVigente by rotacoesViewModel.aplicacaoVigente.collectAsState()
 
     val mapaTipos = remember(tiposTurno) { tiposTurno.associateBy { it.id } }
-
-    val mapaColisoesCor = remember(tiposTurno) {
-        val ativos = tiposTurno.filter { it.ativo }
-        val contagem = ativos.groupBy { it.cor }
-        ativos.associate { tipo ->
-            val outrosComMesmaCor = contagem[tipo.cor]?.filter { it.id != tipo.id }
-            tipo.id to outrosComMesmaCor?.firstOrNull()?.nome
-        }
-    }
-
-    var tipoParaEditar by remember { mutableStateOf<TipoTurno?>(null) }
-    var mostrarCriadorTurno by remember { mutableStateOf(false) }
 
     var abaSelecionada by remember { mutableIntStateOf(0) }
 
@@ -90,7 +79,7 @@ fun TurnosScreen(
             FloatingActionButton(
                 onClick = {
                     if (abaSelecionada == 0) {
-                        mostrarCriadorTurno = true
+                        onNavegarParaEditorTipoTurno(null)
                     } else {
                         onNavegarParaEditorRotacao(null)
                     }
@@ -121,15 +110,13 @@ fun TurnosScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 88.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(tiposTurno, key = { it.id }) { tipo ->
-                            val nomeColisao = mapaColisoesCor[tipo.id]
                             CartaoTipoTurno(
                                 tipo = tipo,
-                                nomeColisaoCor = nomeColisao,
-                                onClick = { tipoParaEditar = tipo }
+                                onClick = { onNavegarParaEditorTipoTurno(tipo.id) }
                             )
                         }
                     }
@@ -145,7 +132,7 @@ fun TurnosScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 88.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(rotacoesDetalhadas, key = { it.rotacao.id }) { detalhe ->
@@ -166,38 +153,12 @@ fun TurnosScreen(
                 }
             }
         }
-
-        // Dialogs for Turnos
-        if (mostrarCriadorTurno) {
-            EditorTipoTurnoDialog(
-                tipo = null,
-                tiposExistentes = tiposTurno,
-                onDismiss = { mostrarCriadorTurno = false },
-                onSalvar = { novoTipo ->
-                    turnosViewModel.salvarTipoTurno(novoTipo)
-                    mostrarCriadorTurno = false
-                }
-            )
-        }
-
-        tipoParaEditar?.let { tipo ->
-            EditorTipoTurnoDialog(
-                tipo = tipo,
-                tiposExistentes = tiposTurno,
-                onDismiss = { tipoParaEditar = null },
-                onSalvar = { tipoAtualizado ->
-                    turnosViewModel.salvarTipoTurno(tipoAtualizado)
-                    tipoParaEditar = null
-                }
-            )
-        }
     }
 }
 
 @Composable
 private fun CartaoTipoTurno(
     tipo: TipoTurno,
-    nomeColisaoCor: String? = null,
     onClick: () -> Unit
 ) {
     val alpha = if (tipo.ativo) 1f else 0.5f
@@ -245,31 +206,12 @@ private fun CartaoTipoTurno(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
                         )
-                        if (nomeColisaoCor != null && tipo.ativo) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.tertiaryContainer,
-                                shape = MaterialTheme.shapes.extraSmall
-                            ) {
-                                Text(
-                                    text = "Cor igual a '$nomeColisaoCor'",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            }
-                        }
                         if (!tipo.ativo) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.errorContainer,
-                                shape = MaterialTheme.shapes.extraSmall
-                            ) {
-                                Text(
-                                    text = "Inativo",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
+                            BadgeStatus(
+                                texto = "Inativo",
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
                         }
                     }
 
@@ -337,35 +279,19 @@ private fun CartaoRotacao(
                         modifier = Modifier.weight(1f, fill = false)
                     )
 
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = MaterialTheme.shapes.extraSmall
-                    ) {
-                        Text(
-                            text = "${rotacaoDetalhada.comprimentoReal} Dias",
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
+                    BadgeStatus(
+                        texto = "${rotacaoDetalhada.comprimentoReal} Dias",
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        fontWeight = FontWeight.Medium
+                    )
 
                     if (ehVigente) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = MaterialTheme.shapes.extraSmall
-                        ) {
-                            Text(
-                                text = "Em vigor",
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
+                        BadgeStatus(
+                            texto = "Em vigor",
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     }
                 }
 
@@ -384,20 +310,11 @@ private fun CartaoRotacao(
                             )
                         }
                         if (slots.size > maxVisiveis) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = MaterialTheme.shapes.extraSmall
-                            ) {
-                                Text(
-                                    text = "+${slots.size - maxVisiveis}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    softWrap = false,
-                                    maxLines = 1
-                                )
-                            }
+                            BadgeStatus(
+                                texto = "+${slots.size - maxVisiveis}",
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -417,11 +334,10 @@ private fun CartaoRotacao(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Aplicar",
+                    TextoSemQuebra(
+                        texto = "Aplicar",
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        softWrap = false
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
