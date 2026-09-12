@@ -277,12 +277,14 @@ private fun CartaoRotacao(
                     TextoSemQuebra(
                         texto = rotacao.nome,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth()
                     )
 
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.wrapContentWidth()
                     ) {
                         BadgeStatus(
                             texto = "${rotacaoDetalhada.comprimentoReal} Dias",
