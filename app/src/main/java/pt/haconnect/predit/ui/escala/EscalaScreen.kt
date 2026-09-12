@@ -2,6 +2,7 @@ package pt.haconnect.predit.ui.escala
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -28,9 +29,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
+import pt.haconnect.predit.domain.calc.duracaoMinutos
+import pt.haconnect.predit.domain.calc.formatarHoraMin
+import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.ui.turnos.CelulaTipoTurno
 import pt.haconnect.predit.ui.turnos.TextoSemQuebra
+import pt.haconnect.predit.ui.turnos.nomeFormatado
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -53,19 +59,13 @@ fun EscalaScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     val diasDaSemana = remember { listOf("S", "T", "Q", "Q", "S", "S", "D") }
+    var diaSelecionadoParaDetalhe by remember { mutableStateOf<DiaMesEscala?>(null) }
 
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Escala") },
-                actions = {
-                    if (uiState.anoMesAtual != YearMonth.now()) {
-                        TextButton(onClick = { viewModel.irParaHoje() }) {
-                            Text("Hoje", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
+                title = { Text("Escala") }
             )
         }
     ) { padding ->
@@ -127,30 +127,63 @@ fun EscalaScreen(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Cabeçalho com mês/ano e setas
+                    // Cabeçalho com navegação de mês e centragem ótica perfeita
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = { viewModel.mesAnterior() }) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                contentDescription = "Mês anterior"
-                            )
+                        // Reserva de espaço à esquerda (mesma largura do botão "Hoje")
+                        Box(
+                            modifier = Modifier.width(64.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            // Espaço reservado para centragem ótica
                         }
 
-                        TextoSemQuebra(
-                            texto = uiState.anoMesAtual.nomeMesFormatado(),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
+                        // Centro: [←] [Mês Ano] [→]
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            IconButton(onClick = { viewModel.mesAnterior() }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                    contentDescription = "Mês anterior"
+                                )
+                            }
 
-                        IconButton(onClick = { viewModel.mesSeguinte() }) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = "Mês seguinte"
+                            TextoSemQuebra(
+                                texto = uiState.anoMesAtual.nomeMesFormatado(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
                             )
+
+                            IconButton(onClick = { viewModel.mesSeguinte() }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = "Mês seguinte"
+                                )
+                            }
+                        }
+
+                        // Direita: Botão "Hoje"
+                        Box(
+                            modifier = Modifier.width(64.dp),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            if (uiState.anoMesAtual != YearMonth.now()) {
+                                TextButton(
+                                    onClick = { viewModel.irParaHoje() },
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                                ) {
+                                    Text(
+                                        text = "Hoje",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -213,6 +246,7 @@ fun EscalaScreen(
                                 semana.forEach { dia ->
                                     CelulaDiaCalendario(
                                         dia = dia,
+                                        onClick = { diaSelecionadoParaDetalhe = dia },
                                         modifier = Modifier
                                             .weight(1f)
                                             .fillMaxHeight()
@@ -298,12 +332,120 @@ fun EscalaScreen(
                 }
             }
         }
+
+        // B3 — Detalhe do Dia (ModalBottomSheet)
+        diaSelecionadoParaDetalhe?.let { dia ->
+            val sheetState = rememberModalBottomSheetState()
+            ModalBottomSheet(
+                onDismissRequest = { diaSelecionadoParaDetalhe = null },
+                sheetState = sheetState
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    val dataExtenso = remember(dia.data) {
+                        val df = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale("pt", "PT"))
+                        val dataStr = dia.data.format(df)
+                        val diaSemana = dia.data.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("pt", "PT"))
+                            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("pt", "PT")) else it.toString() }
+                        "$dataStr — $diaSemana"
+                    }
+
+                    Text(
+                        text = dataExtenso,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Divider()
+
+                    if (dia.tipoTurno != null) {
+                        val tipo = dia.tipoTurno
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            CelulaTipoTurno(tipo = tipo, tamanho = 40.dp, modifier = Modifier.size(40.dp))
+
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = tipo.nome,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Categoria: ${tipo.categoria.nomeFormatado()}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                if (tipo.categoria == CategoriaTurno.TRABALHO) {
+                                    val duracao = duracaoMinutos(tipo.inicioMin, tipo.fimMin, tipo.pausaMin)
+                                    Text(
+                                        text = "Horário: ${formatarHoraMin(tipo.inicioMin)} - ${formatarHoraMin(tipo.fimMin)}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "Duração: ${formatarHoraMin(duracao)}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Sem horário",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Sem escala definida",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
     }
 }
 
 @Composable
 private fun CelulaDiaCalendario(
     dia: DiaMesEscala,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val alpha = if (dia.pertenceAoMesAtual) 1f else 0.38f
@@ -313,6 +455,7 @@ private fun CelulaDiaCalendario(
         shape = RoundedCornerShape(4.dp),
         modifier = modifier
             .alpha(alpha)
+            .clickable(onClick = onClick)
             .then(
                 if (dia.ehHoje) {
                     Modifier.border(
