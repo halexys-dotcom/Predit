@@ -11,7 +11,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,9 +47,13 @@ fun CelulaTipoTurno(
     ) {
         Text(
             text = abrev,
-            fontSize = fontSize,
-            letterSpacing = letterSpacing,
-            fontWeight = FontWeight.Bold,
+            style = TextStyle(
+                fontSize = fontSize,
+                letterSpacing = letterSpacing,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                platformStyle = PlatformTextStyle(includeFontPadding = false)
+            ),
             maxLines = 1,
             softWrap = false,
             color = corTexto

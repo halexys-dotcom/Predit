@@ -18,7 +18,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
@@ -257,72 +256,57 @@ private fun CartaoRotacao(
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 12.dp, vertical = 12.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
+            Row(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = rotacao.nome,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-
-                    BadgeStatus(
-                        texto = "${rotacaoDetalhada.comprimentoReal} Dias",
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    if (ehVigente) {
-                        BadgeStatus(
-                            texto = "Em vigor",
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
+                if (slots.isNotEmpty()) {
+                    MiniGrelhaPreview3x3(slots = slots, mapaTipos = mapaTipos)
                 }
 
-                if (slots.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    TextoSemQuebra(
+                        texto = rotacao.nome,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val maxVisiveis = 7
-                        slots.take(maxVisiveis).forEach { slot ->
-                            val tipo = mapaTipos[slot.tipoTurnoId]
-                            CelulaTipoTurno(
-                                tipo = tipo,
-                                tamanho = 22.dp,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        if (slots.size > maxVisiveis) {
+                        BadgeStatus(
+                            texto = "${rotacaoDetalhada.comprimentoReal} Dias",
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        if (ehVigente) {
                             BadgeStatus(
-                                texto = "+${slots.size - maxVisiveis}",
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                texto = "Em vigor",
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                     }
                 }
             }
 
+            Spacer(modifier = Modifier.width(8.dp))
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 FilledTonalButton(
                     onClick = onClickAplicar,
@@ -346,6 +330,53 @@ private fun CartaoRotacao(
                     contentDescription = "Editar rotação",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniGrelhaPreview3x3(
+    slots: List<RotacaoSlot>,
+    mapaTipos: Map<Long, TipoTurno>,
+    modifier: Modifier = Modifier
+) {
+    val maxSlots = minOf(slots.size, 9)
+    val slotsPrevisualizados = slots.take(maxSlots)
+    val numLinhas = (maxSlots + 2) / 3
+
+    Column(
+        modifier = modifier
+            .width(36.dp)
+            .height(36.dp)
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = MaterialTheme.shapes.extraSmall
+            )
+            .padding(3.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
+    ) {
+        for (linha in 0 until numLinhas) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                for (col in 0 until 3) {
+                    val index = linha * 3 + col
+                    if (index < slotsPrevisualizados.size) {
+                        val slot = slotsPrevisualizados[index]
+                        val tipo = mapaTipos[slot.tipoTurnoId]
+                        val cor = tipo?.let { Color(it.cor) } ?: MaterialTheme.colorScheme.surfaceVariant
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(cor)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.size(8.dp))
+                    }
+                }
             }
         }
     }

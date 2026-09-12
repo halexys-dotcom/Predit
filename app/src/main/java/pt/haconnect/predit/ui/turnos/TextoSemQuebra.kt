@@ -8,7 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -25,7 +27,10 @@ fun TextoSemQuebra(
         modifier = modifier,
         color = color,
         fontWeight = fontWeight,
-        style = style,
+        style = style.copy(
+            textAlign = TextAlign.Center,
+            platformStyle = PlatformTextStyle(includeFontPadding = false)
+        ),
         maxLines = 1,
         softWrap = false,
         overflow = TextOverflow.Ellipsis
