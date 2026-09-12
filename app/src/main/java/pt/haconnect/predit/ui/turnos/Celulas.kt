@@ -33,9 +33,9 @@ fun CelulaTipoTurno(
     val ehPequeno = tamanho < 30.dp
 
     val (fontSize, letterSpacing, forma) = when {
-        abrev.length <= 2 -> Triple(if (ehPequeno) 9.sp else 12.sp, 0.sp, CircleShape)
-        abrev.length == 3 -> Triple(if (ehPequeno) 8.sp else 10.sp, (-0.2).sp, CircleShape)
-        abrev.length == 4 -> Triple(if (ehPequeno) 7.sp else 8.5.sp, (-0.5).sp, CircleShape)
+        abrev.length == 1 -> Triple(if (ehPequeno) 9.sp else 13.sp, 0.sp, CircleShape)
+        abrev.length in 2..3 -> Triple(if (ehPequeno) 8.sp else 10.5.sp, (-0.2).sp, CircleShape)
+        abrev.length == 4 -> Triple(if (ehPequeno) 6.5.sp else 8.5.sp, (-0.5).sp, CircleShape)
         else -> Triple(if (ehPequeno) 6.5.sp else 8.sp, (-0.5).sp, RoundedCornerShape(6.dp))
     }
 
