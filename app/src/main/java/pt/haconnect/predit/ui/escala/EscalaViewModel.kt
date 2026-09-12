@@ -4,11 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import pt.haconnect.predit.data.repository.AusenciaRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.AplicacaoVigente
+import pt.haconnect.predit.domain.calc.aplicarAusencias
 import pt.haconnect.predit.domain.calc.duracaoMinutos
 import pt.haconnect.predit.domain.calc.projetarIntervalo
+import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.domain.model.TipoTurno
 import java.time.DayOfWeek
@@ -19,25 +23,29 @@ data class DiaMesEscala(
     val data: LocalDate,
     val pertenceAoMesAtual: Boolean,
     val ehHoje: Boolean,
-    val tipoTurno: TipoTurno?
+    val tipoTurnoProjetado: TipoTurno?,
+    val ausencia: Ausencia?,
+    val tipoTurnoEfetivo: TipoTurno?
 )
 
 data class EstatisticasMes(
     val numTurnos: Int,
     val numFolgas: Int,
+    val numAusencias: Int,
     val totalMinutosTrabalho: Int
 )
 
 data class EscalaUiState(
     val anoMesAtual: YearMonth = YearMonth.now(),
     val diasGrelha: List<DiaMesEscala> = emptyList(),
-    val estatisticas: EstatisticasMes = EstatisticasMes(0, 0, 0),
+    val estatisticas: EstatisticasMes = EstatisticasMes(0, 0, 0, 0),
     val temEscalaAplicada: Boolean = false
 )
 
 class EscalaViewModel(
     private val rotacaoRepository: RotacaoRepository,
-    private val tipoTurnoRepository: TipoTurnoRepository
+    private val tipoTurnoRepository: TipoTurnoRepository,
+    private val ausenciaRepository: AusenciaRepository
 ) : ViewModel() {
 
     private val _anoMesAtual = MutableStateFlow(YearMonth.now())
@@ -51,11 +59,16 @@ class EscalaViewModel(
         tipoTurnoRepository.observarTodos()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val ausencias: StateFlow<List<Ausencia>> =
+        ausenciaRepository.observarTodas()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val uiState: StateFlow<EscalaUiState> = combine(
         _anoMesAtual,
         aplicacoesVigentes,
-        tiposTurno
-    ) { mes, aplicacoes, tipos ->
+        tiposTurno,
+        ausencias
+    ) { mes, aplicacoes, tipos, listaAusencias ->
         val temEscala = aplicacoes.isNotEmpty()
         val mapaTipos = tipos.associateBy { it.id }
 
@@ -78,39 +91,46 @@ class EscalaViewModel(
             )
         } else emptyList()
 
-        val mapaProjecao = diasProjetados.associate { it.epochDay to it.tipoTurnoId }
+        val diasComEstado = aplicarAusencias(diasProjetados, listaAusencias)
+        val mapaComEstado = diasComEstado.associateBy { it.epochDay }
 
         val listaDiasGrelha = mutableListOf<DiaMesEscala>()
         var curr = inicioGrelha
         while (!curr.isAfter(fimGrelha)) {
-            val tipoId = mapaProjecao[curr.toEpochDay()]
-            val tipo = tipoId?.let { mapaTipos[it] }
+            val estado = mapaComEstado[curr.toEpochDay()]
+            val tipoProjetado = estado?.tipoTurnoProjetadoId?.let { mapaTipos[it] }
+            val tipoEfetivo = estado?.tipoTurnoEfetivoId?.let { mapaTipos[it] }
+            val ausencia = estado?.ausencia
+
             listaDiasGrelha.add(
                 DiaMesEscala(
                     data = curr,
                     pertenceAoMesAtual = curr.year == mes.year && curr.month == mes.month,
                     ehHoje = curr == hoje,
-                    tipoTurno = tipo
+                    tipoTurnoProjetado = tipoProjetado,
+                    ausencia = ausencia,
+                    tipoTurnoEfetivo = tipoEfetivo
                 )
             )
             curr = curr.plusDays(1)
         }
 
-        // Estatísticas do mês atual
+        // Estatísticas do mês atual (apenas turnos efetivos sem ausência contam para horas)
         val diasDoMesAtual = listaDiasGrelha.filter { it.pertenceAoMesAtual }
-        val numTurnos = diasDoMesAtual.count { it.tipoTurno?.categoria == CategoriaTurno.TRABALHO }
-        val numFolgas = diasDoMesAtual.count { it.tipoTurno?.categoria == CategoriaTurno.FOLGA }
+        val numTurnos = diasDoMesAtual.count { it.ausencia == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.TRABALHO }
+        val numFolgas = diasDoMesAtual.count { it.ausencia == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.FOLGA }
+        val numAusencias = diasDoMesAtual.count { it.ausencia != null }
         val totalMinutos = diasDoMesAtual
-            .filter { it.tipoTurno?.categoria == CategoriaTurno.TRABALHO }
+            .filter { it.ausencia == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.TRABALHO }
             .sumOf { dia ->
-                val t = dia.tipoTurno
+                val t = dia.tipoTurnoEfetivo
                 if (t != null) duracaoMinutos(t.inicioMin, t.fimMin, t.pausaMin) else 0
             }
 
         EscalaUiState(
             anoMesAtual = mes,
             diasGrelha = listaDiasGrelha,
-            estatisticas = EstatisticasMes(numTurnos, numFolgas, totalMinutos),
+            estatisticas = EstatisticasMes(numTurnos, numFolgas, numAusencias, totalMinutos),
             temEscalaAplicada = temEscala
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), EscalaUiState())
@@ -127,13 +147,21 @@ class EscalaViewModel(
         _anoMesAtual.value = YearMonth.now()
     }
 
+    fun removerAusencia(ausenciaId: Long, onConcluido: () -> Unit = {}) {
+        viewModelScope.launch {
+            ausenciaRepository.apagar(ausenciaId)
+            onConcluido()
+        }
+    }
+
     class Factory(
         private val rotacaoRepository: RotacaoRepository,
-        private val tipoTurnoRepository: TipoTurnoRepository
+        private val tipoTurnoRepository: TipoTurnoRepository,
+        private val ausenciaRepository: AusenciaRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return EscalaViewModel(rotacaoRepository, tipoTurnoRepository) as T
+            return EscalaViewModel(rotacaoRepository, tipoTurnoRepository, ausenciaRepository) as T
         }
     }
 }

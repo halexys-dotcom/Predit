@@ -27,6 +27,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import pt.haconnect.predit.ui.escala.AusenciasScreen
+import pt.haconnect.predit.ui.escala.EditorAusenciaScreen
 import pt.haconnect.predit.ui.escala.EscalaScreen
 import pt.haconnect.predit.ui.turnos.AplicarRotacaoScreen
 import pt.haconnect.predit.ui.turnos.EditorRotacaoScreen
@@ -95,6 +97,9 @@ fun PreditApp() {
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onNavegarParaMarcarAusencia = { epochDay ->
+                        navController.navigate("escala/ausencia/nova?dataInicio=$epochDay")
                     }
                 )
             }
@@ -120,7 +125,45 @@ fun PreditApp() {
                     }
                 )
             }
-            composable(Destino.MAIS.rota) { EcraVazio(Destino.MAIS.titulo) }
+            composable(Destino.MAIS.rota) {
+                AusenciasScreen(
+                    onNavegarParaCriarAusencia = {
+                        navController.navigate("escala/ausencia/nova")
+                    },
+                    onNavegarParaEditarAusencia = { id ->
+                        navController.navigate("escala/ausencia/$id")
+                    }
+                )
+            }
+
+            // Rotas de ecrã completo para Ausências
+            composable(
+                route = "escala/ausencia/nova?dataInicio={dataInicio}",
+                arguments = listOf(
+                    navArgument("dataInicio") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    }
+                )
+            ) { backStackEntry ->
+                val inicio = backStackEntry.arguments?.getLong("dataInicio")?.takeIf { it != -1L }
+                EditorAusenciaScreen(
+                    ausenciaId = 0L,
+                    dataInicioInicialEpochDay = inicio,
+                    onVoltar = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                route = "escala/ausencia/{id}",
+                arguments = listOf(navArgument("id") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getLong("id") ?: 0L
+                EditorAusenciaScreen(
+                    ausenciaId = id,
+                    onVoltar = { navController.popBackStack() }
+                )
+            }
 
             // Rotas de ecrã completo para Tipos de Turno
             composable("turnos/tipo/novo") {

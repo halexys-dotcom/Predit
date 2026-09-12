@@ -10,7 +10,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
+import pt.haconnect.predit.data.repository.AusenciaRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.duracaoMinutos
@@ -44,7 +47,8 @@ import java.util.Locale
 @Composable
 fun EscalaScreen(
     modifier: Modifier = Modifier,
-    onNavegarParaTurnos: () -> Unit = {}
+    onNavegarParaTurnos: () -> Unit = {},
+    onNavegarParaMarcarAusencia: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext as PreditApplication
     val db = context.database
@@ -52,7 +56,8 @@ fun EscalaScreen(
     val viewModel: EscalaViewModel = viewModel(
         factory = EscalaViewModel.Factory(
             rotacaoRepository = RotacaoRepository(db.rotacaoDao()),
-            tipoTurnoRepository = TipoTurnoRepository(db.tipoTurnoDao())
+            tipoTurnoRepository = TipoTurnoRepository(db.tipoTurnoDao()),
+            ausenciaRepository = AusenciaRepository(db.ausenciaDao())
         )
     )
 
@@ -60,6 +65,7 @@ fun EscalaScreen(
 
     val diasDaSemana = remember { listOf("S", "T", "Q", "Q", "S", "S", "D") }
     var diaSelecionadoParaDetalhe by remember { mutableStateOf<DiaMesEscala?>(null) }
+    var ausenciaParaRemoverId by remember { mutableStateOf<Long?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -254,7 +260,7 @@ fun EscalaScreen(
                     }
                 }
 
-                // Rodapé do Mês ( Totais: Turnos, Folgas, Horas )
+                // Rodapé do Mês ( Totais: Turnos, Folgas, Ausências, Horas )
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = MaterialTheme.shapes.medium,
@@ -264,7 +270,7 @@ fun EscalaScreen(
                 ) {
                     Row(
                         modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
                             .fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -300,6 +306,26 @@ fun EscalaScreen(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+
+                        Divider(
+                            modifier = Modifier
+                                .height(24.dp)
+                                .width(1.dp)
+                        )
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Ausências",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                            Text(
+                                text = "${uiState.estatisticas.numAusencias}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.tertiary
                             )
                         }
 
@@ -359,8 +385,8 @@ fun EscalaScreen(
 
                     Divider()
 
-                    if (dia.tipoTurno != null) {
-                        val tipo = dia.tipoTurno
+                    val tipo = dia.tipoTurnoEfetivo
+                    if (tipo != null) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -378,6 +404,21 @@ fun EscalaScreen(
                                     text = "Categoria: ${tipo.categoria.nomeFormatado()}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        if (dia.ausencia != null && dia.tipoTurnoProjetado != null) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = MaterialTheme.shapes.small,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Turno projetado substituído: ${dia.tipoTurnoProjetado.nome} (${dia.tipoTurnoProjetado.abreviatura})",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.padding(12.dp)
                                 )
                             }
                         }
@@ -432,9 +473,64 @@ fun EscalaScreen(
                         }
                     }
 
+                    // Ação de Ausência
+                    if (dia.ausencia == null) {
+                        OutlinedButton(
+                            onClick = {
+                                val d = dia.data.toEpochDay()
+                                diaSelecionadoParaDetalhe = null
+                                onNavegarParaMarcarAusencia(d)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Marcar ausência")
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = {
+                                ausenciaParaRemoverId = dia.ausencia.id
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Remover ausência")
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
+        }
+
+        ausenciaParaRemoverId?.let { id ->
+            AlertDialog(
+                onDismissRequest = { ausenciaParaRemoverId = null },
+                title = { Text("Remover ausência?") },
+                text = { Text("Tem a certeza que deseja remover esta ausência?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            ausenciaParaRemoverId = null
+                            viewModel.removerAusencia(id) {
+                                diaSelecionadoParaDetalhe = null
+                            }
+                        }
+                    ) {
+                        Text("Remover", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { ausenciaParaRemoverId = null }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
         }
     }
 }
@@ -446,6 +542,7 @@ private fun CelulaDiaCalendario(
     modifier: Modifier = Modifier
 ) {
     val alpha = if (dia.pertenceAoMesAtual) 1f else 0.38f
+    val tipoEfetivo = dia.tipoTurnoEfetivo
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -463,29 +560,43 @@ private fun CelulaDiaCalendario(
                 } else Modifier
             )
     ) {
-        Column(
-            modifier = Modifier
-                .padding(2.dp)
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "${dia.data.dayOfMonth}",
-                style = MaterialTheme.typography.labelSmall,
-                fontSize = 10.sp,
-                fontWeight = if (dia.ehHoje) FontWeight.Bold else FontWeight.Normal,
-                color = if (dia.ehHoje) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-            )
-
-            if (dia.tipoTurno != null) {
-                CelulaTipoTurno(
-                    tipo = dia.tipoTurno,
-                    tamanho = 22.dp,
-                    modifier = Modifier.size(22.dp)
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .padding(2.dp)
+                    .fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "${dia.data.dayOfMonth}",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    fontWeight = if (dia.ehHoje) FontWeight.Bold else FontWeight.Normal,
+                    color = if (dia.ehHoje) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                 )
-            } else {
-                Spacer(modifier = Modifier.size(22.dp))
+
+                if (tipoEfetivo != null) {
+                    CelulaTipoTurno(
+                        tipo = tipoEfetivo,
+                        tamanho = 22.dp,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.size(22.dp))
+                }
+            }
+
+            // Marcador de ausência (turno projetado por baixo)
+            if (dia.ausencia != null && dia.tipoTurnoProjetado != null) {
+                Box(
+                    modifier = Modifier
+                        .padding(2.dp)
+                        .size(5.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.tertiary)
+                        .align(Alignment.TopEnd)
+                )
             }
         }
     }
