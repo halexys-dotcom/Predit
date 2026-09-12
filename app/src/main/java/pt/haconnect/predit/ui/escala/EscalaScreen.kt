@@ -133,9 +133,9 @@ fun EscalaScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Reserva de espaço à esquerda (mesma largura do botão "Hoje")
+                        // Reserva de espaço à esquerda (48dp, mesma largura do IconButton "Hoje")
                         Box(
-                            modifier = Modifier.width(64.dp),
+                            modifier = Modifier.width(48.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             // Espaço reservado para centragem ótica
@@ -167,20 +167,17 @@ fun EscalaScreen(
                             }
                         }
 
-                        // Direita: Botão "Hoje"
+                        // Direita: Ícone "Hoje" (largura fixa 48dp)
                         Box(
-                            modifier = Modifier.width(64.dp),
+                            modifier = Modifier.width(48.dp),
                             contentAlignment = Alignment.CenterEnd
                         ) {
                             if (uiState.anoMesAtual != YearMonth.now()) {
-                                TextButton(
-                                    onClick = { viewModel.irParaHoje() },
-                                    contentPadding = PaddingValues(horizontal = 8.dp)
-                                ) {
-                                    Text(
-                                        text = "Hoje",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold
+                                IconButton(onClick = { viewModel.irParaHoje() }) {
+                                    Icon(
+                                        imageVector = Icons.Default.DateRange,
+                                        contentDescription = "Ir para hoje",
+                                        tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }

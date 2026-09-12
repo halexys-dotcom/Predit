@@ -22,7 +22,7 @@ class PreditApplication : Application() {
             applicationContext,
             PreditDatabase::class.java,
             "predit.db"
-        ).addMigrations(PreditDatabase.MIGRATION_1_2)
+        ).addMigrations(PreditDatabase.MIGRATION_1_2, PreditDatabase.MIGRATION_2_3)
         .addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
