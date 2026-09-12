@@ -60,6 +60,12 @@ interface RotacaoDao {
     }
 
     // Aplicação da rotação
+    @Query("SELECT * FROM aplicacao_rotacao ORDER BY validoDe ASC")
+    fun observarTodasAplicacoes(): Flow<List<AplicacaoRotacaoEntity>>
+
+    @Query("SELECT * FROM aplicacao_rotacao ORDER BY validoDe ASC")
+    suspend fun obterTodasAplicacoes(): List<AplicacaoRotacaoEntity>
+
     @Query("SELECT * FROM aplicacao_rotacao WHERE validoAte IS NULL OR validoAte >= :epochDay ORDER BY validoDe DESC LIMIT 1")
     fun observarAplicacaoVigente(epochDay: Long): Flow<AplicacaoRotacaoEntity?>
 

@@ -41,6 +41,39 @@ class RotacaoRepository(private val dao: RotacaoDao) {
         return dao.aplicarNovaRotacao(rotacaoId, dataAncora, validoDe)
     }
 
+    fun observarAplicacoesVigentes(): Flow<List<pt.haconnect.predit.domain.calc.AplicacaoVigente>> {
+        return dao.observarTodasAplicacoes().map { lista ->
+            lista.mapNotNull { ap ->
+                val detalhe = dao.porId(ap.rotacaoId)
+                if (detalhe != null) {
+                    val slotsOrdenados = detalhe.slots.sortedBy { it.posicao }.map { it.tipoTurnoId }
+                    pt.haconnect.predit.domain.calc.AplicacaoVigente(
+                        validoDe = ap.validoDe,
+                        validoAte = ap.validoAte,
+                        dataAncora = ap.dataAncora,
+                        slots = slotsOrdenados
+                    )
+                } else null
+            }
+        }
+    }
+
+    suspend fun obterAplicacoesVigentes(): List<pt.haconnect.predit.domain.calc.AplicacaoVigente> {
+        val lista = dao.obterTodasAplicacoes()
+        return lista.mapNotNull { ap ->
+            val detalhe = dao.porId(ap.rotacaoId)
+            if (detalhe != null) {
+                val slotsOrdenados = detalhe.slots.sortedBy { it.posicao }.map { it.tipoTurnoId }
+                pt.haconnect.predit.domain.calc.AplicacaoVigente(
+                    validoDe = ap.validoDe,
+                    validoAte = ap.validoAte,
+                    dataAncora = ap.dataAncora,
+                    slots = slotsOrdenados
+                )
+            } else null
+        }
+    }
+
     private fun RotacaoEntity.paraModelo() = Rotacao(
         id = id,
         nome = nome,
