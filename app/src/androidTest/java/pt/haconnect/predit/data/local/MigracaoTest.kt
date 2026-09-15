@@ -57,4 +57,10 @@ class MigracaoTest {
         helper.createDatabase("teste-migracao-7-8", 7).apply { close() }
         helper.runMigrationsAndValidate("teste-migracao-7-8", 8, true, PreditDatabase.MIGRATION_7_8)
     }
+
+    @Test
+    fun migrar8Para9() {
+        helper.createDatabase("teste-migracao-8-9", 8).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-8-9", 9, true, PreditDatabase.MIGRATION_8_9)
+    }
 }

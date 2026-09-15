@@ -20,6 +20,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.AusenciaRepository
+import pt.haconnect.predit.data.repository.CicloJornadaRepository
 import pt.haconnect.predit.data.repository.DiaRealRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
@@ -29,6 +30,9 @@ import pt.haconnect.predit.domain.calc.formatarHoraMin
 import pt.haconnect.predit.ui.turnos.CelulaPosto
 import pt.haconnect.predit.ui.turnos.CelulaTipoTurno
 import pt.haconnect.predit.ui.turnos.TextoSemQuebra
+import java.time.Instant
+import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -53,13 +57,24 @@ fun HorarioScreen(
         )
     )
 
+    val conferenciaViewModel: ConferenciaViewModel = viewModel(
+        factory = ConferenciaViewModel.Factory(
+            diaRealRepository = DiaRealRepository(db.diaRealDao()),
+            cicloJornadaRepository = context.cicloJornadaRepository
+        )
+    )
+
     val uiState by viewModel.uiState.collectAsState()
+    val conferenciaUiState by conferenciaViewModel.uiState.collectAsState()
     var abaSelecionada by remember { mutableIntStateOf(0) } // 0 = Mês, 1 = Conferência
 
     val formatterData = remember { DateTimeFormatter.ofPattern("dd/MM") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 TopAppBar(
@@ -73,8 +88,7 @@ fun HorarioScreen(
                     )
                     Tab(
                         selected = abaSelecionada == 1,
-                        onClick = { /* Conferência desativada até à Fase 7 */ },
-                        enabled = false,
+                        onClick = { abaSelecionada = 1 },
                         text = { Text("Conferência") }
                     )
                 }
@@ -86,7 +100,6 @@ fun HorarioScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // A aba Conferência está desativada, por isso abaSelecionada é sempre 0
             if (abaSelecionada == 0) {
                 // Aba Mês
                 Row(
@@ -284,6 +297,250 @@ fun HorarioScreen(
                             )
                         }
                     }
+                }
+            } else {
+                // Aba Conferência
+                ConferenciaTabContent(
+                    uiState = conferenciaUiState,
+                    onSemestreAnterior = { conferenciaViewModel.semestreAnterior() },
+                    onSemestreSeguinte = { conferenciaViewModel.semestreSeguinte() },
+                    onHoje = { conferenciaViewModel.irParaHoje() },
+                    onFecharSemestre = {
+                        conferenciaViewModel.fecharSemestre { extras, saldo ->
+                            val txtExtra = formatarHoraMin(extras)
+                            val txtSaldo = if (saldo < 0) "−${formatarHoraMin(abs(saldo))}" else "00:00"
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Semestre fechado. Extras pagos: $txtExtra. Défice limpo: $txtSaldo.")
+                            }
+                        }
+                    },
+                    onIrParaMes = { abaSelecionada = 0 }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConferenciaTabContent(
+    uiState: ConferenciaUiState,
+    onSemestreAnterior: () -> Unit,
+    onSemestreSeguinte: () -> Unit,
+    onHoje: () -> Unit,
+    onFecharSemestre: () -> Unit,
+    onIrParaMes: () -> Unit
+) {
+    val (ano, semestre) = uiState.anoMesSelecionado
+    val mesVazio = uiState.meses.all { it.realMinutos == 0 }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Header com navegação entre semestres
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onSemestreAnterior) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Semestre anterior")
+            }
+
+            TextoSemQuebra(
+                texto = "${semestre}º Semestre $ano",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = onHoje,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Hoje", style = MaterialTheme.typography.labelMedium)
+                }
+
+                IconButton(onClick = onSemestreSeguinte) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Semestre seguinte")
+                }
+            }
+        }
+
+        if (mesVazio && uiState.estado == EstadoCiclo.ATIVO) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Sem registos neste semestre",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    OutlinedButton(onClick = onIrParaMes) {
+                        Text("Ir para Horário → Mês")
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(uiState.meses) { m ->
+                    val yearMonth = try { YearMonth.parse(m.anoMes) } catch (_: Exception) { null }
+                    val nomeMes = yearMonth?.month?.getDisplayName(TextStyle.FULL, Locale("pt", "PT"))
+                        ?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("pt", "PT")) else it.toString() }
+                        ?: m.anoMes
+
+                    // Uma linha por mês: real · jornada · o que sobra (abate / pago / saldo)
+                    val detalhe = when {
+                        m.extraPagoMinutos > 0 && m.abateAoDeficeMinutos > 0 ->
+                            "abate ${formatarHoraMin(m.abateAoDeficeMinutos)}  ·  +${formatarHoraMin(m.extraPagoMinutos)} pago"
+                        m.extraPagoMinutos > 0 -> "+${formatarHoraMin(m.extraPagoMinutos)} pago"
+                        m.abateAoDeficeMinutos > 0 -> "abate ${formatarHoraMin(m.abateAoDeficeMinutos)}"
+                        m.saldoAcumuladoMinutos < 0 -> "saldo −${formatarHoraMin(abs(m.saldoAcumuladoMinutos))}"
+                        else -> "00:00"
+                    }
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextoSemQuebra(
+                                texto = "$nomeMes $ano",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            TextoSemQuebra(
+                                texto = "real ${formatarHoraMin(m.realMinutos)}  ·  jornada ${formatarHoraMin(m.jornadaMinutos)}  ·  $detalhe",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (uiState.estado == EstadoCiclo.ATIVO && uiState.podeFechar) {
+            Button(
+                onClick = onFecharSemestre,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Fechar semestre")
+            }
+        } else if (uiState.estado == EstadoCiclo.FECHADO && uiState.dataFecho != null) {
+            val dfFecho = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+            val dtFechoStr = Instant.ofEpochMilli(uiState.dataFecho)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+                .format(dfFecho)
+
+            Text(
+                text = "Fechado em $dtFechoStr",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+
+        // Rodapé Ciclo
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Real total", style = MaterialTheme.typography.bodyMedium)
+                    Text(formatarHoraMin(uiState.realTotalMinutos), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Jornada ciclo", style = MaterialTheme.typography.bodyMedium)
+                    Text(formatarHoraMin(uiState.jornadaTotalMinutos), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Extras pagos", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "+${formatarHoraMin(uiState.extrasPagosTotalMinutos)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("Saldo final", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        if (uiState.estado == EstadoCiclo.FECHADO && uiState.dataFecho != null && uiState.saldoFinalMinutos < 0) {
+                            val dfFecho = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                            val dtFechoStr = Instant.ofEpochMilli(uiState.dataFecho)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDate()
+                                .format(dfFecho)
+                            Text(
+                                text = "(limpo em $dtFechoStr)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        } else if (uiState.estado == EstadoCiclo.ATIVO && uiState.saldoFinalMinutos < 0) {
+                            Text(
+                                text = "(provisório)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+                    val txtSaldo = if (uiState.saldoFinalMinutos < 0) {
+                        "−${formatarHoraMin(abs(uiState.saldoFinalMinutos))}"
+                    } else {
+                        "00:00"
+                    }
+                    Text(
+                        text = txtSaldo,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

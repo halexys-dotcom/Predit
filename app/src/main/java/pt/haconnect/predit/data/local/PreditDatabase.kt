@@ -15,9 +15,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AusenciaEntity::class,
         ContratoUtilizadorEntity::class,
         DiaRealEntity::class,
-        PlanejamentoMesEntity::class
+        PlanejamentoMesEntity::class,
+        CicloJornadaEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(Conversores::class)
@@ -28,6 +29,7 @@ abstract class PreditDatabase : RoomDatabase() {
     abstract fun contratoDao(): ContratoUtilizadorDao
     abstract fun diaRealDao(): DiaRealDao
     abstract fun planejamentoMesDao(): PlanejamentoMesDao
+    abstract fun cicloJornadaDao(): CicloJornadaDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -78,6 +80,12 @@ abstract class PreditDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `planejamento_mes` ADD COLUMN `numTurnos` INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE `planejamento_mes` ADD COLUMN `numFolgas` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `ciclo_jornada` (`id` TEXT NOT NULL, `inicio` INTEGER NOT NULL, `fim` INTEGER NOT NULL, `realTotalMinutos` INTEGER NOT NULL, `extrasPagosMinutos` INTEGER NOT NULL, `saldoFinalMinutos` INTEGER NOT NULL, `dataFecho` INTEGER NOT NULL, PRIMARY KEY(`id`))")
             }
         }
     }

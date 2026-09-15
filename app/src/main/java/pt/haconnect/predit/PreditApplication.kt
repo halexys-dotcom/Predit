@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import pt.haconnect.predit.data.local.ContratoUtilizadorEntity
 import pt.haconnect.predit.data.local.PreditDatabase
 import pt.haconnect.predit.data.local.TipoTurnoEntity
+import pt.haconnect.predit.data.repository.CicloJornadaRepository
 import pt.haconnect.predit.data.repository.PlanejamentoMesRepository
 import pt.haconnect.predit.domain.model.CategoriaTurno
 
@@ -20,6 +21,10 @@ class PreditApplication : Application() {
 
     val planejamentoMesRepository by lazy {
         PlanejamentoMesRepository(database.planejamentoMesDao())
+    }
+
+    val cicloJornadaRepository by lazy {
+        CicloJornadaRepository(database.cicloJornadaDao())
     }
 
     override fun onCreate() {
@@ -35,7 +40,8 @@ class PreditApplication : Application() {
             PreditDatabase.MIGRATION_4_5,
             PreditDatabase.MIGRATION_5_6,
             PreditDatabase.MIGRATION_6_7,
-            PreditDatabase.MIGRATION_7_8
+            PreditDatabase.MIGRATION_7_8,
+            PreditDatabase.MIGRATION_8_9
         )
         .addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {

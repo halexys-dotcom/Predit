@@ -6,3 +6,9 @@ local.properties
 .gradle/
 .kotlin/
 build/
+
+# Backups manuais de base de dados (BD pessoal do utilizador)
+tools/db-backups/
+
+# Capturas de ecra usadas como evidencia de teste manual
+screenshots/
