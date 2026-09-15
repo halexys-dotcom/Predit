@@ -30,12 +30,14 @@ import pt.haconnect.predit.data.repository.AusenciaRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.AplicacaoVigente
+import pt.haconnect.predit.domain.calc.diasConsumidos
 import pt.haconnect.predit.domain.calc.posicaoNoCiclo
 import pt.haconnect.predit.domain.calc.projetarDia
 import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.domain.model.TipoTurno
 import pt.haconnect.predit.ui.turnos.calcularCorTexto
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -299,21 +301,44 @@ fun EditorAusenciaScreen(
                     res
                 }
 
+                val feriados = remember { emptySet<Long>() }
+                val inicioEpoch = inicioLocal.toEpochDay()
+                val fimEpoch = fimLocal.toEpochDay()
+
                 val totalDias = diasLista.size
-                val numTurnosSubstituidos = diasLista.count { it.second?.categoria == CategoriaTurno.TRABALHO }
+                val numDiasConsumidos = diasConsumidos(inicioEpoch, fimEpoch, feriados)
+                val numDiasComTurnoEscala = diasLista.count { (dia, tipo) ->
+                    tipo?.categoria == CategoriaTurno.TRABALHO && dia.toEpochDay() !in feriados
+                }
 
                 Surface(
                     color = MaterialTheme.colorScheme.primaryContainer,
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = "$totalDias ${if (totalDias == 1) "dia" else "dias"} de ausência, dos quais $numTurnosSubstituidos ${if (numTurnosSubstituidos == 1) "era turno" else "eram turnos"} de trabalho",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(12.dp)
-                    )
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "$totalDias ${if (totalDias == 1) "dia" else "dias"} de calendário",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "$numDiasConsumidos ${if (numDiasConsumidos == 1) "dia consumido" else "dias consumidos"}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "$numDiasComTurnoEscala ${if (numDiasComTurnoEscala == 1) "dia" else "dias"} com turno na escala",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                 }
 
                 Text("Pré-visualização das substituições:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
@@ -347,8 +372,19 @@ fun EditorAusenciaScreen(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     val nomeProjetado = tipoProjetado?.nome ?: "Sem escala"
+                                    val eFimDeSemana = dia.dayOfWeek == DayOfWeek.SATURDAY ||
+                                                       dia.dayOfWeek == DayOfWeek.SUNDAY
+                                    val categoriaProjetada = tipoProjetado?.categoria
+                                    val eSubstituivel = tipoProjetado == null || categoriaProjetada == CategoriaTurno.TRABALHO
+
+                                    val texto = when {
+                                        !eSubstituivel -> nomeProjetado
+                                        eFimDeSemana -> "$nomeProjetado Folga"
+                                        else -> "$nomeProjetado → ${tipoSelecionado?.nome ?: "Ausência"}"
+                                    }
+
                                     Text(
-                                        text = "$nomeProjetado → ${tipoSelecionado?.nome ?: "Ausência"}",
+                                        text = texto,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium
                                     )

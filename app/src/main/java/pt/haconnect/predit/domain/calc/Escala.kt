@@ -2,6 +2,9 @@ package pt.haconnect.predit.domain.calc
 
 import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
+import pt.haconnect.predit.domain.model.DiaReal
+import java.time.DayOfWeek
+import java.time.LocalDate
 
 data class AplicacaoVigente(
     val validoDe: Long,
@@ -19,9 +22,14 @@ data class DiaComEstado(
     val epochDay: Long,
     val tipoTurnoProjetadoId: Long?,
     val ausenciaBruta: Ausencia? = null,
-    val ausenciaEfetiva: Ausencia? = null
+    val ausenciaEfetiva: Ausencia? = null,
+    val tipoTurnoEfetivoOverrideId: Long? = null,
+    val diaReal: DiaReal? = null
 ) {
-    val tipoTurnoEfetivoId: Long? get() = ausenciaEfetiva?.tipoTurnoId ?: tipoTurnoProjetadoId
+    val tipoTurnoEfetivoId: Long?
+        get() = tipoTurnoEfetivoOverrideId ?: ausenciaEfetiva?.tipoTurnoId ?: tipoTurnoProjetadoId
+    val tipoTurnoChipId: Long?
+        get() = diaReal?.tipoTurnoId ?: tipoTurnoEfetivoId
 }
 
 fun aplicacaoPara(
@@ -49,24 +57,73 @@ fun projetarIntervalo(
 fun aplicarAusencias(
     dias: List<DiaProjetado>,
     ausencias: List<Ausencia>,
-    categoriasPorTipo: Map<Long, CategoriaTurno> = emptyMap()
+    categoriasPorTipo: Map<Long, CategoriaTurno>,
+    diasReais: List<DiaReal> = emptyList()
 ): List<DiaComEstado> {
+    val folgaTipoId = categoriasPorTipo.entries.firstOrNull { it.value == CategoriaTurno.FOLGA }?.key
+
     return dias.map { dia ->
         val ausenciaNoDia = ausencias.firstOrNull { ap ->
             dia.epochDay >= ap.dataInicio && dia.epochDay <= ap.dataFim
         }
+        val realNoDia = diasReais.firstOrNull { it.data == dia.epochDay }
         val categoriaProjetada = dia.tipoTurnoId?.let { categoriasPorTipo[it] }
+        val categoriaAusencia = ausenciaNoDia?.tipoTurnoId?.let { categoriasPorTipo[it] }
 
-        val eSubstituivel = dia.tipoTurnoId == null ||
-                categoriaProjetada == CategoriaTurno.TRABALHO
+        if (ausenciaNoDia != null) {
+            if (categoriaAusencia == CategoriaTurno.FERIAS) {
+                val localDate = LocalDate.ofEpochDay(dia.epochDay)
+                val ehFimDeSemana = localDate.dayOfWeek == DayOfWeek.SATURDAY ||
+                        localDate.dayOfWeek == DayOfWeek.SUNDAY
 
-        val ausenciaEfetiva = if (eSubstituivel) ausenciaNoDia else null
+                if (categoriaProjetada == CategoriaTurno.FERIADO) {
+                    DiaComEstado(
+                        epochDay = dia.epochDay,
+                        tipoTurnoProjetadoId = dia.tipoTurnoId,
+                        ausenciaBruta = ausenciaNoDia,
+                        ausenciaEfetiva = null,
+                        diaReal = realNoDia
+                    )
+                } else if (ehFimDeSemana) {
+                    DiaComEstado(
+                        epochDay = dia.epochDay,
+                        tipoTurnoProjetadoId = dia.tipoTurnoId,
+                        ausenciaBruta = ausenciaNoDia,
+                        ausenciaEfetiva = null,
+                        tipoTurnoEfetivoOverrideId = folgaTipoId ?: dia.tipoTurnoId,
+                        diaReal = realNoDia
+                    )
+                } else {
+                    DiaComEstado(
+                        epochDay = dia.epochDay,
+                        tipoTurnoProjetadoId = dia.tipoTurnoId,
+                        ausenciaBruta = ausenciaNoDia,
+                        ausenciaEfetiva = ausenciaNoDia,
+                        diaReal = realNoDia
+                    )
+                }
+            } else {
+                val eSubstituivel = dia.tipoTurnoId == null ||
+                        categoriaProjetada == CategoriaTurno.TRABALHO
 
-        DiaComEstado(
-            epochDay = dia.epochDay,
-            tipoTurnoProjetadoId = dia.tipoTurnoId,
-            ausenciaBruta = ausenciaNoDia,
-            ausenciaEfetiva = ausenciaEfetiva
-        )
+                val ausenciaEfetiva = if (eSubstituivel) ausenciaNoDia else null
+
+                DiaComEstado(
+                    epochDay = dia.epochDay,
+                    tipoTurnoProjetadoId = dia.tipoTurnoId,
+                    ausenciaBruta = ausenciaNoDia,
+                    ausenciaEfetiva = ausenciaEfetiva,
+                    diaReal = realNoDia
+                )
+            }
+        } else {
+            DiaComEstado(
+                epochDay = dia.epochDay,
+                tipoTurnoProjetadoId = dia.tipoTurnoId,
+                ausenciaBruta = null,
+                ausenciaEfetiva = null,
+                diaReal = realNoDia
+            )
+        }
     }
 }

@@ -163,10 +163,23 @@ class EscalaTest {
         assertEquals(F, dia5?.tipoTurnoEfetivoId) // Folga mantida
     }
 
-    // --- NOVOS TESTES OBRIGATÓRIOS ---
+    @Test fun `ausencia em dia sem projecao em vigor e mantida`() {
+        val diaAnterior = LocalDate.of(2026, 6, 30).toEpochDay()
+        val ausencia = Ausencia(id = 1, tipoTurnoId = FER, dataInicio = diaAnterior, dataFim = diaAnterior)
 
-    @Test fun `ausencia de 7 dias sobre ciclo com turnos e folgas - folgas mantem F`() {
-        // Julho 1 a 7 (dias 1..4 = Tarde, dias 5..6 = Folga, dia 7 = Tarde)
+        val diasProjetados = projetarIntervalo(diaAnterior, diaAnterior, listOf(aplicacao))
+        assertNull(diasProjetados.first().tipoTurnoId) // Confirma que não há projeção
+
+        val diasComEstado = aplicarAusencias(diasProjetados, listOf(ausencia), categorias)
+        val estado = diasComEstado.first()
+
+        assertNull(estado.tipoTurnoProjetadoId)
+        assertNotNull(estado.ausenciaBruta)
+        assertNotNull(estado.ausenciaEfetiva)
+        assertEquals(FER, estado.tipoTurnoEfetivoId) // Ausência mantida!
+    }
+
+    @Test fun `ausencia de 7 dias sobre ciclo com turnos e folgas - folgas passam para sabado e domingo`() {
         val inicio = LocalDate.of(2026, 7, 1).toEpochDay()
         val fim = LocalDate.of(2026, 7, 7).toEpochDay()
         val ausenciaSemana = Ausencia(id = 1, tipoTurnoId = FER, dataInicio = inicio, dataFim = fim)
@@ -174,19 +187,14 @@ class EscalaTest {
         val diasProjetados = projetarIntervalo(inicio, fim, listOf(aplicacao))
         val diasComEstado = aplicarAusencias(diasProjetados, listOf(ausenciaSemana), categorias)
 
-        // Dias 1, 2, 3, 4 (Trabalho) -> FER
-        // Dias 5, 6 (Folga) -> F (Folga mantida!)
-        // Dia 7 (Trabalho) -> FER
         val efetivos = diasComEstado.map { it.tipoTurnoEfetivoId }
-        assertEquals(listOf(FER, FER, FER, FER, F, F, FER), efetivos)
+        assertEquals(listOf(FER, FER, FER, F, F, FER, FER), efetivos)
 
-        // Em todos os 7 dias, a ausenciaBruta está presente para o botão Remover funcionar
         diasComEstado.forEach {
             assertNotNull(it.ausenciaBruta)
         }
-        // Mas a ausenciaEfetiva está presente apenas nos 5 dias de trabalho
         val diasComEfetiva = diasComEstado.filter { it.ausenciaEfetiva != null }.map { LocalDate.ofEpochDay(it.epochDay).dayOfMonth }
-        assertEquals(listOf(1, 2, 3, 4, 7), diasComEfetiva)
+        assertEquals(listOf(1, 2, 3, 6, 7), diasComEfetiva)
     }
 
     @Test fun `ausencia de 3 dias que cobre um feriado - o feriado mantem-se`() {
@@ -197,14 +205,14 @@ class EscalaTest {
         val aplicacaoFeriado = AplicacaoVigente(
             validoDe = LocalDate.of(2026, 1, 1).toEpochDay(),
             validoAte = null,
-            dataAncora = LocalDate.of(2026, 1, 1).toEpochDay(),
-            slots = listOf(T, FERIADO, T) // Dia 24 = Tarde, Dia 25 = Feriado, Dia 26 = Tarde
+            dataAncora = LocalDate.of(2026, 12, 24).toEpochDay(),
+            slots = listOf(T, FERIADO, T)
         )
 
-        val ausenciaFérias = Ausencia(id = 1, tipoTurnoId = FER, dataInicio = inicio, dataFim = fim)
+        val ausenciaFerias = Ausencia(id = 1, tipoTurnoId = FER, dataInicio = inicio, dataFim = fim)
 
         val diasProjetados = projetarIntervalo(inicio, fim, listOf(aplicacaoFeriado))
-        val diasComEstado = aplicarAusencias(diasProjetados, listOf(ausenciaFérias), categorias)
+        val diasComEstado = aplicarAusencias(diasProjetados, listOf(ausenciaFerias), categorias)
 
         val dia24 = diasComEstado.find { it.epochDay == inicio }
         val dia25 = diasComEstado.find { it.epochDay == feriadoDia }
@@ -212,6 +220,6 @@ class EscalaTest {
 
         assertEquals(FER, dia24?.tipoTurnoEfetivoId)
         assertEquals(FERIADO, dia25?.tipoTurnoEfetivoId) // Feriado mantido intacto!
-        assertEquals(FER, dia26?.tipoTurnoEfetivoId)
+        assertEquals(F, dia26?.tipoTurnoEfetivoId) // Sábado de férias torna-se folga
     }
 }

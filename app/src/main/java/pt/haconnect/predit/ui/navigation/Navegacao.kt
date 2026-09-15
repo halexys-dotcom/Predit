@@ -36,6 +36,9 @@ import pt.haconnect.predit.ui.contrato.ContratoScreen
 import pt.haconnect.predit.ui.escala.AusenciasScreen
 import pt.haconnect.predit.ui.escala.EditorAusenciaScreen
 import pt.haconnect.predit.ui.escala.EscalaScreen
+import pt.haconnect.predit.ui.horario.EditorDiaRealScreen
+import pt.haconnect.predit.ui.horario.HorarioScreen
+import pt.haconnect.predit.ui.importacao.ImportacaoScreen
 import pt.haconnect.predit.ui.mais.MaisScreen
 import pt.haconnect.predit.ui.turnos.AplicarRotacaoScreen
 import pt.haconnect.predit.ui.turnos.EditorRotacaoScreen
@@ -121,10 +124,19 @@ fun PreditApp() {
                         },
                         onNavegarParaMarcarAusencia = { epochDay ->
                             navController.navigate("escala/ausencia/nova?dataInicio=$epochDay")
+                        },
+                        onNavegarParaRegistoReal = { epochDay ->
+                            navController.navigate("horario/dia/$epochDay")
                         }
                     )
                 }
-                composable(Destino.HORARIO.rota) { EcraVazio(Destino.HORARIO.titulo) }
+                composable(Destino.HORARIO.rota) {
+                    HorarioScreen(
+                        onNavegarParaEditarDiaReal = { epochDay ->
+                            navController.navigate("horario/dia/$epochDay")
+                        }
+                    )
+                }
                 composable(Destino.TURNOS.rota) {
                     TurnosScreen(
                         onNavegarParaEditorTipoTurno = { id ->
@@ -149,7 +161,14 @@ fun PreditApp() {
                 composable(Destino.MAIS.rota) {
                     MaisScreen(
                         onNavegarParaContrato = { navController.navigate("contrato") },
-                        onNavegarParaAusencias = { navController.navigate("ausencias") }
+                        onNavegarParaAusencias = { navController.navigate("ausencias") },
+                        onNavegarParaImportarPdf = { navController.navigate("mais/importar-pdf") }
+                    )
+                }
+
+                composable("mais/importar-pdf") {
+                    ImportacaoScreen(
+                        onVoltar = { navController.popBackStack() }
                     )
                 }
 
@@ -245,14 +264,29 @@ fun PreditApp() {
                         onVoltar = { navController.popBackStack() }
                     )
                 }
+
+                // Rotas de ecrã completo para Horário (DiaReal)
+                composable(
+                    route = "horario/dia/{epochDay}",
+                    arguments = listOf(navArgument("epochDay") { type = NavType.LongType })
+                ) { backStackEntry ->
+                    val epochDay = backStackEntry.arguments?.getLong("epochDay") ?: 0L
+                    EditorDiaRealScreen(
+                        epochDay = epochDay,
+                        onVoltar = { navController.popBackStack() }
+                    )
+                }
+                composable(
+                    route = "horario/dia/{epochDay}/editar",
+                    arguments = listOf(navArgument("epochDay") { type = NavType.LongType })
+                ) { backStackEntry ->
+                    val epochDay = backStackEntry.arguments?.getLong("epochDay") ?: 0L
+                    EditorDiaRealScreen(
+                        epochDay = epochDay,
+                        onVoltar = { navController.popBackStack() }
+                    )
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun EcraVazio(titulo: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(titulo)
     }
 }

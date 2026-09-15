@@ -31,11 +31,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.AusenciaRepository
+import pt.haconnect.predit.data.repository.DiaRealRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
+import pt.haconnect.predit.domain.calc.abreviarPosto
 import pt.haconnect.predit.domain.calc.duracaoMinutos
 import pt.haconnect.predit.domain.calc.formatarHoraMin
 import pt.haconnect.predit.domain.model.CategoriaTurno
+import pt.haconnect.predit.ui.turnos.CelulaPosto
 import pt.haconnect.predit.ui.turnos.CelulaTipoTurno
 import pt.haconnect.predit.ui.turnos.TextoSemQuebra
 import pt.haconnect.predit.ui.turnos.nomeFormatado
@@ -49,7 +52,8 @@ import java.util.Locale
 fun EscalaScreen(
     modifier: Modifier = Modifier,
     onNavegarParaTurnos: () -> Unit = {},
-    onNavegarParaMarcarAusencia: (Long) -> Unit = {}
+    onNavegarParaMarcarAusencia: (Long) -> Unit = {},
+    onNavegarParaRegistoReal: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext as PreditApplication
     val db = context.database
@@ -58,7 +62,9 @@ fun EscalaScreen(
         factory = EscalaViewModel.Factory(
             rotacaoRepository = RotacaoRepository(db.rotacaoDao()),
             tipoTurnoRepository = TipoTurnoRepository(db.tipoTurnoDao()),
-            ausenciaRepository = AusenciaRepository(db.ausenciaDao())
+            ausenciaRepository = AusenciaRepository(db.ausenciaDao()),
+            diaRealRepository = DiaRealRepository(db.diaRealDao()),
+            planejamentoMesRepository = context.planejamentoMesRepository
         )
     )
 
@@ -273,87 +279,102 @@ fun EscalaScreen(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .padding(horizontal = 12.dp, vertical = 10.dp)
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .fillMaxWidth()
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Turnos",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "Turnos",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                                Text(
+                                    text = "${uiState.estatisticas.numTurnos}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            Divider(
+                                modifier = Modifier
+                                    .height(24.dp)
+                                    .width(1.dp)
                             )
-                            Text(
-                                text = "${uiState.estatisticas.numTurnos}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "Folgas",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                                Text(
+                                    text = "${uiState.estatisticas.numFolgas}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+
+                            Divider(
+                                modifier = Modifier
+                                    .height(24.dp)
+                                    .width(1.dp)
                             )
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "Ausências",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                                Text(
+                                    text = "${uiState.estatisticas.numAusencias}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+
+                            Divider(
+                                modifier = Modifier
+                                    .height(24.dp)
+                                    .width(1.dp)
+                            )
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "Total Horas",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                                val horas = uiState.estatisticas.totalMinutosTrabalho / 60
+                                val minutos = uiState.estatisticas.totalMinutosTrabalho % 60
+                                val textoHoras = if (minutos > 0) "${horas}h ${minutos}m" else "${horas}h"
+                                Text(
+                                    text = textoHoras,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
 
-                        Divider(
-                            modifier = Modifier
-                                .height(24.dp)
-                                .width(1.dp)
-                        )
-
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (uiState.estatisticas.fonte == FonteEstatistica.PLANEJAMENTO) {
                             Text(
-                                text = "Folgas",
+                                text = "Fonte: planeamento importado",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                            Text(
-                                text = "${uiState.estatisticas.numFolgas}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-
-                        Divider(
-                            modifier = Modifier
-                                .height(24.dp)
-                                .width(1.dp)
-                        )
-
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Ausências",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                            Text(
-                                text = "${uiState.estatisticas.numAusencias}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
-
-                        Divider(
-                            modifier = Modifier
-                                .height(24.dp)
-                                .width(1.dp)
-                        )
-
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Total Horas",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                            val horas = uiState.estatisticas.totalMinutosTrabalho / 60
-                            val minutos = uiState.estatisticas.totalMinutosTrabalho % 60
-                            val textoHoras = if (minutos > 0) "${horas}h ${minutos}m" else "${horas}h"
-                            Text(
-                                text = textoHoras,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.outline,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                             )
                         }
                     }
@@ -478,6 +499,81 @@ fun EscalaScreen(
                         }
                     }
 
+                    if (dia.diaReal != null) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Registo real",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CelulaTipoTurno(
+                                        tipo = dia.tipoTurnoChip,
+                                        tamanho = 28.dp,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Text(
+                                        text = dia.tipoTurnoChip?.nome ?: "Sem tipo",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                                val dur = duracaoMinutos(dia.diaReal.inicioMin, dia.diaReal.fimMin, dia.diaReal.pausaMin)
+                                Text(
+                                    text = "Horário: ${formatarHoraMin(dia.diaReal.inicioMin)} - ${formatarHoraMin(dia.diaReal.fimMin)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = "Duração: ${formatarHoraMin(dur)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                if (!dia.diaReal.posto.isNullOrBlank()) {
+                                    Text(
+                                        text = "Posto: ${dia.diaReal.posto}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                                if (!dia.diaReal.nota.isNullOrEmpty()) {
+                                    Text(
+                                        text = "Nota: ${dia.diaReal.nota}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Ação de Registo Real
+                    OutlinedButton(
+                        onClick = {
+                            val d = dia.data.toEpochDay()
+                            diaSelecionadoParaDetalhe = null
+                            onNavegarParaRegistoReal(d)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (dia.diaReal != null) "Editar registo" else "Registar horas")
+                    }
+
                     // Ação de Ausência
                     val ausBruta = dia.ausenciaBruta
                     if (ausBruta == null) {
@@ -548,7 +644,7 @@ private fun CelulaDiaCalendario(
     modifier: Modifier = Modifier
 ) {
     val alpha = if (dia.pertenceAoMesAtual) 1f else 0.38f
-    val tipoEfetivo = dia.tipoTurnoEfetivo
+    val temRegistoReal = dia.diaReal != null
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -582,12 +678,29 @@ private fun CelulaDiaCalendario(
                     color = if (dia.ehHoje) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                 )
 
-                if (tipoEfetivo != null) {
-                    CelulaTipoTurno(
-                        tipo = tipoEfetivo,
-                        tamanho = 22.dp,
-                        modifier = Modifier.size(22.dp)
-                    )
+                val tipoChip = dia.tipoTurnoChip
+                if (tipoChip != null) {
+                    val textoPosto = abreviarPosto(dia.diaReal?.posto)
+                    if (textoPosto != null) {
+                        CelulaPosto(
+                            texto = textoPosto,
+                            corTipo = Color(tipoChip.cor),
+                            tamanho = 22.dp
+                        )
+                    } else {
+                        CelulaTipoTurno(tipo = tipoChip, tamanho = 22.dp, modifier = Modifier.size(22.dp))
+                    }
+                } else if (temRegistoReal) {
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.5.dp, MaterialTheme.colorScheme.tertiary, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("•", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
                 } else {
                     Spacer(modifier = Modifier.size(22.dp))
                 }

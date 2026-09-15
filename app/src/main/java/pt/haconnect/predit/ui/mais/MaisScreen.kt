@@ -23,7 +23,8 @@ import pt.haconnect.predit.ui.turnos.BadgeStatus
 fun MaisScreen(
     modifier: Modifier = Modifier,
     onNavegarParaContrato: () -> Unit = {},
-    onNavegarParaAusencias: () -> Unit = {}
+    onNavegarParaAusencias: () -> Unit = {},
+    onNavegarParaImportarPdf: () -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext as PreditApplication
     val db = context.database
@@ -135,6 +136,50 @@ fun MaisScreen(
                             )
                             Text(
                                 text = "Férias, baixas médicas e feriados",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onNavegarParaImportarPdf)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.List,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "Importar planning",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Importar ficheiro PDF de planning mensal",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

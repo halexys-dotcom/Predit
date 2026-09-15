@@ -80,8 +80,9 @@ interface RotacaoDao {
 
     @Transaction
     suspend fun aplicarNovaRotacao(rotacaoId: Long, dataAncora: Long, validoDe: Long): Long {
+        // Se já existe aplicação vigente com a mesma data, termina-a antes de inserir a nova
         val atual = obterAplicacaoAtual()
-        if (atual != null && atual.validoDe < validoDe) {
+        if (atual != null && atual.validoDe <= validoDe) {
             atualizarAplicacao(atual.copy(validoAte = validoDe - 1))
         }
         return inserirAplicacao(

@@ -13,9 +13,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RotacaoSlotEntity::class,
         AplicacaoRotacaoEntity::class,
         AusenciaEntity::class,
-        ContratoUtilizadorEntity::class
+        ContratoUtilizadorEntity::class,
+        DiaRealEntity::class,
+        PlanejamentoMesEntity::class
     ],
-    version = 4,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(Conversores::class)
@@ -24,6 +26,8 @@ abstract class PreditDatabase : RoomDatabase() {
     abstract fun rotacaoDao(): RotacaoDao
     abstract fun ausenciaDao(): AusenciaDao
     abstract fun contratoDao(): ContratoUtilizadorDao
+    abstract fun diaRealDao(): DiaRealDao
+    abstract fun planejamentoMesDao(): PlanejamentoMesDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -47,6 +51,33 @@ abstract class PreditDatabase : RoomDatabase() {
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `contrato_utilizador` (`id` INTEGER NOT NULL, `categoriaNivel` TEXT NOT NULL, `dataAdmissao` INTEGER, `regimeHorario` TEXT NOT NULL, `horarioSemanalH` INTEGER NOT NULL, `numeroDependentes` INTEGER NOT NULL, `estadoCivil` TEXT NOT NULL, `titulares` INTEGER NOT NULL, `primeiroArranqueConcluido` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `dia_real` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `data` INTEGER NOT NULL, `tipoTurnoId` INTEGER, `inicioMin` INTEGER NOT NULL, `fimMin` INTEGER NOT NULL, `pausaMin` INTEGER NOT NULL, `nota` TEXT, `origem` TEXT NOT NULL, FOREIGN KEY(`tipoTurnoId`) REFERENCES `tipo_turno`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_dia_real_data` ON `dia_real` (`data`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_dia_real_tipoTurnoId` ON `dia_real` (`tipoTurnoId`)")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `dia_real` ADD COLUMN `posto` TEXT")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `planejamento_mes` (`anoMes` TEXT NOT NULL, `totalMinutos` INTEGER NOT NULL, `contratoMinutos` INTEGER, `dataImportacao` INTEGER NOT NULL, PRIMARY KEY(`anoMes`))")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `planejamento_mes` ADD COLUMN `numTurnos` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `planejamento_mes` ADD COLUMN `numFolgas` INTEGER NOT NULL DEFAULT 0")
             }
         }
     }
