@@ -13,18 +13,36 @@ function Get-Adb {
 }
 
 function Assert-DispositivoLigado {
-    param([string]$Adb)
+    param([string]$Adb, [string]$Device)
+
     $linhas = @(& $Adb devices | Where-Object { $_ -match '\tdevice$' })
     if ($linhas.Count -eq 0) {
-        throw "Nenhum dispositivo ligado (adb devices não mostra nenhum 'device'). Liga o telefone e volta a tentar."
+        throw "Nenhum dispositivo ligado. Liga o telefone e volta a tentar."
     }
-    $script:Dispositivo = ($linhas[0] -replace '\tdevice$', '').Trim()
+
+    $todos = @($linhas | ForEach-Object { ($_ -replace '\tdevice$', '').Trim() })
+    $pedido = if ($Device) { $Device } elseif ($env:PREDIT_DEVICE) { $env:PREDIT_DEVICE } else { $null }
+
+    if ($pedido) {
+        $escolhido = $todos | Where-Object { $_ -eq $pedido } | Select-Object -First 1
+        if (-not $escolhido) {
+            throw "O dispositivo '$pedido' nao esta ligado. Ligados: $($todos -join ', ')"
+        }
+    } else {
+        if ($todos.Count -gt 1) {
+            Write-Host "AVISO: $($todos.Count) dispositivos ligados - a usar o primeiro ($($todos[0]))."
+            Write-Host "       Usa -Device <serial> ou a variavel PREDIT_DEVICE para escolher outro."
+        }
+        $escolhido = $todos[0]
+    }
+
+    $script:Dispositivo = $escolhido
     Write-Host "Dispositivo: $script:Dispositivo"
 }
 
 function Assert-PacoteInstalado {
     param([string]$Adb, [string]$Pacote)
-    $lista = & $Adb shell pm list packages
+    $lista = & $Adb -s $script:Dispositivo shell pm list packages
     if (-not ($lista -match ('package:' + [regex]::Escape($Pacote)))) {
         throw "O pacote $Pacote não está instalado. Corre .\gradlew.bat installDebug e espera uns segundos (o Auto Backup repõe os dados depois da instalação)."
     }
@@ -32,13 +50,13 @@ function Assert-PacoteInstalado {
 
 function Stop-App {
     param([string]$Adb, [string]$Pacote)
-    & $Adb shell am force-stop $Pacote | Out-Null
+    & $Adb -s $script:Dispositivo shell am force-stop $Pacote | Out-Null
     Start-Sleep -Milliseconds 800
 }
 
 function Get-FicheirosBdNoDispositivo {
     param([string]$Adb, [string]$Pacote)
-    $saida = & $Adb shell run-as $Pacote ls databases
+    $saida = & $Adb -s $script:Dispositivo shell run-as $Pacote ls databases 2>$null
     @($saida | Where-Object { $_ -match '^predit\.db' } | ForEach-Object { $_.Trim() })
 }
 
@@ -47,7 +65,7 @@ function Invoke-ExecOutParaFicheiro {
     # caso contrário o PowerShell 5 corrompe o binário.
     param([string]$Adb, [string]$ComandoAdb, [string]$Destino)
     $bat = Join-Path $env:TEMP 'predit-execout.bat'
-    "`"$Adb`" $ComandoAdb > `"$Destino`"" | Out-File -Encoding ascii $bat
+    "`"$Adb`" -s $script:Dispositivo $ComandoAdb > `"$Destino`"" | Out-File -Encoding ascii $bat
     & cmd.exe /c $bat | Out-Null
     if (-not (Test-Path $Destino)) { throw "Falhou a extração para $Destino" }
     if ((Get-Item $Destino).Length -eq 0) { throw "Ficheiro extraído vazio: $Destino" }

@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -66,7 +67,7 @@ fun HorarioScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     val conferenciaUiState by conferenciaViewModel.uiState.collectAsState()
-    var abaSelecionada by remember { mutableIntStateOf(0) } // 0 = Mês, 1 = Conferência
+    var abaSelecionada by rememberSaveable { mutableStateOf(0) } // 0 = Mês, 1 = Conferência, 2 = Recibo
 
     val formatterData = remember { DateTimeFormatter.ofPattern("dd/MM") }
     val snackbarHostState = remember { SnackbarHostState() }

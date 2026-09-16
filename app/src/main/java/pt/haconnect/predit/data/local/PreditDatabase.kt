@@ -19,9 +19,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CicloJornadaEntity::class,
         ParametrosCCTEntity::class,
         RubricaEntity::class,
-        TabelaIRSEntity::class
+        TabelaIRSEntity::class,
+        ReciboMesEntity::class,
+        ReciboLinhaEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 @TypeConverters(Conversores::class)
@@ -36,6 +38,8 @@ abstract class PreditDatabase : RoomDatabase() {
     abstract fun parametrosCCTDao(): ParametrosCCTDao
     abstract fun rubricaDao(): RubricaDao
     abstract fun tabelaIRSDao(): TabelaIRSDao
+    abstract fun reciboMesDao(): ReciboMesDao
+    abstract fun reciboLinhaDao(): ReciboLinhaDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -106,6 +110,18 @@ abstract class PreditDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `contrato_utilizador` ADD COLUMN `regiao` TEXT NOT NULL DEFAULT 'CONTINENTE'")
                 db.execSQL("CREATE TABLE IF NOT EXISTS `tabela_irs` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `ano` INTEGER NOT NULL, `regiao` TEXT NOT NULL, `categoria` TEXT NOT NULL, `tabelaNumero` INTEGER NOT NULL, `ordemEscalao` INTEGER NOT NULL, `limiteAte` INTEGER NOT NULL, `taxaBasisPoints` INTEGER NOT NULL, `parcelaAbater` INTEGER NOT NULL, `parcelaAdicionalDep` INTEGER NOT NULL, `formulaComposta` INTEGER NOT NULL)")
+            }
+        }
+
+        /**
+         * SQL copiado do 12.json gerado pelo Room (só a substituição de ${TABLE_NAME}
+         * pelo nome da tabela, como nas migrações anteriores). Não escrever à mão.
+         */
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `recibo_mes` (`anoMes` TEXT NOT NULL, `dataFecho` INTEGER NOT NULL, `vencimentoBase` INTEGER NOT NULL, `vencimentoHora` INTEGER NOT NULL, `numDiasUteis` INTEGER NOT NULL, `irsRetidoAno` INTEGER NOT NULL, `totalAbonos` INTEGER NOT NULL, `totalDescontos` INTEGER NOT NULL, `liquido` INTEGER NOT NULL, `nota` TEXT, `dataCriacao` INTEGER NOT NULL, PRIMARY KEY(`anoMes`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `recibo_linha` (`reciboMesId` TEXT NOT NULL, `rubricaId` INTEGER NOT NULL, `valorEstimado` INTEGER NOT NULL, `valorReal` INTEGER NOT NULL, `natureza` TEXT NOT NULL, `ordem` INTEGER NOT NULL, PRIMARY KEY(`reciboMesId`, `rubricaId`), FOREIGN KEY(`reciboMesId`) REFERENCES `recibo_mes`(`anoMes`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`rubricaId`) REFERENCES `rubrica`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_recibo_linha_rubricaId` ON `recibo_linha` (`rubricaId`)")
             }
         }
     }

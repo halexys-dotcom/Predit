@@ -16,6 +16,7 @@ import pt.haconnect.predit.data.local.TipoTurnoEntity
 import pt.haconnect.predit.data.local.TABELAS_IRS_2026
 import pt.haconnect.predit.data.repository.CicloJornadaRepository
 import pt.haconnect.predit.data.repository.PlanejamentoMesRepository
+import pt.haconnect.predit.data.repository.ReciboRepository
 import pt.haconnect.predit.domain.model.CategoriaTurno
 import java.time.LocalDate
 
@@ -37,6 +38,10 @@ class PreditApplication : Application() {
         CicloJornadaRepository(database.cicloJornadaDao())
     }
 
+    val reciboRepository by lazy {
+        ReciboRepository(database)
+    }
+
     override fun onCreate() {
         super.onCreate()
         database = Room.databaseBuilder(
@@ -53,7 +58,8 @@ class PreditApplication : Application() {
             PreditDatabase.MIGRATION_7_8,
             PreditDatabase.MIGRATION_8_9,
             PreditDatabase.MIGRATION_9_10,
-            PreditDatabase.MIGRATION_10_11
+            PreditDatabase.MIGRATION_10_11,
+            PreditDatabase.MIGRATION_11_12
         )
         .addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
@@ -65,6 +71,11 @@ class PreditApplication : Application() {
 
             override fun onOpen(db: SupportSQLiteDatabase) {
                 super.onOpen(db)
+                // O SQLite não impõe as FOREIGN KEY sem este pragma, e o Room 2.6.1 não tem
+                // sequer opção no builder para isso. Sem ele o CASCADE de
+                // recibo_mes→recibo_linha e o RESTRICT de rubrica ficavam inertes.
+                // O onOpen corre fora de transação (RoomOpenHelper.onOpen), logo pega.
+                db.execSQL("PRAGMA foreign_keys = ON")
                 CoroutineScope(Dispatchers.IO).launch {
                     garantirContratoInicial()
                     garantirParametrosCCT()

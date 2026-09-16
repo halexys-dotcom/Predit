@@ -23,4 +23,8 @@ interface RubricaDao {
 
     @Insert
     suspend fun inserir(rubrica: RubricaEntity): Long
+
+    /** Apagar por id — os testes do recibo provam aqui o FK RESTRICT de recibo_linha. */
+    @Query("DELETE FROM rubrica WHERE id = :id")
+    suspend fun apagar(id: Long)
 }

@@ -36,6 +36,7 @@ import pt.haconnect.predit.ui.contrato.ContratoScreen
 import pt.haconnect.predit.ui.escala.AusenciasScreen
 import pt.haconnect.predit.ui.escala.EditorAusenciaScreen
 import pt.haconnect.predit.ui.escala.EscalaScreen
+import pt.haconnect.predit.ui.horario.ConferenciaReciboScreen
 import pt.haconnect.predit.ui.horario.EditorDiaRealScreen
 import pt.haconnect.predit.ui.horario.HorarioScreen
 import pt.haconnect.predit.ui.importacao.ImportacaoScreen
@@ -162,12 +163,19 @@ fun PreditApp() {
                     MaisScreen(
                         onNavegarParaContrato = { navController.navigate("contrato") },
                         onNavegarParaAusencias = { navController.navigate("ausencias") },
-                        onNavegarParaImportarPdf = { navController.navigate("mais/importar-pdf") }
+                        onNavegarParaImportarPdf = { navController.navigate("mais/importar-pdf") },
+                        onNavegarParaRecibo = { navController.navigate("mais/recibo") }
                     )
                 }
 
                 composable("mais/importar-pdf") {
                     ImportacaoScreen(
+                        onVoltar = { navController.popBackStack() }
+                    )
+                }
+
+                composable("mais/recibo") {
+                    ConferenciaReciboScreen(
                         onVoltar = { navController.popBackStack() }
                     )
                 }

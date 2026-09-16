@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import pt.haconnect.predit.PreditApplication
@@ -24,7 +25,8 @@ fun MaisScreen(
     modifier: Modifier = Modifier,
     onNavegarParaContrato: () -> Unit = {},
     onNavegarParaAusencias: () -> Unit = {},
-    onNavegarParaImportarPdf: () -> Unit = {}
+    onNavegarParaImportarPdf: () -> Unit = {},
+    onNavegarParaRecibo: () -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext as PreditApplication
     val db = context.database
@@ -103,6 +105,51 @@ fun MaisScreen(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+            }
+
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("entrada-recibo")
+                    .clickable(onClick = onNavegarParaRecibo)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.List,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "Recibo de vencimento",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Conferir o recibo do mês contra os cálculos da app",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 

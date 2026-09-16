@@ -184,6 +184,10 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         regiao = ctx.contrato.regiao,
         tabelas = ctx.escaloesIRS
     )
+    // Decisão do utilizador (2026-09-16): o sindicato (1%) incide SÓ sobre o VENC — não
+    // sobre as horas suplementares nem sobre o subsídio de transporte. Por isso esta conta
+    // não passa pelas bases de incidência: o flag incideSindicato do catálogo fica por usar
+    // aqui, ao contrário de incideSS e incideIRS acima. Não "corrigir" isto para baseSS.
     valores["D04"] = dividirArredondando(venc * TAXA_SINDICATO_BPS, 10_000L)
 
     val estimadas = catalogo.map { r ->

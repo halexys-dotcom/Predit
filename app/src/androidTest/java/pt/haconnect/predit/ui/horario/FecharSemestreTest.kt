@@ -85,9 +85,29 @@ class FecharSemestreTest {
         }
     }
 
+    /**
+     * A semente (contrato, CCT, catálogo e tabelas de IRS) corre no onOpen. Numa instalação
+     * limpa o ecrã só fica pronto depois dela: sem esta espera o teste falhava às vezes com
+     * um timeout de 10s na primeira composição do separador.
+     */
+    private fun esperarSemente() {
+        var esperas = 0
+        while (esperas < 120) {
+            val pronta = runBlocking {
+                app.database.rubricaDao().contar() >= 20 &&
+                    app.database.parametrosCCTDao().contar() >= 2 &&
+                    app.database.tabelaIRSDao().contarPorAno(2026) >= 308
+            }
+            if (pronta) return
+            Thread.sleep(250)
+            esperas++
+        }
+    }
+
     @Before
     fun prepararSemestreDeTeste() {
         garantirContratoConfigurado()
+        esperarSemente()
 
         // Nunca apagar dados do utilizador: se o semestre ou os dias de teste já
         // tiverem registos, o teste é ignorado (skipped) em vez de os destruir.

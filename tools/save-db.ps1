@@ -24,14 +24,15 @@
 [CmdletBinding()]
 param(
     [string]$Pacote = 'pt.haconnect.predit.debug',
-    [string]$Pasta
+    [string]$Pasta,
+    [string]$Device
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'db-comum.ps1')
 
 $adb = Get-Adb
-Assert-DispositivoLigado -Adb $adb
+Assert-DispositivoLigado -Adb $adb -Device $Device
 Assert-PacoteInstalado -Adb $adb -Pacote $Pacote
 Stop-App -Adb $adb -Pacote $Pacote
 
