@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import pt.haconnect.predit.data.local.ContratoUtilizadorDao
 import pt.haconnect.predit.data.local.ContratoUtilizadorEntity
+import pt.haconnect.predit.domain.calc.RegiaoIRS
 import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.EstadoCivil
 import pt.haconnect.predit.domain.model.RegimeHorario
@@ -32,7 +33,8 @@ class ContratoRepository(private val dao: ContratoUtilizadorDao) {
             numeroDependentes = numeroDependentes,
             estadoCivil = try { EstadoCivil.valueOf(estadoCivil) } catch (_: Exception) { EstadoCivil.SOLTEIRO },
             titulares = titulares,
-            primeiroArranqueConcluido = primeiroArranqueConcluido
+            primeiroArranqueConcluido = primeiroArranqueConcluido,
+            regiao = try { RegiaoIRS.valueOf(regiao) } catch (_: Exception) { RegiaoIRS.CONTINENTE }
         )
     }
 
@@ -46,7 +48,8 @@ class ContratoRepository(private val dao: ContratoUtilizadorDao) {
             numeroDependentes = numeroDependentes,
             estadoCivil = estadoCivil.name,
             titulares = titulares,
-            primeiroArranqueConcluido = primeiroArranqueConcluido
+            primeiroArranqueConcluido = primeiroArranqueConcluido,
+            regiao = regiao.name
         )
     }
 }

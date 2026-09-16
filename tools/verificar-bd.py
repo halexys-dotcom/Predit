@@ -36,7 +36,8 @@ def main():
 
     tabelas = [
         'tipo_turno', 'rotacao', 'rotacao_slot', 'aplicacao_rotacao', 'ausencia',
-        'contrato_utilizador', 'dia_real', 'planejamento_mes', 'ciclo_jornada'
+        'contrato_utilizador', 'dia_real', 'planejamento_mes', 'ciclo_jornada',
+        'parametros_cct', 'rubrica', 'tabela_irs'
     ]
     print('Contagens:')
     for t in tabelas:
@@ -69,6 +70,33 @@ def main():
     for d in (epoch_day(2025, 7, 1), epoch_day(2025, 7, 2)):
         n = con.execute('SELECT COUNT(*) FROM dia_real WHERE data = ?', (d,)).fetchone()[0]
         print(f'  {para_data(d)} (epochDay {d}): {n} registo(s)')
+
+    existentes = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    if 'parametros_cct' in existentes:
+        print('parametros_cct:')
+        for r in con.execute('SELECT * FROM parametros_cct ORDER BY validoDe').fetchall():
+            print(f'  vigente desde {para_data(r["validoDe"])}: base={r["vencimentoBaseMil"]} '
+                  f'alim/dia={r["subAlimentacaoDiaMil"]} transp/mes={r["subTransporteMesMil"]} '
+                  f'h/semana={r["horarioSemanalReferencia"]}')
+    if 'rubrica' in existentes:
+        print('rubrica:')
+        for r in con.execute('SELECT * FROM rubrica ORDER BY ordem').fetchall():
+            print(f'  {r["ordem"]:>2}  {r["codigo"]:<13} {r["nome"]:<24} '
+                  f'SS={int(r["incideSS"])} IRS={int(r["incideIRS"])} Sind={int(r["incideSindicato"])} '
+                  f'{r["tipoCalculo"]:<6} ativa={int(r["ativaConferencia"])}')
+
+    if 'tabela_irs' in existentes:
+        print('tabela_irs por regiao:')
+        for regiao in ('CONTINENTE', 'ACORES', 'MADEIRA'):
+            n = con.execute('SELECT COUNT(*) FROM tabela_irs WHERE regiao = ?', (regiao,)).fetchone()[0]
+            t = con.execute('SELECT COUNT(DISTINCT tabelaNumero) FROM tabela_irs WHERE regiao = ?', (regiao,)).fetchone()[0]
+            print(f'  {regiao}: {n} linhas em {t} tabelas')
+        print('amostra CONTINENTE / tabela 1 (trabalho):')
+        for r in con.execute(
+                'SELECT ordemEscalao, limiteAte, taxaBasisPoints, parcelaAbater, parcelaAdicionalDep, formulaComposta '
+                'FROM tabela_irs WHERE regiao = "CONTINENTE" AND tabelaNumero = 1 ORDER BY ordemEscalao').fetchall():
+            print(f'  ordem {r["ordemEscalao"]:>2}: limiteAte={r["limiteAte"]} taxa={r["taxaBasisPoints"]} '
+                  f'parcela={r["parcelaAbater"]} adicional={r["parcelaAdicionalDep"]} composta={r["formulaComposta"]}')
 
     con.close()
 

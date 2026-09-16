@@ -1,0 +1,805 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 11,
+    "identityHash": "22d60210649febcf62552d76c2621ae2",
+    "entities": [
+      {
+        "tableName": "tipo_turno",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nome` TEXT NOT NULL, `abreviatura` TEXT NOT NULL, `cor` INTEGER NOT NULL, `emoji` TEXT, `inicioMin` INTEGER NOT NULL, `fimMin` INTEGER NOT NULL, `pausaMin` INTEGER NOT NULL, `categoria` TEXT NOT NULL, `ativo` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nome",
+            "columnName": "nome",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "abreviatura",
+            "columnName": "abreviatura",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cor",
+            "columnName": "cor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "emoji",
+            "columnName": "emoji",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "inicioMin",
+            "columnName": "inicioMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fimMin",
+            "columnName": "fimMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pausaMin",
+            "columnName": "pausaMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoria",
+            "columnName": "categoria",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ativo",
+            "columnName": "ativo",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "rotacao",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nome` TEXT NOT NULL, `comprimentoCiclo` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nome",
+            "columnName": "nome",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "comprimentoCiclo",
+            "columnName": "comprimentoCiclo",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "rotacao_slot",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`rotacaoId` INTEGER NOT NULL, `posicao` INTEGER NOT NULL, `tipoTurnoId` INTEGER NOT NULL, PRIMARY KEY(`rotacaoId`, `posicao`), FOREIGN KEY(`rotacaoId`) REFERENCES `rotacao`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`tipoTurnoId`) REFERENCES `tipo_turno`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "rotacaoId",
+            "columnName": "rotacaoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "posicao",
+            "columnName": "posicao",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipoTurnoId",
+            "columnName": "tipoTurnoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "rotacaoId",
+            "posicao"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_rotacao_slot_rotacaoId",
+            "unique": false,
+            "columnNames": [
+              "rotacaoId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_rotacao_slot_rotacaoId` ON `${TABLE_NAME}` (`rotacaoId`)"
+          },
+          {
+            "name": "index_rotacao_slot_tipoTurnoId",
+            "unique": false,
+            "columnNames": [
+              "tipoTurnoId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_rotacao_slot_tipoTurnoId` ON `${TABLE_NAME}` (`tipoTurnoId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "rotacao",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "rotacaoId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "tipo_turno",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "tipoTurnoId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "aplicacao_rotacao",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `rotacaoId` INTEGER NOT NULL, `dataAncora` INTEGER NOT NULL, `validoDe` INTEGER NOT NULL, `validoAte` INTEGER, FOREIGN KEY(`rotacaoId`) REFERENCES `rotacao`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rotacaoId",
+            "columnName": "rotacaoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dataAncora",
+            "columnName": "dataAncora",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "validoDe",
+            "columnName": "validoDe",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "validoAte",
+            "columnName": "validoAte",
+            "affinity": "INTEGER",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_aplicacao_rotacao_rotacaoId",
+            "unique": false,
+            "columnNames": [
+              "rotacaoId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_aplicacao_rotacao_rotacaoId` ON `${TABLE_NAME}` (`rotacaoId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "rotacao",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "rotacaoId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "ausencia",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `tipoTurnoId` INTEGER NOT NULL, `dataInicio` INTEGER NOT NULL, `dataFim` INTEGER NOT NULL, `nota` TEXT, FOREIGN KEY(`tipoTurnoId`) REFERENCES `tipo_turno`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipoTurnoId",
+            "columnName": "tipoTurnoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dataInicio",
+            "columnName": "dataInicio",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dataFim",
+            "columnName": "dataFim",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nota",
+            "columnName": "nota",
+            "affinity": "TEXT",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_ausencia_tipoTurnoId",
+            "unique": false,
+            "columnNames": [
+              "tipoTurnoId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ausencia_tipoTurnoId` ON `${TABLE_NAME}` (`tipoTurnoId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tipo_turno",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "tipoTurnoId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "contrato_utilizador",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `categoriaNivel` TEXT NOT NULL, `dataAdmissao` INTEGER, `regimeHorario` TEXT NOT NULL, `horarioSemanalH` INTEGER NOT NULL, `numeroDependentes` INTEGER NOT NULL, `estadoCivil` TEXT NOT NULL, `titulares` INTEGER NOT NULL, `primeiroArranqueConcluido` INTEGER NOT NULL, `regiao` TEXT NOT NULL DEFAULT 'CONTINENTE', PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoriaNivel",
+            "columnName": "categoriaNivel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dataAdmissao",
+            "columnName": "dataAdmissao",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "regimeHorario",
+            "columnName": "regimeHorario",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "horarioSemanalH",
+            "columnName": "horarioSemanalH",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "numeroDependentes",
+            "columnName": "numeroDependentes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estadoCivil",
+            "columnName": "estadoCivil",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "titulares",
+            "columnName": "titulares",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "primeiroArranqueConcluido",
+            "columnName": "primeiroArranqueConcluido",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "regiao",
+            "columnName": "regiao",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'CONTINENTE'"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "dia_real",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `data` INTEGER NOT NULL, `tipoTurnoId` INTEGER, `inicioMin` INTEGER NOT NULL, `fimMin` INTEGER NOT NULL, `pausaMin` INTEGER NOT NULL, `nota` TEXT, `origem` TEXT NOT NULL, `posto` TEXT, FOREIGN KEY(`tipoTurnoId`) REFERENCES `tipo_turno`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "data",
+            "columnName": "data",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipoTurnoId",
+            "columnName": "tipoTurnoId",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "inicioMin",
+            "columnName": "inicioMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fimMin",
+            "columnName": "fimMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pausaMin",
+            "columnName": "pausaMin",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nota",
+            "columnName": "nota",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "origem",
+            "columnName": "origem",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "posto",
+            "columnName": "posto",
+            "affinity": "TEXT",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_dia_real_data",
+            "unique": true,
+            "columnNames": [
+              "data"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_dia_real_data` ON `${TABLE_NAME}` (`data`)"
+          },
+          {
+            "name": "index_dia_real_tipoTurnoId",
+            "unique": false,
+            "columnNames": [
+              "tipoTurnoId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_dia_real_tipoTurnoId` ON `${TABLE_NAME}` (`tipoTurnoId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tipo_turno",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "tipoTurnoId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "planejamento_mes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`anoMes` TEXT NOT NULL, `totalMinutos` INTEGER NOT NULL, `numTurnos` INTEGER NOT NULL, `numFolgas` INTEGER NOT NULL, `contratoMinutos` INTEGER, `dataImportacao` INTEGER NOT NULL, PRIMARY KEY(`anoMes`))",
+        "fields": [
+          {
+            "fieldPath": "anoMes",
+            "columnName": "anoMes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalMinutos",
+            "columnName": "totalMinutos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "numTurnos",
+            "columnName": "numTurnos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "numFolgas",
+            "columnName": "numFolgas",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contratoMinutos",
+            "columnName": "contratoMinutos",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "dataImportacao",
+            "columnName": "dataImportacao",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "anoMes"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "ciclo_jornada",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `inicio` INTEGER NOT NULL, `fim` INTEGER NOT NULL, `realTotalMinutos` INTEGER NOT NULL, `extrasPagosMinutos` INTEGER NOT NULL, `saldoFinalMinutos` INTEGER NOT NULL, `dataFecho` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inicio",
+            "columnName": "inicio",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fim",
+            "columnName": "fim",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "realTotalMinutos",
+            "columnName": "realTotalMinutos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "extrasPagosMinutos",
+            "columnName": "extrasPagosMinutos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "saldoFinalMinutos",
+            "columnName": "saldoFinalMinutos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dataFecho",
+            "columnName": "dataFecho",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "parametros_cct",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `validoDe` INTEGER NOT NULL, `vencimentoBaseMil` INTEGER NOT NULL, `subAlimentacaoDiaMil` INTEGER NOT NULL, `subTransporteMesMil` INTEGER NOT NULL, `horarioSemanalReferencia` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "validoDe",
+            "columnName": "validoDe",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vencimentoBaseMil",
+            "columnName": "vencimentoBaseMil",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subAlimentacaoDiaMil",
+            "columnName": "subAlimentacaoDiaMil",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subTransporteMesMil",
+            "columnName": "subTransporteMesMil",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "horarioSemanalReferencia",
+            "columnName": "horarioSemanalReferencia",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "rubrica",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `codigo` TEXT NOT NULL, `nome` TEXT NOT NULL, `incideSS` INTEGER NOT NULL, `incideIRS` INTEGER NOT NULL, `incideSindicato` INTEGER NOT NULL, `tipoCalculo` TEXT NOT NULL, `ativaConferencia` INTEGER NOT NULL, `ordem` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "codigo",
+            "columnName": "codigo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nome",
+            "columnName": "nome",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incideSS",
+            "columnName": "incideSS",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incideIRS",
+            "columnName": "incideIRS",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incideSindicato",
+            "columnName": "incideSindicato",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipoCalculo",
+            "columnName": "tipoCalculo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ativaConferencia",
+            "columnName": "ativaConferencia",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ordem",
+            "columnName": "ordem",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "tabela_irs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `ano` INTEGER NOT NULL, `regiao` TEXT NOT NULL, `categoria` TEXT NOT NULL, `tabelaNumero` INTEGER NOT NULL, `ordemEscalao` INTEGER NOT NULL, `limiteAte` INTEGER NOT NULL, `taxaBasisPoints` INTEGER NOT NULL, `parcelaAbater` INTEGER NOT NULL, `parcelaAdicionalDep` INTEGER NOT NULL, `formulaComposta` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ano",
+            "columnName": "ano",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "regiao",
+            "columnName": "regiao",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoria",
+            "columnName": "categoria",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tabelaNumero",
+            "columnName": "tabelaNumero",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ordemEscalao",
+            "columnName": "ordemEscalao",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "limiteAte",
+            "columnName": "limiteAte",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taxaBasisPoints",
+            "columnName": "taxaBasisPoints",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parcelaAbater",
+            "columnName": "parcelaAbater",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parcelaAdicionalDep",
+            "columnName": "parcelaAdicionalDep",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "formulaComposta",
+            "columnName": "formulaComposta",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '22d60210649febcf62552d76c2621ae2')"
+    ]
+  }
+}

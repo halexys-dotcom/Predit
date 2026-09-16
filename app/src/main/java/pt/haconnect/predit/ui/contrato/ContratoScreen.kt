@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.ContratoRepository
+import pt.haconnect.predit.domain.calc.RegiaoIRS
 import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.EstadoCivil
 import pt.haconnect.predit.domain.model.RegimeHorario
@@ -52,6 +53,7 @@ fun ContratoScreen(
     var estadoCivil by rememberSaveable { mutableStateOf(EstadoCivil.SOLTEIRO) }
     var numeroDependentesTexto by rememberSaveable { mutableStateOf("0") }
     var titularesTexto by rememberSaveable { mutableStateOf("1") }
+    var regiao by rememberSaveable { mutableStateOf(RegiaoIRS.CONTINENTE) }
 
     var carregado by remember { mutableStateOf(false) }
 
@@ -64,6 +66,7 @@ fun ContratoScreen(
             estadoCivil = c.estadoCivil
             numeroDependentesTexto = c.numeroDependentes.toString()
             titularesTexto = c.titulares.toString()
+            regiao = c.regiao
             carregado = true
         }
     }
@@ -108,7 +111,8 @@ fun ContratoScreen(
                                     numeroDependentes = numeroDependentesTexto.toIntOrNull() ?: 0,
                                     estadoCivil = estadoCivil,
                                     titulares = titularesTexto.toIntOrNull() ?: 1,
-                                    primeiroArranqueConcluido = true
+                                    primeiroArranqueConcluido = true,
+                                    regiao = regiao
                                 )
                                 viewModel.guardar(c) {
                                     onVoltar()
@@ -196,6 +200,25 @@ fun ContratoScreen(
                     onClick = { regimeHorario = RegimeHorario.ADAPTABILIDADE },
                     label = { Text("Adaptabilidade") }
                 )
+            }
+
+            Text("Região Fiscal", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val rotulos = mapOf(
+                    RegiaoIRS.CONTINENTE to "Continente",
+                    RegiaoIRS.ACORES to "Açores",
+                    RegiaoIRS.MADEIRA to "Madeira"
+                )
+                RegiaoIRS.entries.forEach { r ->
+                    FilterChip(
+                        selected = regiao == r,
+                        onClick = { regiao = r },
+                        label = { Text(rotulos.getValue(r)) }
+                    )
+                }
             }
 
             Text("Horário Semanal (Horas)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)

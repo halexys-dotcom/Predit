@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -62,8 +63,32 @@ class FecharSemestreTest {
         bd.execSQL("DELETE FROM dia_real WHERE data IN (${diasDeTeste.joinToString(", ")})")
     }
 
+    /**
+     * O connectedAndroidTest desinstala a app no fim de cada corrida, por isso o teste
+     * corre muitas vezes sobre uma instalação limpa: o contrato nasce sem data de
+     * admissão e a app fica no ecrã de primeiro arranque, sem separadores.
+     * Só nesse caso (dataAdmissao == null) se marca o contrato como configurado —
+     * numa BD real, já configurada, isto não toca em nada.
+     */
+    private fun garantirContratoConfigurado() {
+        val dao = app.database.contratoDao()
+        val contrato = runBlocking { dao.observar().first() } ?: return
+        if (contrato.dataAdmissao != null && contrato.primeiroArranqueConcluido) return
+
+        runBlocking {
+            dao.guardar(
+                contrato.copy(
+                    dataAdmissao = contrato.dataAdmissao ?: LocalDate.of(2020, 1, 1).toEpochDay(),
+                    primeiroArranqueConcluido = true
+                )
+            )
+        }
+    }
+
     @Before
     fun prepararSemestreDeTeste() {
+        garantirContratoConfigurado()
+
         // Nunca apagar dados do utilizador: se o semestre ou os dias de teste já
         // tiverem registos, o teste é ignorado (skipped) em vez de os destruir.
         val jaExistem = runBlocking {
@@ -104,6 +129,7 @@ class FecharSemestreTest {
     @Test
     fun fecharSemestre_2S2025_gravaCicloEMostraEstadoFechado() {
         // Horário -> Conferência
+        esperarPorTexto("Horário")
         composeTestRule.onNodeWithText("Horário").performClick()
         esperarPorTexto("Conferência")
         composeTestRule.onNodeWithText("Conferência").performClick()

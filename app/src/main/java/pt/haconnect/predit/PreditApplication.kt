@@ -8,13 +8,23 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import pt.haconnect.predit.data.local.ContratoUtilizadorEntity
+import pt.haconnect.predit.data.local.ParametrosCCTEntity
 import pt.haconnect.predit.data.local.PreditDatabase
+import pt.haconnect.predit.data.local.RubricaEntity
+import pt.haconnect.predit.data.local.TipoCalculo
 import pt.haconnect.predit.data.local.TipoTurnoEntity
+import pt.haconnect.predit.data.local.TABELAS_IRS_2026
 import pt.haconnect.predit.data.repository.CicloJornadaRepository
 import pt.haconnect.predit.data.repository.PlanejamentoMesRepository
 import pt.haconnect.predit.domain.model.CategoriaTurno
+import java.time.LocalDate
 
 class PreditApplication : Application() {
+
+    companion object {
+        /** Ano das tabelas de retenção carregadas. */
+        const val ANO_IRS = 2026
+    }
 
     lateinit var database: PreditDatabase
         private set
@@ -41,7 +51,9 @@ class PreditApplication : Application() {
             PreditDatabase.MIGRATION_5_6,
             PreditDatabase.MIGRATION_6_7,
             PreditDatabase.MIGRATION_7_8,
-            PreditDatabase.MIGRATION_8_9
+            PreditDatabase.MIGRATION_8_9,
+            PreditDatabase.MIGRATION_9_10,
+            PreditDatabase.MIGRATION_10_11
         )
         .addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
@@ -55,6 +67,9 @@ class PreditApplication : Application() {
                 super.onOpen(db)
                 CoroutineScope(Dispatchers.IO).launch {
                     garantirContratoInicial()
+                    garantirParametrosCCT()
+                    garantirRubricas()
+                    garantirTabelasIRS()
                 }
             }
         }).build()
@@ -77,6 +92,85 @@ class PreditApplication : Application() {
                 )
             )
         }
+    }
+
+    /**
+     * Parâmetros do CCT, versionados por vigência. Idempotente: só escreve se a tabela
+     * estiver vazia. Unidade: 1/10000 € (ver domain/model/Dinheiro.kt).
+     */
+    private suspend fun garantirParametrosCCT() {
+        val dao = database.parametrosCCTDao()
+        if (dao.contar() != 0) return
+        dao.inserir(
+            ParametrosCCTEntity(
+                validoDe = LocalDate.of(2025, 1, 1).toEpochDay(),
+                vencimentoBaseMil = 10_760_000,   // 1 076,00 €
+                subAlimentacaoDiaMil = 74_200,    // 7,42 €/dia
+                subTransporteMesMil = 492_500,    // 49,25 €/mês
+                horarioSemanalReferencia = 40
+            )
+        )
+        dao.inserir(
+            ParametrosCCTEntity(
+                validoDe = LocalDate.of(2026, 1, 1).toEpochDay(),
+                vencimentoBaseMil = 11_379_800,   // 1 137,98 €
+                subAlimentacaoDiaMil = 78_500,    // 7,85 €/dia
+                subTransporteMesMil = 520_900,    // 52,09 €/mês
+                horarioSemanalReferencia = 40
+            )
+        )
+    }
+
+    /**
+     * Catálogo de rubricas do recibo. Idempotente. As 12 primeiras e os três descontos
+     * derivados entram ligados à conferência; as restantes ficam na BD mas fora dela por
+     * omissão (ligam-se na 8.3).
+     * Argumentos por ordem: id (0 = autoGenerate), codigo, nome, incideSS, incideIRS,
+     * incideSindicato, tipoCalculo, ativaConferencia, ordem.
+     *
+     * A inserção é feita por código individual: um catálogo que já exista recebe as
+     * rubricas que faltarem (as três de desconto, da Fase 8.2b) sem as duplicar.
+     */
+    private suspend fun garantirRubricas() {
+        val dao = database.rubricaDao()
+        val iniciais = listOf(
+            RubricaEntity(0L, "VENC", "Vencimento", true, true, true, TipoCalculo.FIXO, true, 1),
+            RubricaEntity(0L, "HNOT", "Horas noturnas", true, true, true, TipoCalculo.HORAS, true, 2),
+            RubricaEntity(0L, "HSUP_DN", "Sup. diurno dia normal", true, true, true, TipoCalculo.HORAS, true, 3),
+            RubricaEntity(0L, "HSUP_NT", "Sup. noturno dia normal", true, true, true, TipoCalculo.HORAS, true, 4),
+            RubricaEntity(0L, "HSUP_DN_FER", "Sup. diurno feriado", true, true, true, TipoCalculo.HORAS, true, 5),
+            RubricaEntity(0L, "HSUP_NT_FER", "Sup. noturno feriado", true, true, true, TipoCalculo.HORAS, true, 6),
+            RubricaEntity(0L, "HSUP_DN_DESC", "Sup. diurno descanso", true, true, true, TipoCalculo.HORAS, true, 7),
+            RubricaEntity(0L, "HSUP_NT_DESC", "Sup. noturno descanso", true, true, true, TipoCalculo.HORAS, true, 8),
+            RubricaEntity(0L, "SUP_ALIM", "Sub. alimentação", false, false, false, TipoCalculo.FIXO, true, 9),
+            RubricaEntity(0L, "SUP_TRAN", "Sub. transporte", true, true, false, TipoCalculo.FIXO, true, 10),
+            RubricaEntity(0L, "DESC_FER", "Dia feriado trabalhado", true, true, true, TipoCalculo.HORAS, true, 11),
+            RubricaEntity(0L, "DESC_DESC", "Dia descanso trabalhado", true, true, true, TipoCalculo.HORAS, true, 12),
+            RubricaEntity(0L, "ACR_NOT_FER", "Acrésc. noite feriado", true, true, true, TipoCalculo.HORAS, false, 13),
+            RubricaEntity(0L, "ACR_NOT_DESC", "Acrésc. noite descanso", true, true, true, TipoCalculo.HORAS, false, 14),
+            RubricaEntity(0L, "FERIAS", "Subsídio de férias", true, false, false, TipoCalculo.FIXO, false, 15),
+            RubricaEntity(0L, "NATAL", "Subsídio de Natal", true, false, false, TipoCalculo.FIXO, false, 16),
+            // Descontos derivados: calculados sobre as bases de incidência (Fase 8.2b.1).
+            // Não incidem sobre si mesmas — são descontos, não matéria colectável.
+            RubricaEntity(0L, "D01", "Segurança Social (11%)", false, false, false, TipoCalculo.DERIVADO, true, 20),
+            RubricaEntity(0L, "D02", "IRS", false, false, false, TipoCalculo.DERIVADO, true, 21),
+            RubricaEntity(0L, "D04", "Sindicato (1%)", false, false, false, TipoCalculo.DERIVADO, true, 22),
+            RubricaEntity(0L, "OUTROS", "Outros", true, true, true, TipoCalculo.MANUAL, false, 99)
+        )
+        iniciais.forEach { rubrica ->
+            if (dao.contarPorCodigo(rubrica.codigo) == 0) dao.inserir(rubrica)
+        }
+    }
+
+    /**
+     * Tabelas de retenção na fonte de 2026 (3 regiões × 11 tabelas). Idempotente.
+     * Os dados estão em TabelasIRSIniciais.kt, gerados dos XLSX oficiais
+     * (tools/extrair-tabelas-irs.py) — não se escrevem à mão.
+     */
+    private suspend fun garantirTabelasIRS() {
+        val dao = database.tabelaIRSDao()
+        if (dao.contarPorAno(ANO_IRS) != 0) return
+        dao.inserirTodas(TABELAS_IRS_2026)
     }
 
     private suspend fun preencherDadosIniciais() {

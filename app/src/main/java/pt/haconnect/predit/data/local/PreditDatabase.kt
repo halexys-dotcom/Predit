@@ -16,9 +16,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ContratoUtilizadorEntity::class,
         DiaRealEntity::class,
         PlanejamentoMesEntity::class,
-        CicloJornadaEntity::class
+        CicloJornadaEntity::class,
+        ParametrosCCTEntity::class,
+        RubricaEntity::class,
+        TabelaIRSEntity::class
     ],
-    version = 9,
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(Conversores::class)
@@ -30,6 +33,9 @@ abstract class PreditDatabase : RoomDatabase() {
     abstract fun diaRealDao(): DiaRealDao
     abstract fun planejamentoMesDao(): PlanejamentoMesDao
     abstract fun cicloJornadaDao(): CicloJornadaDao
+    abstract fun parametrosCCTDao(): ParametrosCCTDao
+    abstract fun rubricaDao(): RubricaDao
+    abstract fun tabelaIRSDao(): TabelaIRSDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -86,6 +92,20 @@ abstract class PreditDatabase : RoomDatabase() {
         val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `ciclo_jornada` (`id` TEXT NOT NULL, `inicio` INTEGER NOT NULL, `fim` INTEGER NOT NULL, `realTotalMinutos` INTEGER NOT NULL, `extrasPagosMinutos` INTEGER NOT NULL, `saldoFinalMinutos` INTEGER NOT NULL, `dataFecho` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `parametros_cct` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `validoDe` INTEGER NOT NULL, `vencimentoBaseMil` INTEGER NOT NULL, `subAlimentacaoDiaMil` INTEGER NOT NULL, `subTransporteMesMil` INTEGER NOT NULL, `horarioSemanalReferencia` INTEGER NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `rubrica` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `codigo` TEXT NOT NULL, `nome` TEXT NOT NULL, `incideSS` INTEGER NOT NULL, `incideIRS` INTEGER NOT NULL, `incideSindicato` INTEGER NOT NULL, `tipoCalculo` TEXT NOT NULL, `ativaConferencia` INTEGER NOT NULL, `ordem` INTEGER NOT NULL)")
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `contrato_utilizador` ADD COLUMN `regiao` TEXT NOT NULL DEFAULT 'CONTINENTE'")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `tabela_irs` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `ano` INTEGER NOT NULL, `regiao` TEXT NOT NULL, `categoria` TEXT NOT NULL, `tabelaNumero` INTEGER NOT NULL, `ordemEscalao` INTEGER NOT NULL, `limiteAte` INTEGER NOT NULL, `taxaBasisPoints` INTEGER NOT NULL, `parcelaAbater` INTEGER NOT NULL, `parcelaAdicionalDep` INTEGER NOT NULL, `formulaComposta` INTEGER NOT NULL)")
             }
         }
     }

@@ -1,0 +1,2796 @@
+[
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 1,
+  "perfil": "Não casado sem dependentes ou casado 2 titulares",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9200000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10420000,
+    "taxaBasisPoints": 12500,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 11080000,
+    "taxaBasisPoints": 15700,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 11540000,
+    "taxaBasisPoints": 15700,
+    "parcelaAbater": 947100,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 12120000,
+    "taxaBasisPoints": 21200,
+    "parcelaAbater": 1581800,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 18190000,
+    "taxaBasisPoints": 24100,
+    "parcelaAbater": 1933300,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 21190000,
+    "taxaBasisPoints": 31100,
+    "parcelaAbater": 3206600,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 24990000,
+    "taxaBasisPoints": 34900,
+    "parcelaAbater": 4011900,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 33050000,
+    "taxaBasisPoints": 38360,
+    "parcelaAbater": 4876600,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 55470000,
+    "taxaBasisPoints": 39690,
+    "parcelaAbater": 5316200,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 202210000,
+    "taxaBasisPoints": 44950,
+    "parcelaAbater": 8234000,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 47170,
+    "parcelaAbater": 12723100,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 2,
+  "perfil": "Não casado com um ou mais dependentes",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9200000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10420000,
+    "taxaBasisPoints": 12500,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 11080000,
+    "taxaBasisPoints": 15700,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 11540000,
+    "taxaBasisPoints": 15700,
+    "parcelaAbater": 947100,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 12120000,
+    "taxaBasisPoints": 21200,
+    "parcelaAbater": 1581800,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 18190000,
+    "taxaBasisPoints": 24100,
+    "parcelaAbater": 1933300,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 21190000,
+    "taxaBasisPoints": 31100,
+    "parcelaAbater": 3206600,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 24990000,
+    "taxaBasisPoints": 34900,
+    "parcelaAbater": 4011900,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 33050000,
+    "taxaBasisPoints": 38360,
+    "parcelaAbater": 4876600,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 55470000,
+    "taxaBasisPoints": 39690,
+    "parcelaAbater": 5316200,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 202210000,
+    "taxaBasisPoints": 44950,
+    "parcelaAbater": 8234000,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 47170,
+    "parcelaAbater": 12723100,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 3,
+  "perfil": "Casado, único titular",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9910000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10420000,
+    "taxaBasisPoints": 12500,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 11080000,
+    "taxaBasisPoints": 12500,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 11190000,
+    "taxaBasisPoints": 12500,
+    "parcelaAbater": 961700,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 14320000,
+    "taxaBasisPoints": 12720,
+    "parcelaAbater": 986400,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 19620000,
+    "taxaBasisPoints": 15700,
+    "parcelaAbater": 1413200,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 22400000,
+    "taxaBasisPoints": 19380,
+    "parcelaAbater": 2135300,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 27730000,
+    "taxaBasisPoints": 22770,
+    "parcelaAbater": 2894700,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 33890000,
+    "taxaBasisPoints": 25700,
+    "parcelaAbater": 3707200,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 59650000,
+    "taxaBasisPoints": 28810,
+    "parcelaAbater": 4761200,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 202650000,
+    "taxaBasisPoints": 38430,
+    "parcelaAbater": 10499600,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 47170,
+    "parcelaAbater": 28211300,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 4,
+  "perfil": "Não casado ou casado dois titulares sem dependentes - Pessoa com deficiência",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 16940000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 20630000,
+    "taxaBasisPoints": 21200,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 24920000,
+    "taxaBasisPoints": 31100,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 44870000,
+    "taxaBasisPoints": 34900,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 47530000,
+    "taxaBasisPoints": 38360,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 66870000,
+    "taxaBasisPoints": 39690,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 204680000,
+    "taxaBasisPoints": 44950,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 47170,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 5,
+  "perfil": "Não casado com um ou mais dependentes - Pessoa com deficiência",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 19380000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 20630000,
+    "taxaBasisPoints": 21320,
+    "parcelaAbater": 4131900,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 28540000,
+    "taxaBasisPoints": 31100,
+    "parcelaAbater": 6149600,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 45040000,
+    "taxaBasisPoints": 34900,
+    "parcelaAbater": 7234200,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 68260000,
+    "taxaBasisPoints": 38360,
+    "parcelaAbater": 8792600,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 70480000,
+    "taxaBasisPoints": 39690,
+    "parcelaAbater": 9700500,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 204680000,
+    "taxaBasisPoints": 44950,
+    "parcelaAbater": 13407800,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 47170,
+    "parcelaAbater": 17951700,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 6,
+  "perfil": "Casado dois titulares com um ou mais dependentes - Pessoa com deficiência",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 16680000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 20680000,
+    "taxaBasisPoints": 20490,
+    "parcelaAbater": 3417800,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 24970000,
+    "taxaBasisPoints": 24100,
+    "parcelaAbater": 4164400,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 31070000,
+    "taxaBasisPoints": 31100,
+    "parcelaAbater": 5912300,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 45040000,
+    "taxaBasisPoints": 34900,
+    "parcelaAbater": 7093000,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 68260000,
+    "taxaBasisPoints": 38360,
+    "parcelaAbater": 8651400,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 70480000,
+    "taxaBasisPoints": 39690,
+    "parcelaAbater": 9559300,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 204680000,
+    "taxaBasisPoints": 44950,
+    "parcelaAbater": 13266600,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 47170,
+    "parcelaAbater": 17810500,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 7,
+  "perfil": "Casado, único titular - Pessoa com deficiência",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 23250000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 34940000,
+    "taxaBasisPoints": 22770,
+    "parcelaAbater": 5294100,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 37610000,
+    "taxaBasisPoints": 25700,
+    "parcelaAbater": 6317900,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 66870000,
+    "taxaBasisPoints": 28810,
+    "parcelaAbater": 7487600,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 204680000,
+    "taxaBasisPoints": 42440,
+    "parcelaAbater": 16602000,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 47170,
+    "parcelaAbater": 26283400,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "PENSOES",
+  "tabelaNumero": 8,
+  "perfil": "Não casado ou casado dois titulares",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9200000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10420000,
+    "taxaBasisPoints": 12500,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 11000000,
+    "taxaBasisPoints": 15700,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 11330000,
+    "taxaBasisPoints": 15700,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 12390000,
+    "taxaBasisPoints": 21200,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 18690000,
+    "taxaBasisPoints": 24100,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 21140000,
+    "taxaBasisPoints": 31100,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 23610000,
+    "taxaBasisPoints": 34900,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 34620000,
+    "taxaBasisPoints": 43100,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 58330000,
+    "taxaBasisPoints": 44600,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 183320000,
+    "taxaBasisPoints": 50500,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 53000,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "PENSOES",
+  "tabelaNumero": 9,
+  "perfil": "Casado, único titular",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9200000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10420000,
+    "taxaBasisPoints": 12500,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 11000000,
+    "taxaBasisPoints": 12500,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 11700000,
+    "taxaBasisPoints": 12500,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 15260000,
+    "taxaBasisPoints": 15900,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 18840000,
+    "taxaBasisPoints": 19280,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 23140000,
+    "taxaBasisPoints": 21770,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 32450000,
+    "taxaBasisPoints": 27920,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 34800000,
+    "taxaBasisPoints": 32330,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 60850000,
+    "taxaBasisPoints": 32370,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 183500000,
+    "taxaBasisPoints": 42930,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 53000,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "PENSOES",
+  "tabelaNumero": 10,
+  "perfil": "Não casado ou casado dois titulares - Pessoa com deficiência",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 18160000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 20630000,
+    "taxaBasisPoints": 24100,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 24920000,
+    "taxaBasisPoints": 31100,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 32800000,
+    "taxaBasisPoints": 34900,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 45980000,
+    "taxaBasisPoints": 43100,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 66270000,
+    "taxaBasisPoints": 44600,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 185290000,
+    "taxaBasisPoints": 50500,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 53000,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "CONTINENTE",
+  "categoria": "PENSOES",
+  "tabelaNumero": 11,
+  "perfil": "Casado, único titular - Pessoa com deficiência",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 22570000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 27820000,
+    "taxaBasisPoints": 18220,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 33590000,
+    "taxaBasisPoints": 23730,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 40740000,
+    "taxaBasisPoints": 30170,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 62660000,
+    "taxaBasisPoints": 36370,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 181690000,
+    "taxaBasisPoints": 46970,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 53000,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 1,
+  "perfil": "Não casado sem dependentes ou casado dois titulares",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9660000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10420000,
+    "taxaBasisPoints": 8750,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 11080000,
+    "taxaBasisPoints": 10990,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 11540000,
+    "taxaBasisPoints": 10990,
+    "parcelaAbater": 807900,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 12120000,
+    "taxaBasisPoints": 14840,
+    "parcelaAbater": 1252200,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 18190000,
+    "taxaBasisPoints": 16870,
+    "parcelaAbater": 1498300,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 21190000,
+    "taxaBasisPoints": 21770,
+    "parcelaAbater": 2389700,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 24990000,
+    "taxaBasisPoints": 24430,
+    "parcelaAbater": 2953400,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 33050000,
+    "taxaBasisPoints": 26850,
+    "parcelaAbater": 3558200,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 55470000,
+    "taxaBasisPoints": 27790,
+    "parcelaAbater": 3868900,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 202210000,
+    "taxaBasisPoints": 31460,
+    "parcelaAbater": 5904700,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 33020,
+    "parcelaAbater": 9059200,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 2,
+  "perfil": "Não casado com um ou mais dependentes",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9660000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10420000,
+    "taxaBasisPoints": 8750,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 11080000,
+    "taxaBasisPoints": 10990,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 11540000,
+    "taxaBasisPoints": 10990,
+    "parcelaAbater": 807900,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 12120000,
+    "taxaBasisPoints": 14840,
+    "parcelaAbater": 1252200,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 18190000,
+    "taxaBasisPoints": 16870,
+    "parcelaAbater": 1498300,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 21190000,
+    "taxaBasisPoints": 21770,
+    "parcelaAbater": 2389700,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 24990000,
+    "taxaBasisPoints": 24430,
+    "parcelaAbater": 2953400,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 33050000,
+    "taxaBasisPoints": 26850,
+    "parcelaAbater": 3558200,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 55470000,
+    "taxaBasisPoints": 27790,
+    "parcelaAbater": 3868900,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 202210000,
+    "taxaBasisPoints": 31460,
+    "parcelaAbater": 5904700,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 33020,
+    "parcelaAbater": 9059200,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 3,
+  "perfil": "Casado, único titular",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 12260000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 12670000,
+    "taxaBasisPoints": 7280,
+    "parcelaAbater": 892600,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 16020000,
+    "taxaBasisPoints": 9640,
+    "parcelaAbater": 1191700,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 19620000,
+    "taxaBasisPoints": 10990,
+    "parcelaAbater": 1408000,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 22400000,
+    "taxaBasisPoints": 13570,
+    "parcelaAbater": 1914200,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 29000000,
+    "taxaBasisPoints": 15940,
+    "parcelaAbater": 2445100,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 33890000,
+    "taxaBasisPoints": 17990,
+    "parcelaAbater": 3039600,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 59650000,
+    "taxaBasisPoints": 20170,
+    "parcelaAbater": 3778500,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 202650000,
+    "taxaBasisPoints": 27100,
+    "parcelaAbater": 7912300,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 33020,
+    "parcelaAbater": 19909200,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 4,
+  "perfil": "Não casado ou casado dois titulares sem dependentes - Pessoa com deficiência",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 21190000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 24920000,
+    "taxaBasisPoints": 21770,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 27480000,
+    "taxaBasisPoints": 24430,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 30120000,
+    "taxaBasisPoints": 26850,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 48830000,
+    "taxaBasisPoints": 27790,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 204680000,
+    "taxaBasisPoints": 31020,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32550,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 5,
+  "perfil": "Não casado com um ou mais dependentes - Pessoa com deficiência",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 23390000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 24880000,
+    "taxaBasisPoints": 21770,
+    "parcelaAbater": 5116400,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 34790000,
+    "taxaBasisPoints": 24430,
+    "parcelaAbater": 5778300,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 37280000,
+    "taxaBasisPoints": 26850,
+    "parcelaAbater": 6620300,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 66870000,
+    "taxaBasisPoints": 27790,
+    "parcelaAbater": 6970800,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 204680000,
+    "taxaBasisPoints": 31020,
+    "parcelaAbater": 9130800,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32550,
+    "parcelaAbater": 12262500,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 6,
+  "perfil": "Casado dois titulares com um ou mais dependentes - Pessoa com deficiência",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 21430000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 27900000,
+    "taxaBasisPoints": 16870,
+    "parcelaAbater": 3636700,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 32150000,
+    "taxaBasisPoints": 21770,
+    "parcelaAbater": 5003800,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 34790000,
+    "taxaBasisPoints": 24430,
+    "parcelaAbater": 5859000,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 59150000,
+    "taxaBasisPoints": 26850,
+    "parcelaAbater": 6701000,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 66870000,
+    "taxaBasisPoints": 27790,
+    "parcelaAbater": 7257100,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 204680000,
+    "taxaBasisPoints": 31020,
+    "parcelaAbater": 9417100,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32550,
+    "parcelaAbater": 12548800,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 7,
+  "perfil": "Casado, único titular - Pessoa com deficiência",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 28970000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 45030000,
+    "taxaBasisPoints": 15940,
+    "parcelaAbater": 4617900,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 68180000,
+    "taxaBasisPoints": 17990,
+    "parcelaAbater": 5541100,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 69160000,
+    "taxaBasisPoints": 20170,
+    "parcelaAbater": 7027500,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 204680000,
+    "taxaBasisPoints": 29260,
+    "parcelaAbater": 13314200,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32550,
+    "parcelaAbater": 20048200,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "PENSOES",
+  "tabelaNumero": 8,
+  "perfil": "Não casado ou casado dois titulares",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9660000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10420000,
+    "taxaBasisPoints": 8750,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 11000000,
+    "taxaBasisPoints": 10990,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 11330000,
+    "taxaBasisPoints": 11970,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 12390000,
+    "taxaBasisPoints": 14840,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 18690000,
+    "taxaBasisPoints": 17860,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 21140000,
+    "taxaBasisPoints": 22270,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 23610000,
+    "taxaBasisPoints": 24430,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 34620000,
+    "taxaBasisPoints": 28280,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 58330000,
+    "taxaBasisPoints": 29250,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 183320000,
+    "taxaBasisPoints": 32830,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 34450,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "PENSOES",
+  "tabelaNumero": 9,
+  "perfil": "Casado, único titular",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 10550000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 11000000,
+    "taxaBasisPoints": 8750,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 11590000,
+    "taxaBasisPoints": 8750,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 15110000,
+    "taxaBasisPoints": 11130,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 18660000,
+    "taxaBasisPoints": 13490,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 22910000,
+    "taxaBasisPoints": 15240,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 32120000,
+    "taxaBasisPoints": 19540,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 34450000,
+    "taxaBasisPoints": 22630,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 60250000,
+    "taxaBasisPoints": 22660,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 181680000,
+    "taxaBasisPoints": 30450,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 34450,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "PENSOES",
+  "tabelaNumero": 10,
+  "perfil": "Não casado ou casado dois titulares - Pessoa com deficiência",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 22020000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 24920000,
+    "taxaBasisPoints": 21770,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 32800000,
+    "taxaBasisPoints": 24430,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 45980000,
+    "taxaBasisPoints": 30170,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 66270000,
+    "taxaBasisPoints": 31220,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 185290000,
+    "taxaBasisPoints": 34850,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 36570,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "ACORES",
+  "categoria": "PENSOES",
+  "tabelaNumero": 11,
+  "perfil": "Casado, único titular - Pessoa com deficiência",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 28210000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 32930000,
+    "taxaBasisPoints": 16610,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 39940000,
+    "taxaBasisPoints": 21120,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 62660000,
+    "taxaBasisPoints": 25460,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 181690000,
+    "taxaBasisPoints": 32880,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 37100,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 1,
+  "perfil": "Não casado sem dependentes ou casado 2 titulares",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9800000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10280000,
+    "taxaBasisPoints": 8720,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 10990000,
+    "taxaBasisPoints": 12040,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 12010000,
+    "taxaBasisPoints": 12040,
+    "parcelaAbater": 971700,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 16230000,
+    "taxaBasisPoints": 17630,
+    "parcelaAbater": 1643100,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 23320000,
+    "taxaBasisPoints": 22300,
+    "parcelaAbater": 2401100,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 32030000,
+    "taxaBasisPoints": 22420,
+    "parcelaAbater": 2429100,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 36140000,
+    "taxaBasisPoints": 27270,
+    "parcelaAbater": 3982600,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 65850000,
+    "taxaBasisPoints": 27780,
+    "parcelaAbater": 4167000,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 69540000,
+    "taxaBasisPoints": 28020,
+    "parcelaAbater": 4325100,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 214110000,
+    "taxaBasisPoints": 29240,
+    "parcelaAbater": 5173500,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32780,
+    "parcelaAbater": 12753000,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 2,
+  "perfil": "Não casado com um ou mais dependentes",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9800000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10280000,
+    "taxaBasisPoints": 8720,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 10990000,
+    "taxaBasisPoints": 12040,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 12010000,
+    "taxaBasisPoints": 12040,
+    "parcelaAbater": 971700,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 16230000,
+    "taxaBasisPoints": 17630,
+    "parcelaAbater": 1643100,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 23320000,
+    "taxaBasisPoints": 22300,
+    "parcelaAbater": 2401100,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 32030000,
+    "taxaBasisPoints": 22420,
+    "parcelaAbater": 2429100,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 36140000,
+    "taxaBasisPoints": 27270,
+    "parcelaAbater": 3982600,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 65850000,
+    "taxaBasisPoints": 27780,
+    "parcelaAbater": 4167000,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 69540000,
+    "taxaBasisPoints": 28020,
+    "parcelaAbater": 4325100,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 214110000,
+    "taxaBasisPoints": 29240,
+    "parcelaAbater": 5173500,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32780,
+    "parcelaAbater": 12753000,
+    "parcelaAdicionalDep": 342900,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 3,
+  "perfil": "Casado, único titular",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9970000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10990000,
+    "taxaBasisPoints": 8720,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 11410000,
+    "taxaBasisPoints": 8720,
+    "parcelaAbater": 848400,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 18570000,
+    "taxaBasisPoints": 10330,
+    "parcelaAbater": 1032200,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 24850000,
+    "taxaBasisPoints": 10910,
+    "parcelaAbater": 1140000,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 33310000,
+    "taxaBasisPoints": 12360,
+    "parcelaAbater": 1500400,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 38950000,
+    "taxaBasisPoints": 14040,
+    "parcelaAbater": 2060100,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 66730000,
+    "taxaBasisPoints": 15950,
+    "parcelaAbater": 2804100,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 68780000,
+    "taxaBasisPoints": 22130,
+    "parcelaAbater": 6928100,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 214110000,
+    "taxaBasisPoints": 24930,
+    "parcelaAbater": 8854000,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32780,
+    "parcelaAbater": 25661700,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 4,
+  "perfil": "Não casado ou casado dois titulares sem dependentes - Pessoa com deficiência",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 20530000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 25910000,
+    "taxaBasisPoints": 14900,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 36220000,
+    "taxaBasisPoints": 18630,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 46680000,
+    "taxaBasisPoints": 22890,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 70660000,
+    "taxaBasisPoints": 26160,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 71680000,
+    "taxaBasisPoints": 27520,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 216250000,
+    "taxaBasisPoints": 30580,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32780,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 5,
+  "perfil": "Não casado com um ou mais dependentes - Pessoa com deficiência",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 23450000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 25910000,
+    "taxaBasisPoints": 13820,
+    "parcelaAbater": 3240800,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 36220000,
+    "taxaBasisPoints": 18630,
+    "parcelaAbater": 4487100,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 46680000,
+    "taxaBasisPoints": 22890,
+    "parcelaAbater": 6030100,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 70660000,
+    "taxaBasisPoints": 26160,
+    "parcelaAbater": 7556600,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 71680000,
+    "taxaBasisPoints": 27520,
+    "parcelaAbater": 8517600,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 216250000,
+    "taxaBasisPoints": 30580,
+    "parcelaAbater": 10711100,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32780,
+    "parcelaAbater": 15468600,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 6,
+  "perfil": "Casado dois titulares com um ou mais dependentes - Pessoa com deficiência",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 20190000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 25280000,
+    "taxaBasisPoints": 15660,
+    "parcelaAbater": 3161800,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 30490000,
+    "taxaBasisPoints": 17680,
+    "parcelaAbater": 3672500,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 42720000,
+    "taxaBasisPoints": 17810,
+    "parcelaAbater": 3712200,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 57340000,
+    "taxaBasisPoints": 22800,
+    "parcelaAbater": 5844000,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 70660000,
+    "taxaBasisPoints": 25950,
+    "parcelaAbater": 7650300,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 75500000,
+    "taxaBasisPoints": 27520,
+    "parcelaAbater": 8759700,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 216250000,
+    "taxaBasisPoints": 30580,
+    "parcelaAbater": 11070000,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32780,
+    "parcelaAbater": 15827500,
+    "parcelaAdicionalDep": 214300,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "TRABALHO",
+  "tabelaNumero": 7,
+  "perfil": "Casado, único titular - Pessoa com deficiência",
+  "colParcela": 5,
+  "colAdicional": 11,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 30610000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 46680000,
+    "taxaBasisPoints": 8830,
+    "parcelaAbater": 2702900,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 70660000,
+    "taxaBasisPoints": 13340,
+    "parcelaAbater": 4808200,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 71680000,
+    "taxaBasisPoints": 25030,
+    "parcelaAbater": 13068400,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 216250000,
+    "taxaBasisPoints": 28100,
+    "parcelaAbater": 15269000,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 32780,
+    "parcelaAbater": 25389500,
+    "parcelaAdicionalDep": 428600,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "PENSOES",
+  "tabelaNumero": 8,
+  "perfil": "Não casado ou casado dois titulares",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 9800000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10280000,
+    "taxaBasisPoints": 8720,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 10990000,
+    "taxaBasisPoints": 12040,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 12180000,
+    "taxaBasisPoints": 13040,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 18430000,
+    "taxaBasisPoints": 20610,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 22480000,
+    "taxaBasisPoints": 23300,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 24500000,
+    "taxaBasisPoints": 25790,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 33620000,
+    "taxaBasisPoints": 31720,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 49040000,
+    "taxaBasisPoints": 32600,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 57580000,
+    "taxaBasisPoints": 34130,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 193270000,
+    "taxaBasisPoints": 36180,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 11,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 38550,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "PENSOES",
+  "tabelaNumero": 9,
+  "perfil": "Casado, único titular",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 10280000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 10990000,
+    "taxaBasisPoints": 8720,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": true
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 12180000,
+    "taxaBasisPoints": 8720,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 18040000,
+    "taxaBasisPoints": 13060,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 21720000,
+    "taxaBasisPoints": 17710,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 29840000,
+    "taxaBasisPoints": 20230,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 39140000,
+    "taxaBasisPoints": 22780,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 41420000,
+    "taxaBasisPoints": 23490,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 8,
+    "limiteAte": 46160000,
+    "taxaBasisPoints": 28080,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 9,
+    "limiteAte": 193270000,
+    "taxaBasisPoints": 29930,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 10,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 38550,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "PENSOES",
+  "tabelaNumero": 10,
+  "perfil": "Não casado ou casado dois titulares - Pessoa com deficiência",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 21970000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 23620000,
+    "taxaBasisPoints": 22300,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 31730000,
+    "taxaBasisPoints": 25460,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 41040000,
+    "taxaBasisPoints": 29770,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 54760000,
+    "taxaBasisPoints": 31220,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 59500000,
+    "taxaBasisPoints": 34130,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 195170000,
+    "taxaBasisPoints": 36160,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 7,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 38550,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ },
+ {
+  "regiao": "MADEIRA",
+  "categoria": "PENSOES",
+  "tabelaNumero": 11,
+  "perfil": "Casado, único titular - Pessoa com deficiência",
+  "colParcela": null,
+  "colAdicional": null,
+  "escaloes": [
+   {
+    "ordemEscalao": 0,
+    "limiteAte": 29180000,
+    "taxaBasisPoints": 0,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 1,
+    "limiteAte": 38440000,
+    "taxaBasisPoints": 10040,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 2,
+    "limiteAte": 44090000,
+    "taxaBasisPoints": 14490,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 3,
+    "limiteAte": 58580000,
+    "taxaBasisPoints": 18130,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 4,
+    "limiteAte": 59500000,
+    "taxaBasisPoints": 25540,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 5,
+    "limiteAte": 191960000,
+    "taxaBasisPoints": 32650,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   },
+   {
+    "ordemEscalao": 6,
+    "limiteAte": 9223372036854775807,
+    "taxaBasisPoints": 38550,
+    "parcelaAbater": 0,
+    "parcelaAdicionalDep": 0,
+    "formulaComposta": false
+   }
+  ]
+ }
+]

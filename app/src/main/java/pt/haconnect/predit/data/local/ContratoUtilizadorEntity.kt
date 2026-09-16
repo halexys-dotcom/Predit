@@ -1,5 +1,6 @@
 package pt.haconnect.predit.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -13,5 +14,9 @@ data class ContratoUtilizadorEntity(
     val numeroDependentes: Int,
     val estadoCivil: String,
     val titulares: Int,
-    val primeiroArranqueConcluido: Boolean = false
+    val primeiroArranqueConcluido: Boolean = false,
+    // Região fiscal, para escolher as tabelas de retenção. Guardada como texto.
+    // O defaultValue é obrigatório: a coluna é adicionada por ALTER TABLE com DEFAULT.
+    @ColumnInfo(defaultValue = "CONTINENTE")
+    val regiao: String = "CONTINENTE"     // CONTINENTE | ACORES | MADEIRA
 )

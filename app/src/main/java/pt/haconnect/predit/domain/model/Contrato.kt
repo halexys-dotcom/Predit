@@ -1,5 +1,7 @@
 package pt.haconnect.predit.domain.model
 
+import pt.haconnect.predit.domain.calc.RegiaoIRS
+
 enum class RegimeHorario {
     NORMAL,
     ADAPTABILIDADE
@@ -21,5 +23,8 @@ data class ContratoUtilizador(
     val numeroDependentes: Int = 0,
     val estadoCivil: EstadoCivil = EstadoCivil.SOLTEIRO,
     val titulares: Int = 1,
-    val primeiroArranqueConcluido: Boolean = false
+    val primeiroArranqueConcluido: Boolean = false,
+    // Região fiscal — decide as tabelas de retenção de IRS (domain/calc/CalculoIRS.kt).
+    // Não nulo: a coluna na BD é TEXT NOT NULL DEFAULT 'CONTINENTE'.
+    val regiao: RegiaoIRS = RegiaoIRS.CONTINENTE
 )
