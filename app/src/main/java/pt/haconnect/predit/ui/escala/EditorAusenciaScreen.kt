@@ -31,6 +31,7 @@ import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.AplicacaoVigente
 import pt.haconnect.predit.domain.calc.diasConsumidos
+import pt.haconnect.predit.domain.calc.feriadosNacionais
 import pt.haconnect.predit.domain.calc.posicaoNoCiclo
 import pt.haconnect.predit.domain.calc.projetarDia
 import pt.haconnect.predit.domain.model.Ausencia
@@ -301,7 +302,14 @@ fun EditorAusenciaScreen(
                     res
                 }
 
-                val feriados = remember { emptySet<Long>() }
+                // Feriado não gasta direito de férias (diasConsumidos exclui-os), por isso o
+                // contador não pode somá-los. O intervalo pode atravessar o fim do ano: a união
+                // cobre todos os anos que ele abrange — na prática um, às vezes dois.
+                val feriados = remember(inicioLocal, fimLocal) {
+                    (inicioLocal.year..fimLocal.year)
+                        .flatMap { ano -> feriadosNacionais(ano) }
+                        .toSet()
+                }
                 val inicioEpoch = inicioLocal.toEpochDay()
                 val fimEpoch = fimLocal.toEpochDay()
 
