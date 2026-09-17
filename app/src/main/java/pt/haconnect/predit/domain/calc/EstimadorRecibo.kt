@@ -70,6 +70,7 @@ data class ContextoEstimativa(
 private val CODIGOS_ESTIMADOS = setOf(
     "VENC", "SUP_ALIM", "SUP_TRAN", "HNOT",
     "HSUP_DN", "HSUP_NT", "HSUP_DN_FER", "HSUP_NT_FER", "HSUP_DN_DESC", "HSUP_NT_DESC",
+    "DESC_FER", "DESC_DESC",
     "D01", "D02", "D04"
 )
 
@@ -173,6 +174,28 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         }
     }
 
+    // Feriado e folga de escala trabalhados (8.5): a jornada de um desses dias vale 100% em
+    // feriado (DESC_FER) e 200% em folga de escala (DESC_DESC) — mas só até às 8h de jornada;
+    // o que passar disso é suplementar e sai pelas HSUP_*_FER / HSUP_*_DESC acima, que olham
+    // para o mesmo dia. Um dia que seja feriado E folga paga como feriado (100%), porque o
+    // feriado é o que a CCT protege primeiro.
+    // Base: os dias reais efetivos, não os "trabalhados" — um dia de folga pode chegar aqui
+    // com um tipo de categoria FOLGA, que ehTrabalho() descarta.
+    var descFerMil = 0L
+    var descDescMil = 0L
+    for (dia in reaisEfetivos) {
+        val minutosDoDia = duracaoMinutos(dia.inicioMin, dia.fimMin, dia.pausaMin)
+        if (minutosDoDia <= 0) continue
+        val minutosDeJornada = minOf(minutosDoDia, MINUTOS_JORNADA_DIA).toLong()
+        if (dia.data in feriados) {
+            // min(8h, horas no dia) × valorHora × 1,0
+            descFerMil += dividirArredondando(minutosDeJornada * valorHora * 1L, 60L)
+        } else if (ehDescanso(dia, projecaoDoMes, tipos)) {
+            // min(8h, horas no dia) × valorHora × 2,0
+            descDescMil += dividirArredondando(minutosDeJornada * valorHora * 2L, 60L)
+        }
+    }
+
     val venc = ctx.parametrosCCT.vencimentoBaseMil.toLong()
 
     // Subsídios (8.3): regra fixa do recibo, que não olha aos DiaReal. O que os corta são
@@ -201,7 +224,9 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         "HSUP_DN_DESC" to valorMinutos(minSupDnDesc, valorHora, TipoHora.SUP_DIURNO_DESCANSO),
         "HSUP_NT_DESC" to valorMinutos(minSupNtDesc, valorHora, TipoHora.SUP_NOTURNO_DESCANSO),
         "SUP_ALIM" to subAlim,
-        "SUP_TRAN" to subTran
+        "SUP_TRAN" to subTran,
+        "DESC_FER" to descFerMil,
+        "DESC_DESC" to descDescMil
     )
 
     // Bases de incidência: só as rubricas estimadas que incidem (o cartão de refeição,

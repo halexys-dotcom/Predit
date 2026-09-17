@@ -89,21 +89,39 @@ class EstimadorReciboTest {
         ativo = true
     )
 
-    /** Dias reais do mês, do dia 1 ao dia `quantos`, com o horário indicado. */
+    /**
+     * Dias reais trabalhados do mês — `quantos` dias de trabalho a partir do dia 1, com o
+     * horário indicado, saltando os feriados nacionais: ninguém regista horas num dia que a
+     * escala dá como feriado. Sem o salto, agosto de 2026 traria o 15 (Assunção, sábado) e o
+     * mês deixaria de ser "sem extras" — os dias de feriado trabalhado têm testes próprios
+     * (T12 e T14), explícitos e com a data à vista.
+     */
     private fun dias(
         anoMes: YearMonth,
         quantos: Int,
         inicioMin: Int = 8 * 60,
         fimMin: Int = 16 * 60
-    ): List<DiaReal> = (1..quantos).map { dia ->
-        DiaReal(
-            data = anoMes.atDay(dia).toEpochDay(),
-            tipoTurnoId = null,
-            inicioMin = inicioMin,
-            fimMin = fimMin,
-            pausaMin = 0,
-            origem = "MANUAL"
-        )
+    ): List<DiaReal> {
+        val feriados = feriadosNacionais(anoMes.year)
+        val uteis = mutableListOf<DiaReal>()
+        var dia = 1
+        while (uteis.size < quantos) {
+            val candidato = anoMes.atDay(dia)
+            if (candidato.toEpochDay() !in feriados) {
+                uteis.add(
+                    DiaReal(
+                        data = candidato.toEpochDay(),
+                        tipoTurnoId = null,
+                        inicioMin = inicioMin,
+                        fimMin = fimMin,
+                        pausaMin = 0,
+                        origem = "MANUAL"
+                    )
+                )
+            }
+            dia++
+        }
+        return uteis
     }
 
     /** Projeção do mês: dias úteis de trabalho, o N.º Dias Úteis do cabeçalho do recibo. */
@@ -408,6 +426,106 @@ class EstimadorReciboTest {
         assertEquals(0L, est.valor("HSUP_NT"))
         assertEquals(472_057L, est.valor("D02"))          // 47,21 €
     }
+
+    @Test
+    fun `T12 - trabalho em feriado paga a jornada a 100 por cento`() {
+        val maio = YearMonth.of(2026, 5)
+        // 1 de maio de 2026 (sexta-feira) é feriado nacional, Dia do Trabalhador: o dia entra
+        // no conjunto por conta de feriadosNacionais(2026), sem nada em ctx.feriados.
+        val feriado = DiaReal(
+            data = maio.atDay(1).toEpochDay(),
+            tipoTurnoId = null,
+            inicioMin = 13 * 60,
+            fimMin = 21 * 60,
+            pausaMin = 0,
+            origem = "MANUAL"
+        )
+
+        val est = estimarRecibo(contexto(maio, listOf(feriado)))
+
+        // 8h (480 min) × 6,5653 €/h × 1,0 = 52,52 €
+        assertEquals(525_224L, est.valor("DESC_FER"))
+        assertEquals(0L, est.valor("DESC_DESC"))
+
+        // 13h–21h são exatamente 8h: não sobra hora suplementar, e a janela noturna
+        // (21h–06h) só começa no minuto em que o turno acaba.
+        assertEquals(0L, est.valor("HNOT"))
+        assertEquals(0L, est.valor("HSUP_DN"))
+        assertEquals(0L, est.valor("HSUP_NT"))
+        assertEquals(0L, est.valor("HSUP_DN_FER"))
+        assertEquals(0L, est.valor("HSUP_NT_FER"))
+    }
+
+    @Test
+    fun `T13 - folga de escala trabalhada paga a jornada a 200 por cento`() {
+        val agosto = YearMonth.of(2026, 8)
+        val dia = agosto.atDay(5).toEpochDay()
+        // Tipo 2 é folga de escala (categoria FOLGA): é a projeção que decide, não o fim de
+        // semana do calendário — 5 de agosto de 2026 é uma quarta-feira.
+        val tipoFolga = TipoTurno(
+            id = 2,
+            nome = "Folga",
+            abreviatura = "FOL",
+            cor = 0xFF7F8C8DL,
+            inicioMin = 0,
+            fimMin = 0,
+            pausaMin = 0,
+            categoria = CategoriaTurno.FOLGA,
+            ativo = true
+        )
+        val trabalhadoNaFolga = DiaReal(
+            data = dia,
+            tipoTurnoId = null,
+            inicioMin = 13 * 60,
+            fimMin = 21 * 60,
+            pausaMin = 0,
+            origem = "MANUAL"
+        )
+
+        val est = estimarRecibo(
+            contexto(
+                agosto,
+                listOf(trabalhadoNaFolga),
+                projecao = listOf(DiaProjetado(dia, tipoTurnoId = 2L))
+            ).copy(tiposTurno = listOf(tipoTrabalho, tipoFolga))
+        )
+
+        // 8h (480 min) × 6,5653 €/h × 2,0 = 105,05 €
+        assertEquals(1_050_448L, est.valor("DESC_DESC"))
+        assertEquals(0L, est.valor("DESC_FER"))
+        // Trabalhar uma folga com 8h exatas não gera suplementar nenhuma.
+        assertEquals(0L, est.valor("HSUP_DN_DESC"))
+        assertEquals(0L, est.valor("HSUP_NT_DESC"))
+    }
+
+    @Test
+    fun `T14 - feriado com 10h paga 8h em DESC_FER e o resto em HSUP_FER`() {
+        val maio = YearMonth.of(2026, 5)
+        // Mesmo feriado do T12, mas com 10h: 13h–23h.
+        val feriadoLongo = DiaReal(
+            data = maio.atDay(1).toEpochDay(),
+            tipoTurnoId = null,
+            inicioMin = 13 * 60,
+            fimMin = 23 * 60,
+            pausaMin = 0,
+            origem = "MANUAL"
+        )
+
+        val est = estimarRecibo(contexto(maio, listOf(feriadoLongo)))
+
+        // O acréscimo para nas 8h: 480 min × 6,5653 € × 1,0 = 52,52 € (as 2h a mais não
+        // entram aqui, senão pagavam-se duas vezes).
+        assertEquals(525_224L, est.valor("DESC_FER"))
+        assertEquals(0L, est.valor("DESC_DESC"))
+
+        // As 2h extra (21h–23h, já dentro da janela noturna) saem pelas suplementares de
+        // feriado: 120 min × 6,5653 € × 4,375 = 574 464 (57,45 €) · HSUP_NT_FER
+        assertEquals(574_464L, est.valor("HSUP_NT_FER"))
+        assertEquals(0L, est.valor("HSUP_DN_FER"))
+        // As horas noturnas do dia são as mesmas 2h: 120 min × 6,5653 € × 1,25 = 164 133.
+        assertEquals(164_133L, est.valor("HNOT"))
+    }
+
 
     /**
      * Dias reais com horas do PDF de agosto de 2026, como estão na BD: 21 dos 24 dias
