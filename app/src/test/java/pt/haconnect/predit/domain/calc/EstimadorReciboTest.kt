@@ -5,6 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import pt.haconnect.predit.data.local.TABELAS_IRS_2026
 import pt.haconnect.predit.data.repository.paraEscalao
+import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.DiaReal
@@ -101,11 +102,16 @@ class EstimadorReciboTest {
         )
     }
 
+    /** Projeção do mês: dias úteis de trabalho, o N.º Dias Úteis do cabeçalho do recibo. */
+    private fun projecaoDe(anoMes: YearMonth, quantos: Int = 22): List<DiaProjetado> =
+        (1..quantos).map { DiaProjetado(anoMes.atDay(it).toEpochDay(), tipoTurnoId = 1L) }
+
     private fun contexto(
         anoMes: YearMonth,
         diasReais: List<DiaReal>,
         projecao: List<DiaProjetado> = emptyList(),
-        rubricas: List<Rubrica> = catalogo
+        rubricas: List<Rubrica> = catalogo,
+        ausencias: List<Ausencia> = emptyList()
     ) = ContextoEstimativa(
         anoMes = anoMes,
         contrato = contrato,
@@ -114,7 +120,26 @@ class EstimadorReciboTest {
         diasReais = diasReais,
         projecao = projecao,
         feriados = emptySet(),
-        escaloesIRS = tabelaI
+        escaloesIRS = tabelaI,
+        ausencias = ausencias
+    )
+
+    /** Turno das 13h às 22h — 9h, das quais 1h na janela noturna (21h–22h). */
+    private fun turnoDaTarde(epochDay: Long, origem: String) = DiaReal(
+        data = epochDay,
+        tipoTurnoId = null,
+        inicioMin = 13 * 60,
+        fimMin = 22 * 60,
+        pausaMin = 0,
+        origem = origem
+    )
+
+    /** Férias de 5 dias, com o dia indicado ao centro (tipoTurnoId 3 = "Férias"/FER). */
+    private fun ferias(epochDay: Long) = Ausencia(
+        id = 1,
+        tipoTurnoId = 3,
+        dataInicio = epochDay - 2,
+        dataFim = epochDay + 2
     )
 
     @Test
@@ -141,24 +166,26 @@ class EstimadorReciboTest {
     @Test
     fun `T2 - julho 2026 com 18 dias de ferias, a divergencia do IRS`() {
         val julho = YearMonth.of(2026, 7)
-        // Projeção do mês inteiro (22 dias de trabalho) para o proporcional do transporte.
-        val projecao = (1..22).map { DiaProjetado(julho.atDay(it).toEpochDay(), tipoTurnoId = 1L) }
+        // Projeção do mês inteiro: 22 dias úteis, o N.º Dias Úteis do cabeçalho do recibo.
+        val projecao = projecaoDe(julho)
 
         val est = estimarRecibo(
             contexto(julho, dias(julho, 11), projecao = projecao)
                 .copy(tiposTurno = listOf(tipoTrabalho))
         )
 
-        assertEquals(11L * 78_500L, est.valor("SUP_ALIM"))   // 11 dias trabalhados
-        // 520 900 × 11 / 30 = 190 997 (19,10 €) — o comando escreveu 190 900 (19,09 €):
-        // 97 unidades de diferença, dentro da tolerância de 1 cêntimo do recibo.
-        assertEquals(190_997L, est.valor("SUP_TRAN"))
-        // IRS sobre 1 137,98 + 19,10 = 1 157,08 € → 442 609 (o comando: 442 610, 1 unidade)
-        assertEquals(442_609L, est.valor("D02"))
+        // 8.3: as férias de julho nunca foram registadas como ausência, por isso os
+        // subsídios saem a mês completo — não olham aos 11 dias que se trabalhou.
+        assertEquals(1_727_000L, est.valor("SUP_ALIM"))   // (22 − 0) × 7,85 €
+        assertEquals(520_900L, est.valor("SUP_TRAN"))     // 52,09 € × 30 ÷ 30
+        // IRS sobre 1 137,98 + 52,09 = 1 190,07 € → 512 548 (51,25 €)
+        assertEquals(512_548L, est.valor("D02"))
 
+        // O recibo real de julho reteve 48,00 € de IRS e pagou 19,10 € de transporte: a
+        // diferença passa o limiar de 1 cêntimo — é o que a conferência tem de assinalar.
         val doRecibo = 480_000L   // 48,00 € — o que o recibo de julho reteve
         val diferenca = abs(est.valor("D02") - doRecibo)
-        assertEquals(37_391L, diferenca)
+        assertEquals(32_548L, diferenca)
         assertTrue(
             "a divergência de $diferenca unidades tem de passar o limiar de 1 cêntimo",
             diferenca > LIMIAR_DIVERGENCIA_UNIDADES
@@ -209,6 +236,114 @@ class EstimadorReciboTest {
 
         assertEquals(semFerias.valor("D02"), comFerias.valor("D02"))
         assertEquals(0L, comFerias.valor("R97"))   // não estimada: fica para o utilizador
+    }
+
+    @Test
+    fun `T6 - dia PDF dentro de ferias nao conta horas`() {
+        val agosto = YearMonth.of(2026, 8)
+        val dia = agosto.atDay(5).toEpochDay()
+
+        val est = estimarRecibo(
+            contexto(
+                agosto,
+                listOf(turnoDaTarde(dia, "PDF")),
+                projecao = projecaoDe(agosto),
+                ausencias = listOf(ferias(dia))
+            ).copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        // O que o PDF imprime nesse dia é o horário planeado da empresa, não trabalho
+        // efetivo: as horas noturnas que teria não contam.
+        assertEquals(0L, est.valor("HNOT"))
+        assertEquals(0L, est.valor("HSUP_NT"))
+        // O subsídio é o do mês menos os dias úteis de férias (3 a 7 de agosto são 5):
+        // (22 − 5) × 7,85 €. O dia de PDF não o recupera nem o faz perder mais.
+        assertEquals(1_334_500L, est.valor("SUP_ALIM"))
+    }
+
+    @Test
+    fun `T7 - dia MANUAL dentro de ferias conta as horas noturnas`() {
+        val agosto = YearMonth.of(2026, 8)
+        val dia = agosto.atDay(5).toEpochDay()
+
+        val est = estimarRecibo(
+            contexto(
+                agosto,
+                listOf(turnoDaTarde(dia, "MANUAL")),
+                projecao = projecaoDe(agosto),
+                ausencias = listOf(ferias(dia))
+            ).copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        // O utilizador registou o dia à mão: disse "trabalhei", conta apesar das férias.
+        // 1h noturna (21h–22h): 65 653 × 5 ÷ 4 = 82 066 (8,21 €).
+        assertEquals(82_066L, est.valor("HNOT"))
+        // O dia tem 9h: a hora extra cai toda dentro da janela noturna.
+        assertEquals(143_616L, est.valor("HSUP_NT"))
+        // Trabalhar num dia de férias dá as horas, mas não devolve o dia útil ao subsídio:
+        // é o mesmo valor do T6, porque a regra dos subsídios não olha aos dias trabalhados.
+        assertEquals(1_334_500L, est.valor("SUP_ALIM"))
+    }
+
+    @Test
+    fun `T8 - ferias de 10 a 24 de agosto cortam 11 dias uteis de subsidio`() {
+        val agosto = YearMonth.of(2026, 8)
+        // Férias a sério: 10 a 24 de agosto de 2026 (epochDay 20675 a 20689), tipo FER.
+        val feriasDeAgosto = Ausencia(
+            id = 2,
+            tipoTurnoId = 3,
+            dataInicio = agosto.atDay(10).toEpochDay(),
+            dataFim = agosto.atDay(24).toEpochDay()
+        )
+
+        val est = estimarRecibo(
+            contexto(
+                agosto,
+                diasReaisDeAgosto2026(),
+                projecao = projecaoDe(agosto),
+                ausencias = listOf(feriasDeAgosto)
+            ).copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        // 11 dias úteis dentro das férias: 10–14, 17–21 e 24 (10 e 24 são segundas-feiras).
+        assertEquals(863_500L, est.valor("SUP_ALIM"))   // (22 − 11) × 7,85 € = 86,35 €
+        assertEquals(329_903L, est.valor("SUP_TRAN"))   // 52,09 € × 19 ÷ 30 = 32,99 €
+
+        // As noites de 10, 11, 12 e 24/08 caem todas dentro das férias → 0,00 €.
+        assertEquals(0L, est.valor("HNOT"))
+        assertEquals(0L, est.valor("HSUP_NT"))
+
+        // Base de incidência: 1 137,98 + 32,99 = 1 170,97 € (o cartão de refeição não incide).
+        assertEquals(1_288_067L, est.valor("D01"))      // 11% → 128,81 €
+        assertEquals(472_057L, est.valor("D02"))        // escalão 4 → 47,21 €
+        assertEquals(113_798L, est.valor("D04"))        // 1% do VENC → 11,38 €
+    }
+
+    /**
+     * Dias reais com horas do PDF de agosto de 2026, como estão na BD: 21 dos 24 dias
+     * registados (14, 15 e 20 são folgas de 0 min), todos de origem PDF e sem tipo de
+     * turno — 11 dias de 8h, 8 de 9h, um de 7h e um de 10h.
+     */
+    private fun diasReaisDeAgosto2026(): List<DiaReal> {
+        val agosto = YearMonth.of(2026, 8)
+
+        fun registo(dia: Int, inicioMin: Int, fimMin: Int) = DiaReal(
+            data = agosto.atDay(dia).toEpochDay(),
+            tipoTurnoId = null,
+            inicioMin = inicioMin,
+            fimMin = fimMin,
+            pausaMin = 0,
+            origem = "PDF"
+        )
+
+        val oitoHoras = listOf(1, 2, 4, 5, 6, 7, 13, 23, 27, 28, 30)
+            .map { registo(it, 13 * 60, 21 * 60) }
+        val noveHoras = listOf(10, 11, 12, 16, 17, 19, 21, 22)
+            .map { registo(it, 13 * 60, 22 * 60) }
+        val seteHoras = listOf(18).map { registo(it, 13 * 60, 20 * 60) }
+        val dezHoras = listOf(24).map { registo(it, 14 * 60, 24 * 60) }
+
+        return (oitoHoras + noveHoras + seteHoras + dezHoras).sortedBy { it.data }
     }
 
     private fun EstimativaRecibo.valor(codigo: String): Long =

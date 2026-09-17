@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import pt.haconnect.predit.data.repository.AusenciaRepository
 import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.data.repository.DiaRealRepository
 import pt.haconnect.predit.data.repository.ParametrosCCTRepository
@@ -23,6 +24,7 @@ import pt.haconnect.predit.domain.calc.estimarRecibo
 import pt.haconnect.predit.domain.calc.janelaNoturna
 import pt.haconnect.predit.domain.calc.projetarIntervalo
 import pt.haconnect.predit.domain.calc.valorHoraMil
+import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.DiaReal
@@ -100,7 +102,8 @@ class ReciboViewModel(
     private val diaRealRepository: DiaRealRepository,
     private val rotacaoRepository: RotacaoRepository,
     private val tipoTurnoRepository: TipoTurnoRepository,
-    private val tabelaIRSRepository: TabelaIRSRepository
+    private val tabelaIRSRepository: TabelaIRSRepository,
+    private val ausenciaRepository: AusenciaRepository
 ) : ViewModel() {
 
     /** O que está escrito num campo: o texto tal como o utilizador o deixou e o último
@@ -130,7 +133,8 @@ class ReciboViewModel(
     private data class Agendas(
         val diasReais: List<DiaReal>,
         val aplicacoes: List<AplicacaoVigente>,
-        val tiposTurno: List<TipoTurno>
+        val tiposTurno: List<TipoTurno>,
+        val ausencias: List<Ausencia>
     )
 
     private data class Fontes(
@@ -164,12 +168,17 @@ class ReciboViewModel(
     private val tiposTurno = tipoTurnoRepository.observarTodos()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private val ausencias = ausenciaRepository.observarTodas()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val uiState: StateFlow<ReciboUiState> = combine(
         combine(_anoMesAtual, _edicoes, _mensagemErro, _cabecalhoEditado) { anoMes, edicoes, erro, cabecalhos ->
             Cabecalho(anoMes, edicoes, erro, cabecalhos[chaveDe(anoMes)])
         },
         combine(contrato, parametros, rubricasCatalogo) { c, p, r -> Catalogo(c, p, r) },
-        combine(diasReais, aplicacoes, tiposTurno) { d, a, t -> Agendas(d, a, t) }
+        combine(diasReais, aplicacoes, tiposTurno, ausencias) { d, a, t, au ->
+            Agendas(d, a, t, au)
+        }
     ) { cabecalho, catalogo, agendas ->
         Fontes(cabecalho, catalogo, agendas)
     }
@@ -235,7 +244,8 @@ class ReciboViewModel(
                     // Ainda não há tabela de feriados (Fase 10): fica vazio, como no motor.
                     feriados = emptySet(),
                     escaloesIRS = escaloes,
-                    tiposTurno = fontes.agendas.tiposTurno
+                    tiposTurno = fontes.agendas.tiposTurno,
+                    ausencias = fontes.agendas.ausencias
                 )
             )
         }.getOrElse {
@@ -471,7 +481,8 @@ class ReciboViewModel(
         private val diaRealRepository: DiaRealRepository,
         private val rotacaoRepository: RotacaoRepository,
         private val tipoTurnoRepository: TipoTurnoRepository,
-        private val tabelaIRSRepository: TabelaIRSRepository
+        private val tabelaIRSRepository: TabelaIRSRepository,
+        private val ausenciaRepository: AusenciaRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -483,7 +494,8 @@ class ReciboViewModel(
                 diaRealRepository,
                 rotacaoRepository,
                 tipoTurnoRepository,
-                tabelaIRSRepository
+                tabelaIRSRepository,
+                ausenciaRepository
             ) as T
         }
     }

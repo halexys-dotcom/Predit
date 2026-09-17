@@ -21,6 +21,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
+import pt.haconnect.predit.data.repository.AusenciaRepository
 import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.data.repository.DiaRealRepository
 import pt.haconnect.predit.data.repository.ParametrosCCTRepository
@@ -54,7 +55,8 @@ fun ConferenciaReciboScreen(
             diaRealRepository = remember { DiaRealRepository(db.diaRealDao()) },
             rotacaoRepository = remember { RotacaoRepository(db.rotacaoDao()) },
             tipoTurnoRepository = remember { TipoTurnoRepository(db.tipoTurnoDao()) },
-            tabelaIRSRepository = remember { TabelaIRSRepository(db.tabelaIRSDao()) }
+            tabelaIRSRepository = remember { TabelaIRSRepository(db.tabelaIRSDao()) },
+            ausenciaRepository = remember { AusenciaRepository(db.ausenciaDao()) }
         )
     )
 

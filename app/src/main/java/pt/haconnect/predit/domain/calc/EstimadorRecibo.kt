@@ -1,5 +1,6 @@
 package pt.haconnect.predit.domain.calc
 
+import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.DiaReal
@@ -50,7 +51,13 @@ data class ContextoEstimativa(
      * Catálogo de tipos de turno — só é preciso para saber se um dia com horas
      * suplementares é dia de descanso. Sem catálogo, assume-se dia normal.
      */
-    val tiposTurno: List<TipoTurno> = emptyList()
+    val tiposTurno: List<TipoTurno> = emptyList(),
+    /**
+     * Ausências registadas (férias, baixa). Additivo e com valor por omissão: sem
+     * ausências o comportamento é o de antes desta fase. Para além de retirarem os dias
+     * reais de origem PDF, cortam os subsídios pelos dias úteis que cobrem (8.3).
+     */
+    val ausencias: List<Ausencia> = emptyList()
 )
 
 /** Códigos que o estimador calcula. Tudo o resto sai com 0 (introduzido à mão). */
@@ -79,6 +86,15 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     val reaisDoMes = ctx.diasReais.filter { pertenceAoMes(it.data, ctx.anoMes) }
     val projecaoDoMes = ctx.projecao.filter { pertenceAoMes(it.epochDay, ctx.anoMes) }
 
+    // Um DiaReal de origem PDF dentro de uma ausência (férias, baixa, feriado) representa
+    // o horário planeado que a empresa imprime no PDF, não trabalho efetivo. Só conta
+    // se a origem for MANUAL — nesse caso o utilizador disse explicitamente "trabalhei".
+    val reaisEfetivos = reaisDoMes.filter { dia ->
+        dia.origem == "MANUAL" || ctx.ausencias.none { a ->
+            dia.data >= a.dataInicio && dia.data <= a.dataFim
+        }
+    }
+
     // Fronteira: mês sem dias reais e sem projeção não se estima.
     if (reaisDoMes.isEmpty() && projecaoDoMes.isEmpty()) {
         return EstimativaRecibo(
@@ -103,7 +119,7 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     )
     val valorHora = valorHoraMil(contexto).toLong()
 
-    val diasTrabalhados = reaisDoMes.filter { ehTrabalho(it, tipos) }
+    val diasTrabalhados = reaisEfetivos.filter { ehTrabalho(it, tipos) }
     val diasUteisMes = if (projecaoDoMes.isNotEmpty()) {
         projecaoDoMes.count { ehTrabalhoProjetado(it, tipos) }
     } else {
@@ -143,16 +159,22 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     }
 
     val venc = ctx.parametrosCCT.vencimentoBaseMil.toLong()
-    val subAlim = diasTrabalhados.size.toLong() * ctx.parametrosCCT.subAlimentacaoDiaMil
-    val subTran = if (diasUteisMes == 0 || diasTrabalhados.size >= diasUteisMes) {
-        // Mês completo: valor integral. Com faltas: proporcional ao mês comercial.
-        ctx.parametrosCCT.subTransporteMesMil.toLong()
-    } else {
-        dividirArredondando(
-            ctx.parametrosCCT.subTransporteMesMil.toLong() * diasTrabalhados.size,
-            DIAS_MES_COMERCIAL
-        )
-    }
+
+    // Subsídios (8.3): regra fixa do recibo, que não olha aos DiaReal. O que os corta são
+    // os dias úteis — segunda a sexta — cobertos por ausências registadas, e só esses:
+    //     SUP_ALIM = (dias úteis do mês − dias úteis de ausência) × valor/dia
+    //     SUP_TRAN = valor/mês × (30 − dias úteis de ausência) ÷ 30
+    // Os "dias úteis do mês" são os do cabeçalho do recibo (N.º Dias Úteis): a projeção,
+    // que é o mesmo número que o ViewModel grava em ReciboMes.numDiasUteis. Quantos dias
+    // se trabalhou não entra nesta conta (num mês sem ausências o subsídio é o do mês).
+    val diasUteisAusencia = diasUteisDeAusencia(ctx.ausencias, ctx.anoMes)
+    val subAlim = (diasUteisMes - diasUteisAusencia).coerceAtLeast(0).toLong() *
+        ctx.parametrosCCT.subAlimentacaoDiaMil
+    val subTran = dividirArredondando(
+        ctx.parametrosCCT.subTransporteMesMil.toLong() *
+            (DIAS_MES_COMERCIAL - diasUteisAusencia).coerceAtLeast(0L),
+        DIAS_MES_COMERCIAL
+    )
 
     val valores = linkedMapOf(
         "VENC" to venc,
@@ -209,6 +231,26 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         totalDescontos = descontos,
         liquido = abonos - descontos
     )
+}
+
+/**
+ * Quantos dias úteis — segunda a sexta — do mês estão cobertos por ausências. É a união
+ * de todas as ausências (períodos sobrepostos contam uma vez só) e só os dias deste mês
+ * entram: uma ausência que atravessa o mês corta apenas a parte que lhe pertence.
+ */
+private fun diasUteisDeAusencia(ausencias: List<Ausencia>, anoMes: YearMonth): Int {
+    val dias = mutableSetOf<Long>()
+    val primeiroDoMes = anoMes.atDay(1).toEpochDay()
+    val ultimoDoMes = anoMes.atEndOfMonth().toEpochDay()
+    for (ausencia in ausencias) {
+        val fim = minOf(ausencia.dataFim, ultimoDoMes)
+        var dia = maxOf(ausencia.dataInicio, primeiroDoMes)
+        while (dia <= fim) {
+            if (LocalDate.ofEpochDay(dia).dayOfWeek.value <= 5) dias.add(dia)
+            dia++
+        }
+    }
+    return dias.size
 }
 
 private fun pertenceAoMes(epochDay: Long, anoMes: YearMonth): Boolean =

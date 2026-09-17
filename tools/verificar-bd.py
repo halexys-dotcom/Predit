@@ -37,7 +37,8 @@ def main():
     tabelas = [
         'tipo_turno', 'rotacao', 'rotacao_slot', 'aplicacao_rotacao', 'ausencia',
         'contrato_utilizador', 'dia_real', 'planejamento_mes', 'ciclo_jornada',
-        'parametros_cct', 'rubrica', 'tabela_irs'
+        'parametros_cct', 'rubrica', 'tabela_irs',
+        'recibo_mes', 'recibo_linha'
     ]
     print('Contagens:')
     for t in tabelas:
