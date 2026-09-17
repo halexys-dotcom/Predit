@@ -45,6 +45,13 @@ data class ContextoEstimativa(
     val diasReais: List<DiaReal>,
     val projecao: List<DiaProjetado>,
     val feriados: Set<Long> = emptySet(),
+    /**
+     * Feriado municipal do município do contrato, em dia/mês (0 = não definido). O ano vem
+     * do mês estimado: quem guarda a data é a tabela `municipio`, não o contrato. O cálculo
+     * do epochDay do ano concreto é feito em [estimarRecibo].
+     */
+    val municipioFeriadoDia: Int = 0,
+    val municipioFeriadoMes: Int = 0,
     val escaloesIRS: List<EscalaoIRS>,
     /**
      * Catálogo de tipos de turno — só é preciso para saber se um dia com horas
@@ -81,6 +88,15 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     val anoMes = "%04d-%02d".format(ctx.anoMes.year, ctx.anoMes.monthValue)
     val catalogo = ctx.rubricas.sortedBy { it.ordem }
     val porCodigo = ctx.rubricas.associateBy { it.codigo }
+
+    // Feriados do mês estimado (Fase 10): nacionais (fixos + móveis, calculados do ano) e o
+    // municipal do contrato, mais os que o chamador marcar em ctx.feriados. É este conjunto
+    // que decide se as horas suplementares de um dia caem em HSUP_*_FER.
+    val feriados = buildSet {
+        addAll(feriadosNacionais(ctx.anoMes.year))
+        feriadoMunicipal(ctx.anoMes.year, ctx.municipioFeriadoDia, ctx.municipioFeriadoMes)?.let { add(it) }
+        addAll(ctx.feriados)
+    }
 
     val reaisDoMes = ctx.diasReais.filter { pertenceAoMes(it.data, ctx.anoMes) }
     val projecaoDoMes = ctx.projecao.filter { pertenceAoMes(it.epochDay, ctx.anoMes) }
@@ -142,7 +158,7 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         val noturno = minutosNaJanela(dia.inicioMin + MINUTOS_JORNADA_DIA, dia.fimMin, janela)
         val diurno = extra - noturno
         when {
-            dia.data in ctx.feriados -> {
+            dia.data in feriados -> {
                 minSupDnFer += diurno
                 minSupNtFer += noturno
             }

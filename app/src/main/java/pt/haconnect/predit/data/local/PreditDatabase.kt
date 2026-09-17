@@ -21,9 +21,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RubricaEntity::class,
         TabelaIRSEntity::class,
         ReciboMesEntity::class,
-        ReciboLinhaEntity::class
+        ReciboLinhaEntity::class,
+        MunicipioEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = true
 )
 @TypeConverters(Conversores::class)
@@ -40,6 +41,7 @@ abstract class PreditDatabase : RoomDatabase() {
     abstract fun tabelaIRSDao(): TabelaIRSDao
     abstract fun reciboMesDao(): ReciboMesDao
     abstract fun reciboLinhaDao(): ReciboLinhaDao
+    abstract fun municipioDao(): MunicipioDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -122,6 +124,22 @@ abstract class PreditDatabase : RoomDatabase() {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `recibo_mes` (`anoMes` TEXT NOT NULL, `dataFecho` INTEGER NOT NULL, `vencimentoBase` INTEGER NOT NULL, `vencimentoHora` INTEGER NOT NULL, `numDiasUteis` INTEGER NOT NULL, `irsRetidoAno` INTEGER NOT NULL, `totalAbonos` INTEGER NOT NULL, `totalDescontos` INTEGER NOT NULL, `liquido` INTEGER NOT NULL, `nota` TEXT, `dataCriacao` INTEGER NOT NULL, PRIMARY KEY(`anoMes`))")
                 db.execSQL("CREATE TABLE IF NOT EXISTS `recibo_linha` (`reciboMesId` TEXT NOT NULL, `rubricaId` INTEGER NOT NULL, `valorEstimado` INTEGER NOT NULL, `valorReal` INTEGER NOT NULL, `natureza` TEXT NOT NULL, `ordem` INTEGER NOT NULL, PRIMARY KEY(`reciboMesId`, `rubricaId`), FOREIGN KEY(`reciboMesId`) REFERENCES `recibo_mes`(`anoMes`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`rubricaId`) REFERENCES `rubrica`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_recibo_linha_rubricaId` ON `recibo_linha` (`rubricaId`)")
+            }
+        }
+
+        /**
+         * Fase 10: catálogo de municípios (feriado municipal) e o município escolhido no
+         * contrato. SQL copiado do 13.json gerado pelo Room (só a substituição de
+         * ${TABLE_NAME} pelo nome da tabela, como nas migrações anteriores).
+         *
+         * O municipioId entra sem FOREIGN KEY de propósito: sem ON DELETE a FK traria
+         * complicações (a tabela é catálogo semeado, não muda em runtime) e o valor nulo
+         * significa "município não escolhido".
+         */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `municipio` (`id` INTEGER NOT NULL, `nome` TEXT NOT NULL, `distrito` TEXT NOT NULL, `regiao` TEXT NOT NULL, `feriadoDia` INTEGER NOT NULL, `feriadoMes` INTEGER NOT NULL, `feriadoNome` TEXT NOT NULL, `verificado` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("ALTER TABLE `contrato_utilizador` ADD COLUMN `municipioId` INTEGER")
             }
         }
     }

@@ -34,7 +34,8 @@ class ContratoRepository(private val dao: ContratoUtilizadorDao) {
             estadoCivil = try { EstadoCivil.valueOf(estadoCivil) } catch (_: Exception) { EstadoCivil.SOLTEIRO },
             titulares = titulares,
             primeiroArranqueConcluido = primeiroArranqueConcluido,
-            regiao = try { RegiaoIRS.valueOf(regiao) } catch (_: Exception) { RegiaoIRS.CONTINENTE }
+            regiao = try { RegiaoIRS.valueOf(regiao) } catch (_: Exception) { RegiaoIRS.CONTINENTE },
+            municipioId = municipioId
         )
     }
 
@@ -49,7 +50,8 @@ class ContratoRepository(private val dao: ContratoUtilizadorDao) {
             estadoCivil = estadoCivil.name,
             titulares = titulares,
             primeiroArranqueConcluido = primeiroArranqueConcluido,
-            regiao = regiao.name
+            regiao = regiao.name,
+            municipioId = municipioId
         )
     }
 }

@@ -24,6 +24,7 @@ import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.AusenciaRepository
 import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.data.repository.DiaRealRepository
+import pt.haconnect.predit.data.repository.MunicipioRepository
 import pt.haconnect.predit.data.repository.ParametrosCCTRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.RubricaRepository
@@ -56,7 +57,8 @@ fun ConferenciaReciboScreen(
             rotacaoRepository = remember { RotacaoRepository(db.rotacaoDao()) },
             tipoTurnoRepository = remember { TipoTurnoRepository(db.tipoTurnoDao()) },
             tabelaIRSRepository = remember { TabelaIRSRepository(db.tabelaIRSDao()) },
-            ausenciaRepository = remember { AusenciaRepository(db.ausenciaDao()) }
+            ausenciaRepository = remember { AusenciaRepository(db.ausenciaDao()) },
+            municipioRepository = remember { MunicipioRepository(db.municipioDao()) }
         )
     )
 

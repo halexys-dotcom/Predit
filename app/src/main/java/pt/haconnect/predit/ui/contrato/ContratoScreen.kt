@@ -1,6 +1,10 @@
 package pt.haconnect.predit.ui.contrato
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -20,13 +24,18 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.ContratoRepository
+import pt.haconnect.predit.data.repository.MunicipioRepository
 import pt.haconnect.predit.domain.calc.RegiaoIRS
 import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.EstadoCivil
+import pt.haconnect.predit.domain.model.Municipio
 import pt.haconnect.predit.domain.model.RegimeHorario
 import pt.haconnect.predit.ui.turnos.TextoSemQuebra
 import java.time.LocalDate
+import java.time.Month
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -42,6 +51,10 @@ fun ContratoScreen(
         factory = ContratoViewModel.Factory(ContratoRepository(db.contratoDao()))
     )
 
+    // Catálogo de municípios (Fase 10): semeado em PreditApplication, só se lê daqui.
+    val municipioRepository = remember { MunicipioRepository(db.municipioDao()) }
+    val municipios by municipioRepository.observarTodos().collectAsState(initial = emptyList())
+
     val contratoExistente by viewModel.contrato.collectAsState()
 
     val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -54,8 +67,14 @@ fun ContratoScreen(
     var numeroDependentesTexto by rememberSaveable { mutableStateOf("0") }
     var titularesTexto by rememberSaveable { mutableStateOf("1") }
     var regiao by rememberSaveable { mutableStateOf(RegiaoIRS.CONTINENTE) }
+    var municipioId by rememberSaveable { mutableStateOf<Int?>(null) }
+
+    var pickerMunicipioAberto by remember { mutableStateOf(false) }
+    var pesquisaMunicipio by rememberSaveable { mutableStateOf("") }
 
     var carregado by remember { mutableStateOf(false) }
+
+    val municipioSelecionado: Municipio? = municipios.firstOrNull { it.id == municipioId }
 
     LaunchedEffect(contratoExistente) {
         if (!carregado && contratoExistente != null) {
@@ -67,6 +86,7 @@ fun ContratoScreen(
             numeroDependentesTexto = c.numeroDependentes.toString()
             titularesTexto = c.titulares.toString()
             regiao = c.regiao
+            municipioId = c.municipioId
             carregado = true
         }
     }
@@ -112,7 +132,8 @@ fun ContratoScreen(
                                     estadoCivil = estadoCivil,
                                     titulares = titularesTexto.toIntOrNull() ?: 1,
                                     primeiroArranqueConcluido = true,
-                                    regiao = regiao
+                                    regiao = regiao,
+                                    municipioId = municipioId
                                 )
                                 viewModel.guardar(c) {
                                     onVoltar()
@@ -202,6 +223,48 @@ fun ContratoScreen(
                 )
             }
 
+            Text("Município", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            // Surface clicável em vez de OutlinedTextField readOnly: o campo de texto engolia o
+            // toque (fica para edição/seleção) e o picker nunca abria.
+            Surface(
+                onClick = { pickerMunicipioAberto = true },
+                shape = MaterialTheme.shapes.extraSmall,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = municipioSelecionado?.nome ?: "Escolher município",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (municipioSelecionado == null) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text("▾", style = MaterialTheme.typography.titleMedium)
+                }
+            }
+            Text(
+                text = municipioSelecionado?.let { m ->
+                    "Distrito: ${m.distrito} · Feriado: ${feriadoFormatado(m)}"
+                } ?: "Sem município escolhido: o recibo usa só os feriados nacionais.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (municipioSelecionado?.verificado == false) {
+                Text(
+                    text = "⚠ Feriado municipal por verificar — confirma antes de confiar no cálculo",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
             Text("Região Fiscal", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -272,6 +335,94 @@ fun ContratoScreen(
             }
         }
     }
+
+    if (pickerMunicipioAberto) {
+        val procurado = pesquisaMunicipio.trim()
+        val visiveis = municipios
+            .filter {
+                procurado.isEmpty() ||
+                    it.nome.contains(procurado, ignoreCase = true) ||
+                    it.distrito.contains(procurado, ignoreCase = true)
+            }
+            .sortedWith(compareBy({ ordemRegiao(it.regiao) }, { it.distrito }, { it.nome }))
+        // groupBy preserva a ordem de encontro das chaves, por isso os cabeçalhos saem já
+        // ordenados por região e distrito.
+        val grupos = visiveis.groupBy { it.regiao to it.distrito }
+
+        ModalBottomSheet(onDismissRequest = { pickerMunicipioAberto = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Município",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                OutlinedTextField(
+                    value = pesquisaMunicipio,
+                    onValueChange = { pesquisaMunicipio = it },
+                    label = { Text("Pesquisar (nome ou distrito)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (grupos.isEmpty()) {
+                    Text(
+                        text = "Nenhum município no catálogo corresponde à pesquisa.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                ) {
+                    grupos.forEach { (chave, lista) ->
+                        val (regiaoDoGrupo, distritoDoGrupo) = chave
+                        item(key = "cabecalho-$regiaoDoGrupo-$distritoDoGrupo") {
+                            Text(
+                                text = "${rotuloRegiao(regiaoDoGrupo)} · $distritoDoGrupo",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                            )
+                        }
+                        items(lista, key = { it.id }) { municipio ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        municipioId = municipio.id
+                                        pickerMunicipioAberto = false
+                                    }
+                                    .padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(municipio.nome, style = MaterialTheme.typography.bodyLarge)
+                                    Text(
+                                        text = feriadoFormatado(municipio) +
+                                            if (municipio.verificado) "" else " · por verificar",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (municipio.verificado) {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        } else {
+                                            MaterialTheme.colorScheme.error
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 private fun EstadoCivil.nomeFormatado(): String {
@@ -294,4 +445,33 @@ private fun parseData(texto: String): LocalDate? {
     } catch (_: Exception) {
         null
     }
+}
+
+/** Ordem das regiões no picker: Continente primeiro, depois as ilhas. */
+private fun ordemRegiao(regiao: String): Int = when (regiao) {
+    "CONTINENTE" -> 0
+    "ACORES" -> 1
+    "MADEIRA" -> 2
+    else -> 3
+}
+
+private fun rotuloRegiao(regiao: String): String = when (regiao) {
+    "CONTINENTE" -> "Continente"
+    "ACORES" -> "Açores"
+    "MADEIRA" -> "Madeira"
+    else -> regiao
+}
+
+/**
+ * "13 de junho (Santo António)". O sufixo "(por verificar)" do catálogo é retirado do nome
+ * aqui: quem o mostra é o aviso, com o `verificado` do município — no ecrã e na lista.
+ */
+private fun feriadoFormatado(municipio: Municipio): String {
+    val nome = municipio.feriadoNome.removeSuffix(" (por verificar)")
+    if (municipio.feriadoDia <= 0 || municipio.feriadoMes <= 0) {
+        return "$nome (feriado móvel, sem data no catálogo)"
+    }
+    val mes = Month.of(municipio.feriadoMes)
+        .getDisplayName(TextStyle.FULL, Locale.forLanguageTag("pt-PT"))
+    return "${municipio.feriadoDia} de $mes ($nome)"
 }

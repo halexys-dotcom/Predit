@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import pt.haconnect.predit.data.local.ContratoUtilizadorEntity
+import pt.haconnect.predit.data.local.MunicipioEntity
 import pt.haconnect.predit.data.local.ParametrosCCTEntity
 import pt.haconnect.predit.data.local.PreditDatabase
 import pt.haconnect.predit.data.local.RubricaEntity
@@ -59,7 +60,8 @@ class PreditApplication : Application() {
             PreditDatabase.MIGRATION_8_9,
             PreditDatabase.MIGRATION_9_10,
             PreditDatabase.MIGRATION_10_11,
-            PreditDatabase.MIGRATION_11_12
+            PreditDatabase.MIGRATION_11_12,
+            PreditDatabase.MIGRATION_12_13
         )
         .addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
@@ -81,6 +83,7 @@ class PreditApplication : Application() {
                     garantirParametrosCCT()
                     garantirRubricas()
                     garantirTabelasIRS()
+                    garantirMunicipios()
                 }
             }
         }).build()
@@ -182,6 +185,49 @@ class PreditApplication : Application() {
         val dao = database.tabelaIRSDao()
         if (dao.contarPorAno(ANO_IRS) != 0) return
         dao.inserirTodas(TABELAS_IRS_2026)
+    }
+
+    /**
+     * Catálogo de municípios com feriado municipal (Fase 10). Idempotente: só escreve se a
+     * tabela estiver vazia, porque os ids são fixos e apontados pelo contrato — reinserir
+     * com REPLACE seria inofensivo, mas reescrever 22 linhas em cada arranque não.
+     *
+     * [MunicipioEntity.verificado] = false marca os que ainda não foram confirmados com a
+     * fonte oficial; nesses, o próprio nome do feriado leva "(por verificar)" para a UI o
+     * poder mostrar como aviso. Corrigir aqui à medida que forem validados.
+     */
+    private suspend fun garantirMunicipios() {
+        val dao = database.municipioDao()
+        if (dao.contar() != 0) return
+        dao.inserirTodos(
+            listOf(
+                // Confirmados (verificado = true)
+                MunicipioEntity(1, "Aveiro", "Aveiro", "CONTINENTE", 12, 5, "Santa Joana Princesa", true),
+                MunicipioEntity(3, "Braga", "Braga", "CONTINENTE", 24, 6, "São João", true),
+                MunicipioEntity(4, "Bragança", "Bragança", "CONTINENTE", 22, 8, "Nossa Senhora das Graças", true),
+                MunicipioEntity(6, "Coimbra", "Coimbra", "CONTINENTE", 4, 7, "Rainha Santa Isabel", true),
+                MunicipioEntity(7, "Évora", "Évora", "CONTINENTE", 29, 6, "São Pedro", true),
+                MunicipioEntity(11, "Lisboa", "Lisboa", "CONTINENTE", 13, 6, "Santo António", true),
+                MunicipioEntity(13, "Porto", "Porto", "CONTINENTE", 24, 6, "São João", true),
+                MunicipioEntity(15, "Setúbal", "Setúbal", "CONTINENTE", 15, 9, "Bocage", true),
+                MunicipioEntity(16, "Viana do Castelo", "Viana do Castelo", "CONTINENTE", 20, 8, "Nossa Senhora da Agonia", true),
+                MunicipioEntity(18, "Viseu", "Viseu", "CONTINENTE", 21, 9, "São Mateus", true),
+                MunicipioEntity(22, "Funchal", "Funchal", "MADEIRA", 21, 8, "Nossa Senhora do Monte", true),
+
+                // Por verificar (verificado = false)
+                MunicipioEntity(2, "Beja", "Beja", "CONTINENTE", 6, 3, "São Tiago (por verificar)", false),
+                MunicipioEntity(5, "Castelo Branco", "Castelo Branco", "CONTINENTE", 23, 4, "Nossa Senhora de Mércoles (por verificar)", false),
+                MunicipioEntity(8, "Faro", "Faro", "CONTINENTE", 7, 9, "Nossa Senhora do Carmo (por verificar)", false),
+                MunicipioEntity(9, "Guarda", "Guarda", "CONTINENTE", 27, 11, "Nossa Senhora da Guia (por verificar)", false),
+                MunicipioEntity(10, "Leiria", "Leiria", "CONTINENTE", 22, 5, "Nossa Senhora da Encarnação (por verificar)", false),
+                MunicipioEntity(12, "Portalegre", "Portalegre", "CONTINENTE", 23, 5, "São Tomé (por verificar)", false),
+                MunicipioEntity(14, "Santarém", "Santarém", "CONTINENTE", 19, 3, "São José (por verificar)", false),
+                MunicipioEntity(17, "Vila Real", "Vila Real", "CONTINENTE", 13, 6, "Santo António (por verificar)", false),
+                MunicipioEntity(19, "Angra do Heroísmo", "Açores", "ACORES", 24, 6, "São João (por verificar)", false),
+                MunicipioEntity(20, "Horta", "Açores", "ACORES", 24, 6, "São João (por verificar)", false),
+                MunicipioEntity(21, "Ponta Delgada", "Açores", "ACORES", 29, 6, "São Pedro (por verificar)", false)
+            )
+        )
     }
 
     private suspend fun preencherDadosIniciais() {

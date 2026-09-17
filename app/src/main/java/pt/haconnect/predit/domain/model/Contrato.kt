@@ -26,5 +26,10 @@ data class ContratoUtilizador(
     val primeiroArranqueConcluido: Boolean = false,
     // Região fiscal — decide as tabelas de retenção de IRS (domain/calc/CalculoIRS.kt).
     // Não nulo: a coluna na BD é TEXT NOT NULL DEFAULT 'CONTINENTE'.
-    val regiao: RegiaoIRS = RegiaoIRS.CONTINENTE
+    val regiao: RegiaoIRS = RegiaoIRS.CONTINENTE,
+    /**
+     * Município escolhido (municipio.id), para o feriado municipal (Fase 10).
+     * Nulo = não escolhido: o recibo fica só com os feriados nacionais.
+     */
+    val municipioId: Int? = null
 )
