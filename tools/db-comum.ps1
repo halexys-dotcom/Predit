@@ -63,12 +63,17 @@ function Get-FicheirosBdNoDispositivo {
 function Invoke-ExecOutParaFicheiro {
     # adb exec-out com redirecionamento binário: tem de ser o cmd a redirecionar,
     # caso contrário o PowerShell 5 corrompe o binário.
+    # Um predit.db-wal (ou -shm) de 0 bytes é legítimo — acontece sempre que a app ainda não
+    # escreveu nada desde o último checkpoint, nomeadamente logo a seguir a um restore.
+    # Só o ficheiro principal vazio é que denuncia uma extração falhada.
     param([string]$Adb, [string]$ComandoAdb, [string]$Destino)
     $bat = Join-Path $env:TEMP 'predit-execout.bat'
     "`"$Adb`" -s $script:Dispositivo $ComandoAdb > `"$Destino`"" | Out-File -Encoding ascii $bat
     & cmd.exe /c $bat | Out-Null
     if (-not (Test-Path $Destino)) { throw "Falhou a extração para $Destino" }
-    if ((Get-Item $Destino).Length -eq 0) { throw "Ficheiro extraído vazio: $Destino" }
+    $nome = Split-Path -Leaf $Destino
+    $tamanho = (Get-Item $Destino).Length
+    if ($nome -eq 'predit.db' -and $tamanho -eq 0) { throw "Ficheiro principal vazio: $nome" }
 }
 
 function Get-PastaBackups {

@@ -19,6 +19,10 @@ import java.time.LocalDate
 import java.time.YearMonth
 import kotlin.math.abs
 
+/** Ids dos tipos de turno semeados (PreditApplication.garantirTiposTurno): 3 = Férias, 4 = Baixa médica. */
+private const val TIPO_FERIAS = 3L
+private const val TIPO_BAIXA = 4L
+
 /**
  * Estimador do recibo contra dados reais: catálogo de rubricas da Fase 8.1, parâmetros
  * do CCT de 2026 e as tabelas de IRS de 2026 (Continente, tabela I) dos XLSX oficiais.
@@ -164,7 +168,7 @@ class EstimadorReciboTest {
     }
 
     @Test
-    fun `T2 - julho 2026 com 18 dias de ferias, a divergencia do IRS`() {
+    fun `T2 - julho 2026 sem ausencia registada, a divergencia do IRS`() {
         val julho = YearMonth.of(2026, 7)
         // Projeção do mês inteiro: 22 dias úteis, o N.º Dias Úteis do cabeçalho do recibo.
         val projecao = projecaoDe(julho)
@@ -317,6 +321,92 @@ class EstimadorReciboTest {
         assertEquals(1_288_067L, est.valor("D01"))      // 11% → 128,81 €
         assertEquals(472_057L, est.valor("D02"))        // escalão 4 → 47,21 €
         assertEquals(113_798L, est.valor("D04"))        // 1% do VENC → 11,38 €
+    }
+
+    @Test
+    fun `T9 - ausencia a cavalo de dois meses so corta os dias uteis de julho`() {
+        val julho = YearMonth.of(2026, 7)
+        // Férias de 28/07 a 05/08/2026: atravessam a fronteira do mês.
+        val cavaloDeDoisMeses = Ausencia(
+            id = 9,
+            tipoTurnoId = TIPO_FERIAS,
+            dataInicio = LocalDate.of(2026, 7, 28).toEpochDay(),
+            dataFim = LocalDate.of(2026, 8, 5).toEpochDay()
+        )
+
+        val est = estimarRecibo(
+            contexto(
+                julho,
+                dias(julho, 11),
+                projecao = projecaoDe(julho),
+                ausencias = listOf(cavaloDeDoisMeses)
+            ).copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        // Só a parte de julho conta: 28, 29, 30 e 31 (terça a sexta) → 4 dias úteis.
+        // 1 e 2 de agosto são fim de semana e 3 a 5 pertencem ao mês seguinte: não entram.
+        assertEquals(1_413_000L, est.valor("SUP_ALIM"))   // (22 − 4) × 7,85 € = 141,30 €
+        assertEquals(451_447L, est.valor("SUP_TRAN"))     // 52,09 € × (30 − 4) ÷ 30 = 45,14 €
+    }
+
+    @Test
+    fun `T10 - duas ausencias sobrepostas contam a uniao uma vez`() {
+        val agosto = YearMonth.of(2026, 8)
+        // 10–17 e 14–21 de agosto: sobrepõem-se de 14 a 17.
+        val primeira = Ausencia(
+            id = 10,
+            tipoTurnoId = TIPO_FERIAS,
+            dataInicio = agosto.atDay(10).toEpochDay(),
+            dataFim = agosto.atDay(17).toEpochDay()
+        )
+        val segunda = Ausencia(
+            id = 11,
+            tipoTurnoId = TIPO_FERIAS,
+            dataInicio = agosto.atDay(14).toEpochDay(),
+            dataFim = agosto.atDay(21).toEpochDay()
+        )
+
+        val est = estimarRecibo(
+            contexto(
+                agosto,
+                dias(agosto, 5),
+                projecao = projecaoDe(agosto),
+                ausencias = listOf(primeira, segunda)
+            ).copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        // União 10–21 de agosto: 10, 11, 12, 13, 14, 17, 18, 19, 20 e 21 → 10 dias úteis.
+        // Nem 8 (só a primeira), nem 16 (as duas somadas): os dias sobrepostos contam uma vez.
+        assertEquals(942_000L, est.valor("SUP_ALIM"))     // (22 − 10) × 7,85 € = 94,20 €
+        assertEquals(347_267L, est.valor("SUP_TRAN"))     // 52,09 € × (30 − 10) ÷ 30 = 34,73 €
+    }
+
+    @Test
+    fun `T11 - baixa medica corta o subsidio como as ferias`() {
+        val agosto = YearMonth.of(2026, 8)
+        // Baixa médica (id 4, categoria BAIXA) no mesmo intervalo do T8, com o mesmo mês.
+        val baixa = Ausencia(
+            id = 12,
+            tipoTurnoId = TIPO_BAIXA,
+            dataInicio = agosto.atDay(10).toEpochDay(),
+            dataFim = agosto.atDay(24).toEpochDay()
+        )
+
+        val est = estimarRecibo(
+            contexto(
+                agosto,
+                diasReaisDeAgosto2026(),
+                projecao = projecaoDe(agosto),
+                ausencias = listOf(baixa)
+            ).copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        // O motor não distingue tipos de ausência — só datas. Valores iguais aos do T8.
+        assertEquals(863_500L, est.valor("SUP_ALIM"))     // (22 − 11) × 7,85 € = 86,35 €
+        assertEquals(329_903L, est.valor("SUP_TRAN"))     // 32,99 €
+        assertEquals(0L, est.valor("HNOT"))
+        assertEquals(0L, est.valor("HSUP_NT"))
+        assertEquals(472_057L, est.valor("D02"))          // 47,21 €
     }
 
     /**

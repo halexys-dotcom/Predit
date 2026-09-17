@@ -4,7 +4,6 @@ import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.DiaReal
-import pt.haconnect.predit.domain.model.EstadoCivil
 import pt.haconnect.predit.domain.model.ParametrosCCT
 import pt.haconnect.predit.domain.model.Rubrica
 import pt.haconnect.predit.domain.model.TipoTurno
@@ -200,7 +199,13 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     valores["D01"] = dividirArredondando(baseSS * TAXA_SEGURANCA_SOCIAL_BPS, 10_000L)
     valores["D02"] = calcularIRS(
         baseTributavel = baseIRS,
-        tabelaNumero = selecionarTabela(perfilDoContrato(ctx.contrato), pessoaDeficiente = false),
+        tabelaNumero = selecionarTabela(
+            estadoCivil = ctx.contrato.estadoCivil.name,
+            titulares = ctx.contrato.titulares,
+            numeroDependentes = ctx.contrato.numeroDependentes,
+            pessoaComDeficiencia = false
+        ),
+        categoria = CATEGORIA_TRABALHO,
         numDependentes = ctx.contrato.numeroDependentes,
         ano = ctx.anoMes.year,
         regiao = ctx.contrato.regiao,
@@ -307,15 +312,4 @@ private fun ehDescanso(
     val projetado = projecaoDoMes.firstOrNull { it.epochDay == dia.data } ?: return false
     val tipo = projetado.tipoTurnoId?.let { tipos[it] } ?: return false
     return tipo.categoria == CategoriaTurno.FOLGA
-}
-
-/** Perfil das tabelas I a VII a partir do contrato (o contrato ainda não tem deficiência). */
-private fun perfilDoContrato(contrato: ContratoUtilizador): String {
-    val casado = contrato.estadoCivil == EstadoCivil.CASADO
-    return when {
-        casado && contrato.titulares >= 2 -> PERFIL_CASADO_2_TITULARES
-        casado -> PERFIL_CASADO_1_TITULAR
-        contrato.numeroDependentes > 0 -> PERFIL_NAO_CASADO_COM_DEP
-        else -> PERFIL_NAO_CASADO_SEM_DEP
-    }
 }
