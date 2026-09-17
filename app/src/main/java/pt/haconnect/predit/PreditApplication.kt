@@ -1,12 +1,15 @@
 package pt.haconnect.predit
 
 import android.app.Application
+import android.util.Log
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import pt.haconnect.predit.data.backup.BackupManager
 import pt.haconnect.predit.data.local.ContratoUtilizadorEntity
 import pt.haconnect.predit.data.local.MunicipioEntity
 import pt.haconnect.predit.data.local.ParametrosCCTEntity
@@ -43,8 +46,16 @@ class PreditApplication : Application() {
         ReciboRepository(database)
     }
 
+    /** Cópias de segurança internas, criadas por arranque e a pedido (Fase 11b). */
+    val backupManager by lazy {
+        BackupManager(this, database)
+    }
+
     override fun onCreate() {
         super.onCreate()
+        // Antes de o Room abrir a BD: se a sessão anterior deixou um restauro marcado, é aqui
+        // que ele entra — com o ficheiro já aberto, substituí-lo deixaria ligações penduradas.
+        BackupManager.aplicarRestauroPendente(this)
         database = Room.databaseBuilder(
             applicationContext,
             PreditDatabase::class.java,
@@ -87,6 +98,25 @@ class PreditApplication : Application() {
                 }
             }
         }).build()
+
+        // Auto-backup, em segundo plano: não segura o arranque da UI. A cópia pode apanhar uma
+        // escrita em curso (os seeds correm no onCreate/onOpen), por isso tenta três vezes e
+        // desiste em silêncio, com registo — um backup falhado não pode impedir a app de abrir.
+        CoroutineScope(Dispatchers.IO).launch {
+            for (tentativa in 1..3) {
+                try {
+                    backupManager.criar(ehAutomatico = true)
+                    backupManager.limparAntigos(manterUltimos = 10)
+                    return@launch
+                } catch (e: Exception) {
+                    if (tentativa == 3) {
+                        Log.w("Predit", "Auto-backup falhou", e)
+                    } else {
+                        delay(2_000L * tentativa)
+                    }
+                }
+            }
+        }
     }
 
     private suspend fun garantirContratoInicial() {

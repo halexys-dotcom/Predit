@@ -44,6 +44,15 @@ abstract class PreditDatabase : RoomDatabase() {
     abstract fun municipioDao(): MunicipioDao
 
     companion object {
+        /**
+         * Versão do esquema, para quem a lê de fora do Room: os testes de backup comparam-na
+         * com o `user_version` lido dos ficheiros, e o restauro recusa cópias mais recentes
+         * do que isto. O KSP não aceita uma constante no `@Database(version = ...)`, por isso
+         * o valor vive duplicado lá em cima — o T1 do BackupManagerTest guarda a sincronia:
+         * se um subir e o outro não, o teste falha.
+         */
+        const val VERSAO_BD = 13
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `rotacao` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nome` TEXT NOT NULL, `comprimentoCiclo` INTEGER NOT NULL)")
