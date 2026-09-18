@@ -2,6 +2,8 @@ package pt.haconnect.predit.ui.mais
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
@@ -14,9 +16,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import pt.haconnect.predit.PreditApplication
+import pt.haconnect.predit.R
 import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.ui.turnos.BadgeStatus
 
@@ -28,7 +32,8 @@ fun MaisScreen(
     onNavegarParaAusencias: () -> Unit = {},
     onNavegarParaImportarPdf: () -> Unit = {},
     onNavegarParaRecibo: () -> Unit = {},
-    onNavegarParaBackups: () -> Unit = {}
+    onNavegarParaBackups: () -> Unit = {},
+    onNavegarParaAtualizacoes: () -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext as PreditApplication
     val db = context.database
@@ -50,7 +55,8 @@ fun MaisScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ElevatedCard(
@@ -274,6 +280,51 @@ fun MaisScreen(
                             )
                             Text(
                                 text = "Criar, restaurar ou apagar cópias de segurança",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("entrada-atualizacoes")
+                    .clickable(onClick = onNavegarParaAtualizacoes)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_atualizacao),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "Atualizações",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Verificar se existe uma versão nova",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

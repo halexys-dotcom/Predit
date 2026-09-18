@@ -42,6 +42,7 @@ import pt.haconnect.predit.ui.horario.HorarioScreen
 import pt.haconnect.predit.ui.importacao.ImportacaoScreen
 import pt.haconnect.predit.ui.mais.BackupsScreen
 import pt.haconnect.predit.ui.mais.MaisScreen
+import pt.haconnect.predit.ui.mais.VerificarAtualizacoesScreen
 import pt.haconnect.predit.ui.turnos.AplicarRotacaoScreen
 import pt.haconnect.predit.ui.turnos.EditorRotacaoScreen
 import pt.haconnect.predit.ui.turnos.EditorTipoTurnoScreen
@@ -166,7 +167,8 @@ fun PreditApp() {
                         onNavegarParaAusencias = { navController.navigate("ausencias") },
                         onNavegarParaImportarPdf = { navController.navigate("mais/importar-pdf") },
                         onNavegarParaRecibo = { navController.navigate("mais/recibo") },
-                        onNavegarParaBackups = { navController.navigate("mais/backups") }
+                        onNavegarParaBackups = { navController.navigate("mais/backups") },
+                        onNavegarParaAtualizacoes = { navController.navigate("mais/atualizacoes") }
                     )
                 }
 
@@ -184,6 +186,12 @@ fun PreditApp() {
 
                 composable("mais/backups") {
                     BackupsScreen(
+                        onVoltar = { navController.popBackStack() }
+                    )
+                }
+
+                composable("mais/atualizacoes") {
+                    VerificarAtualizacoesScreen(
                         onVoltar = { navController.popBackStack() }
                     )
                 }

@@ -70,6 +70,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // A versao instalada vem do BuildConfig (Mais -> Atualizações, Fase 11d.2).
+        buildConfig = true
     }
     sourceSets {
         getByName("androidTest").assets.srcDirs(files("$projectDir/schemas"))
@@ -99,6 +101,9 @@ dependencies {
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
     testImplementation(libs.junit)
+    // org.json a serio nos testes JVM: o android.jar de teste so tem stubs ("Method not
+    // mocked") e a leitura do version.json e feita com org.json.
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
