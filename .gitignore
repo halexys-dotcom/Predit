@@ -12,3 +12,9 @@ tools/db-backups/
 
 # Capturas de ecra usadas como evidencia de teste manual
 screenshots/
+
+# Keystore de release e credenciais (as linhas *.jks, *.keystore e
+# keystore.properties ja estao no topo; aqui fica a pasta e o APK de release)
+keystore/*
+!keystore/.gitkeep
+app/release/

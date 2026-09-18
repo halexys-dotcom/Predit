@@ -1,0 +1,7 @@
+{
+  "versionCode": 14,
+  "versionName": "0.11.0",
+  "minSdk": 26,
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v0.11.0/app-release.apk",
+  "changelog": "- Calculo de subsidios em ferias e baixa\n- Feriados nacionais e municipais\n- Backups internos\n- Conferencia do recibo contra o recibo real"
+}

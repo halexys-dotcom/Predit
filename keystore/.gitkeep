@@ -1,0 +1,2 @@
+# Pasta da keystore de release. O conteudo (*.jks) esta no .gitignore.
+# Este ficheiro existe so para a pasta viajar no repositorio.
