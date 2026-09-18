@@ -1,7 +1,11 @@
 package pt.haconnect.predit.ui.escala
 
+// ATENÇÃO: qualquer texto em espaço apertado deve ser TextoSemQuebra
+// (maxLines = 1, softWrap = false). Já houve 6 bugs de quebra neste projeto:
+// "Hoj/e", "TRABALH/O", "Calendári/o", "B/M", "Em/vigo/r", "08:/0/0".
+// Exceção: notas e frases de texto livre podem quebrar entre palavras.
+
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
@@ -22,23 +26,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.AusenciaRepository
+import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.data.repository.DiaRealRepository
+import pt.haconnect.predit.data.repository.MunicipioRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.abreviarPosto
 import pt.haconnect.predit.domain.calc.duracaoMinutos
 import pt.haconnect.predit.domain.calc.formatarHoraMin
 import pt.haconnect.predit.domain.model.CategoriaTurno
-import pt.haconnect.predit.ui.turnos.CelulaPosto
 import pt.haconnect.predit.ui.turnos.CelulaTipoTurno
 import pt.haconnect.predit.ui.turnos.TextoSemQuebra
 import pt.haconnect.predit.ui.turnos.nomeFormatado
@@ -64,7 +72,9 @@ fun EscalaScreen(
             tipoTurnoRepository = TipoTurnoRepository(db.tipoTurnoDao()),
             ausenciaRepository = AusenciaRepository(db.ausenciaDao()),
             diaRealRepository = DiaRealRepository(db.diaRealDao()),
-            planejamentoMesRepository = context.planejamentoMesRepository
+            planejamentoMesRepository = context.planejamentoMesRepository,
+            municipioRepository = MunicipioRepository(db.municipioDao()),
+            contratoRepository = ContratoRepository(db.contratoDao())
         )
     )
 
@@ -205,18 +215,17 @@ fun EscalaScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         diasDaSemana.forEach { dia ->
-                            Text(
-                                text = dia,
+                            TextoSemQuebra(
+                                texto = dia,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.outline,
-                                textAlign = TextAlign.Center,
                                 modifier = Modifier.weight(1f)
                             )
                         }
                     }
 
-                    Divider(modifier = Modifier.padding(bottom = 4.dp))
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 4.dp))
 
                     // Grelha do mês em 7 colunas (com suporte a swipe horizontal)
                     var dragOffset by remember { mutableFloatStateOf(0f) }
@@ -292,18 +301,20 @@ fun EscalaScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     text = "Turnos",
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
                                 Text(
                                     text = "${uiState.estatisticas.numTurnos}",
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
 
-                            Divider(
+                            HorizontalDivider(
                                 modifier = Modifier
                                     .height(24.dp)
                                     .width(1.dp)
@@ -312,18 +323,20 @@ fun EscalaScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     text = "Folgas",
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
                                 Text(
                                     text = "${uiState.estatisticas.numFolgas}",
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
                             }
 
-                            Divider(
+                            HorizontalDivider(
                                 modifier = Modifier
                                     .height(24.dp)
                                     .width(1.dp)
@@ -332,18 +345,20 @@ fun EscalaScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     text = "Ausências",
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
                                 Text(
                                     text = "${uiState.estatisticas.numAusencias}",
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
                             }
 
-                            Divider(
+                            HorizontalDivider(
                                 modifier = Modifier
                                     .height(24.dp)
                                     .width(1.dp)
@@ -352,6 +367,7 @@ fun EscalaScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     text = "Total Horas",
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -360,6 +376,7 @@ fun EscalaScreen(
                                 val textoHoras = if (minutos > 0) "${horas}h ${minutos}m" else "${horas}h"
                                 Text(
                                     text = textoHoras,
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -409,7 +426,7 @@ fun EscalaScreen(
                         fontWeight = FontWeight.Bold
                     )
 
-                    Divider()
+                    HorizontalDivider()
 
                     val tipo = dia.tipoTurnoEfetivo
                     if (tipo != null) {
@@ -423,11 +440,13 @@ fun EscalaScreen(
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
                                     text = tipo.nome,
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
                                     text = "Categoria: ${tipo.categoria.nomeFormatado()}",
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -462,11 +481,13 @@ fun EscalaScreen(
                                     val duracao = duracaoMinutos(tipo.inicioMin, tipo.fimMin, tipo.pausaMin)
                                     Text(
                                         text = "Horário: ${formatarHoraMin(tipo.inicioMin)} - ${formatarHoraMin(tipo.fimMin)}",
+                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium
                                     )
                                     Text(
                                         text = "Duração: ${formatarHoraMin(duracao)}",
+                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold
@@ -526,6 +547,7 @@ fun EscalaScreen(
                                     )
                                     Text(
                                         text = dia.tipoTurnoChip?.nome ?: "Sem tipo",
+                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -534,11 +556,13 @@ fun EscalaScreen(
                                 val dur = duracaoMinutos(dia.diaReal.inicioMin, dia.diaReal.fimMin, dia.diaReal.pausaMin)
                                 Text(
                                     text = "Horário: ${formatarHoraMin(dia.diaReal.inicioMin)} - ${formatarHoraMin(dia.diaReal.fimMin)}",
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
                                 Text(
                                     text = "Duração: ${formatarHoraMin(dur)}",
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -546,6 +570,7 @@ fun EscalaScreen(
                                 if (!dia.diaReal.posto.isNullOrBlank()) {
                                     Text(
                                         text = "Posto: ${dia.diaReal.posto}",
+                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -637,6 +662,60 @@ fun EscalaScreen(
     }
 }
 
+/**
+ * Fase 12b — chip largo da célula do calendário (estilo Supershift): ocupa a largura da célula
+ * em vez de ser um círculo. Precedência de cores: feriado (azul) > hoje (branco) > cor do tipo.
+ */
+@Composable
+private fun ChipDiaCalendario(
+    texto: String,
+    corFundo: Color,
+    corTexto: Color,
+    modifier: Modifier = Modifier,
+    ehHoje: Boolean = false,
+    ehFeriado: Boolean = false
+) {
+    val corFundoFinal = when {
+        ehFeriado -> Color(0xFF2196F3).copy(alpha = 0.55f) // azul Material com transparência
+        ehHoje -> Color.White.copy(alpha = 0.85f)
+        else -> corFundo
+    }
+    val corTextoFinal = when {
+        ehFeriado -> Color.White
+        ehHoje -> Color.Black
+        else -> corTexto
+    }
+    val tamanhoFonte = when {
+        texto.length <= 3 -> 10.sp
+        texto.length <= 5 -> 9.sp
+        else -> 7.5.sp
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(22.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(corFundoFinal),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = texto,
+            fontSize = tamanhoFonte,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            color = corTextoFinal,
+            textAlign = TextAlign.Center,
+            style = androidx.compose.ui.text.TextStyle(
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                letterSpacing = (-0.3).sp
+            )
+        )
+    }
+}
+
 @Composable
 private fun CelulaDiaCalendario(
     dia: DiaMesEscala,
@@ -644,23 +723,19 @@ private fun CelulaDiaCalendario(
     modifier: Modifier = Modifier
 ) {
     val alpha = if (dia.pertenceAoMesAtual) 1f else 0.38f
-    val temRegistoReal = dia.diaReal != null
+    val tipoChip = dia.tipoTurnoChip
 
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        color = when {
+            dia.ehHoje -> Color.White.copy(alpha = 0.15f)
+            // Feriado sem turno projetado: a célula ganha a tinta azul (senão ficava vazia).
+            dia.ehFeriado && tipoChip == null -> Color(0xFF2196F3).copy(alpha = 0.15f)
+            else -> MaterialTheme.colorScheme.surface
+        },
         shape = RoundedCornerShape(4.dp),
         modifier = modifier
             .alpha(alpha)
             .clickable(onClick = onClick)
-            .then(
-                if (dia.ehHoje) {
-                    Modifier.border(
-                        width = 1.5.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(4.dp)
-                    )
-                } else Modifier
-            )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -672,37 +747,27 @@ private fun CelulaDiaCalendario(
             ) {
                 Text(
                     text = "${dia.data.dayOfMonth}",
+                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
+                    fontSize = 11.sp,
                     fontWeight = if (dia.ehHoje) FontWeight.Bold else FontWeight.Normal,
                     color = if (dia.ehHoje) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                 )
 
-                val tipoChip = dia.tipoTurnoChip
                 if (tipoChip != null) {
                     val textoPosto = abreviarPosto(dia.diaReal?.posto)
-                    if (textoPosto != null) {
-                        CelulaPosto(
-                            texto = textoPosto,
-                            corTipo = Color(tipoChip.cor),
-                            tamanho = 22.dp
-                        )
-                    } else {
-                        CelulaTipoTurno(tipo = tipoChip, tamanho = 22.dp, modifier = Modifier.size(22.dp))
-                    }
-                } else if (temRegistoReal) {
-                    Box(
-                        modifier = Modifier
-                            .size(22.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .border(1.5.dp, MaterialTheme.colorScheme.tertiary, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("•", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                    }
+                    val textoChip = textoPosto ?: tipoChip.abreviatura
+                    val corTipo = Color(tipoChip.cor)
+                    ChipDiaCalendario(
+                        texto = textoChip,
+                        corFundo = corTipo.copy(alpha = 0.85f),
+                        corTexto = if (corTipo.luminance() > 0.55f) Color.Black else Color.White,
+                        ehHoje = dia.ehHoje,
+                        ehFeriado = dia.ehFeriado,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 } else {
-                    Spacer(modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.height(22.dp))
                 }
             }
 
@@ -710,8 +775,8 @@ private fun CelulaDiaCalendario(
             if (dia.ausencia != null && dia.tipoTurnoProjetado != null) {
                 Box(
                     modifier = Modifier
-                        .padding(2.dp)
-                        .size(5.dp)
+                        .padding(3.dp)
+                        .size(4.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.tertiary)
                         .align(Alignment.TopEnd)

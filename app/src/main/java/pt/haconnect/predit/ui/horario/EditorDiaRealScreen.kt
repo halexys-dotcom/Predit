@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
@@ -75,6 +76,7 @@ fun EditorDiaRealScreen(
     var posto by rememberSaveable { mutableStateOf("") }
 
     var carregado by remember { mutableStateOf(false) }
+    var mostrarDialogoApagar by remember { mutableStateOf(false) }
     var tipoProjetadoNoDia by remember { mutableStateOf<TipoTurno?>(null) }
 
     val scope = rememberCoroutineScope()
@@ -132,7 +134,9 @@ fun EditorDiaRealScreen(
                 title = {
                     Text(
                         text = if (registoExistente != null) "Editar Registo Real" else "Registar Horas",
-                        maxLines = 1
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 navigationIcon = {
@@ -142,12 +146,7 @@ fun EditorDiaRealScreen(
                 },
                 actions = {
                     if (registoExistente != null) {
-                        IconButton(onClick = {
-                            scope.launch {
-                                diaRealRepository.apagar(registoExistente!!.id)
-                                onVoltar()
-                            }
-                        }) {
+                        IconButton(onClick = { mostrarDialogoApagar = true }) {
                             Icon(Icons.Default.Delete, contentDescription = "Apagar")
                         }
                     }
@@ -233,6 +232,7 @@ fun EditorDiaRealScreen(
                         label = {
                             Text(
                                 text = "${tipo.emoji ?: ""} ${tipo.nome}",
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                 fontWeight = if (selecionado) FontWeight.Bold else FontWeight.Normal,
                                 color = if (selecionado) corTexto else MaterialTheme.colorScheme.onSurface
                             )
@@ -301,7 +301,7 @@ fun EditorDiaRealScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            if (horarioValido && inicioMin != null && fimMin != null) {
+            if (horarioValido) {
                 val duracaoRealMin = duracaoMinutos(inicioMin, fimMin, pausaMin)
                 Surface(
                     color = MaterialTheme.colorScheme.primaryContainer,
@@ -314,6 +314,7 @@ fun EditorDiaRealScreen(
                     ) {
                         Text(
                             text = "Duração real: ${formatarHoraMin(duracaoRealMin)}",
+                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -336,6 +337,26 @@ fun EditorDiaRealScreen(
                         }
                     }
                 }
+            }
+            
+            if (mostrarDialogoApagar) {
+                AlertDialog(
+                    onDismissRequest = { mostrarDialogoApagar = false },
+                    title = { Text("Apagar registo?") },
+                    text = { Text("O registo de ${dataLocal.format(formatterData)} vai ser eliminado. Esta ação não pode ser anulada.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            mostrarDialogoApagar = false
+                            scope.launch {
+                                registoExistente?.let { diaRealRepository.apagar(it.id) }
+                                onVoltar()
+                            }
+                        }) { Text("Apagar", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { mostrarDialogoApagar = false }) { Text("Cancelar") }
+                    }
+                )
             }
         }
     }

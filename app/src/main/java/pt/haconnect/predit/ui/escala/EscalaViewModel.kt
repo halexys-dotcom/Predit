@@ -7,13 +7,17 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import pt.haconnect.predit.data.repository.AusenciaRepository
+import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.data.repository.DiaRealRepository
+import pt.haconnect.predit.data.repository.MunicipioRepository
 import pt.haconnect.predit.data.repository.PlanejamentoMesRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.AplicacaoVigente
 import pt.haconnect.predit.domain.calc.aplicarAusencias
 import pt.haconnect.predit.domain.calc.duracaoMinutos
+import pt.haconnect.predit.domain.calc.feriadoMunicipal
+import pt.haconnect.predit.domain.calc.feriadosNacionais
 import pt.haconnect.predit.domain.calc.projetarIntervalo
 import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
@@ -28,6 +32,8 @@ data class DiaMesEscala(
     val data: LocalDate,
     val pertenceAoMesAtual: Boolean,
     val ehHoje: Boolean,
+    /** Feriado nacional ou municipal (do contrato): pinta o chip de azul na grelha. */
+    val ehFeriado: Boolean = false,
     val tipoTurnoProjetado: TipoTurno?,
     val ausenciaBruta: Ausencia?,
     val ausenciaEfetiva: Ausencia?,
@@ -60,7 +66,9 @@ class EscalaViewModel(
     private val tipoTurnoRepository: TipoTurnoRepository,
     private val ausenciaRepository: AusenciaRepository,
     private val diaRealRepository: DiaRealRepository,
-    private val planejamentoMesRepository: PlanejamentoMesRepository
+    private val planejamentoMesRepository: PlanejamentoMesRepository,
+    private val municipioRepository: MunicipioRepository,
+    private val contratoRepository: ContratoRepository
 ) : ViewModel() {
 
     private val _anoMesAtual = MutableStateFlow(YearMonth.now())
@@ -110,6 +118,13 @@ class EscalaViewModel(
 
         val hoje = LocalDate.now()
 
+        // Feriados do ano visível: nacionais + o municipal do contrato (Fase 12b).
+        // O município e o contrato são fixos — buscá-los por mês visível é barato.
+        val feriadosDoAno = feriadosNacionais(mes.year).toMutableSet()
+        contratoRepository.obter()?.municipioId
+            ?.let { municipioRepository.obterPorId(it) }
+            ?.let { m -> feriadoMunicipal(mes.year, m.feriadoDia, m.feriadoMes)?.let { feriadosDoAno.add(it) } }
+
         val diasProjetados = if (temEscala) {
             projetarIntervalo(
                 deEpochDay = inicioGrelha.toEpochDay(),
@@ -137,6 +152,7 @@ class EscalaViewModel(
                     data = curr,
                     pertenceAoMesAtual = curr.year == mes.year && curr.month == mes.month,
                     ehHoje = curr == hoje,
+                    ehFeriado = curr.toEpochDay() in feriadosDoAno,
                     tipoTurnoProjetado = tipoProjetado,
                     ausenciaBruta = ausenciaBruta,
                     ausenciaEfetiva = ausenciaEfetiva,
@@ -157,7 +173,7 @@ class EscalaViewModel(
                 val efetivo = dia.tipoTurnoEfetivo
                 when {
                     dia.ausenciaEfetiva != null -> 8 * 60
-                    dia.ausenciaEfetiva == null && efetivo?.categoria == CategoriaTurno.TRABALHO ->
+                    efetivo?.categoria == CategoriaTurno.TRABALHO ->
                         duracaoMinutos(efetivo.inicioMin, efetivo.fimMin, efetivo.pausaMin)
                     else -> 0
                 }
@@ -218,7 +234,9 @@ class EscalaViewModel(
         private val tipoTurnoRepository: TipoTurnoRepository,
         private val ausenciaRepository: AusenciaRepository,
         private val diaRealRepository: DiaRealRepository,
-        private val planejamentoMesRepository: PlanejamentoMesRepository
+        private val planejamentoMesRepository: PlanejamentoMesRepository,
+        private val municipioRepository: MunicipioRepository,
+        private val contratoRepository: ContratoRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -227,7 +245,9 @@ class EscalaViewModel(
                 tipoTurnoRepository,
                 ausenciaRepository,
                 diaRealRepository,
-                planejamentoMesRepository
+                planejamentoMesRepository,
+                municipioRepository,
+                contratoRepository
             ) as T
         }
     }

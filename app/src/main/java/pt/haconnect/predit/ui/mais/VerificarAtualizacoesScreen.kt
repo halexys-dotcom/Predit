@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.BuildConfig
@@ -117,6 +118,7 @@ private fun CartaoVersaoInstalada(
             )
             Text(
                 text = "$versaoNome (código $versaoCode)",
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -187,6 +189,7 @@ private fun CartaoDisponivel(manifest: VersionManifest, onDescarregar: () -> Uni
             )
             Text(
                 text = manifest.versionName,
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -217,6 +220,7 @@ private fun CartaoProgresso(progresso: Float) {
         ) {
             Text(
                 text = "A descarregar... ${(progresso * 100).toInt()} %",
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyMedium
             )
             LinearProgressIndicator(

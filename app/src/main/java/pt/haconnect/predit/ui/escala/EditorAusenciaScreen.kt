@@ -43,6 +43,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -77,6 +78,10 @@ fun EditorAusenciaScreen(
     var tipoSelecionado by remember { mutableStateOf<TipoTurno?>(null) }
     var dataInicioTexto by rememberSaveable { mutableStateOf(dataInicial.format(formatter)) }
     var dataFimTexto by rememberSaveable { mutableStateOf(dataInicial.format(formatter)) }
+    // Passo D (12a) — a pré-visualização usa valores com debounce de 300 ms (evita o ANR ao
+    // escrever a data à mão). A validação e o botão Guardar usam os valores imediatos.
+    var dataInicioPreviewTexto by remember { mutableStateOf(dataInicioTexto) }
+    var dataFimPreviewTexto by remember { mutableStateOf(dataFimTexto) }
     var nota by rememberSaveable { mutableStateOf("") }
 
     var carregado by remember { mutableStateOf(false) }
@@ -98,6 +103,8 @@ fun EditorAusenciaScreen(
                     tipoSelecionado = mapaTipos[existente.tipoTurnoId]
                     dataInicioTexto = LocalDate.ofEpochDay(existente.dataInicio).format(formatter)
                     dataFimTexto = LocalDate.ofEpochDay(existente.dataFim).format(formatter)
+                    dataInicioPreviewTexto = dataInicioTexto
+                    dataFimPreviewTexto = dataFimTexto
                     nota = existente.nota ?: ""
                 }
             }
@@ -112,6 +119,15 @@ fun EditorAusenciaScreen(
     val dataFimParsed = parseData(dataFimTexto)
 
     val datasValidas = dataInicioParsed != null && dataFimParsed != null && !dataFimParsed.isBefore(dataInicioParsed)
+
+    LaunchedEffect(dataInicioTexto) {
+        if (dataInicioTexto != dataInicioPreviewTexto) { delay(300); dataInicioPreviewTexto = dataInicioTexto }
+    }
+    LaunchedEffect(dataFimTexto) {
+        if (dataFimTexto != dataFimPreviewTexto) { delay(300); dataFimPreviewTexto = dataFimTexto }
+    }
+    val dataInicioPreview = parseData(dataInicioPreviewTexto)
+    val dataFimPreview = parseData(dataFimPreviewTexto)
 
     val sobrepoeOutraAusencia = remember(dataInicioParsed, dataFimParsed, ausenciasExistentes, ausenciaId) {
         if (dataInicioParsed != null && dataFimParsed != null) {
@@ -287,9 +303,9 @@ fun EditorAusenciaScreen(
             )
 
             // Pré-visualização dos dias e contador
-            val inicioLocal = dataInicioParsed
-            val fimLocal = dataFimParsed
-            if (datasValidas && inicioLocal != null && fimLocal != null) {
+            val inicioLocal = dataInicioPreview
+            val fimLocal = dataFimPreview
+            if (inicioLocal != null && fimLocal != null && !fimLocal.isBefore(inicioLocal)) {
                 val diasLista = remember(inicioLocal, fimLocal, aplicacoesVigentes) {
                     var curr: LocalDate = inicioLocal
                     val res = mutableListOf<Pair<LocalDate, TipoTurno?>>()
@@ -330,18 +346,21 @@ fun EditorAusenciaScreen(
                     ) {
                         Text(
                             text = "$totalDias ${if (totalDias == 1) "dia" else "dias"} de calendário",
+                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
                             text = "$numDiasConsumidos ${if (numDiasConsumidos == 1) "dia consumido" else "dias consumidos"}",
+                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
                             text = "$numDiasComTurnoEscala ${if (numDiasComTurnoEscala == 1) "dia" else "dias"} com turno na escala",
+                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -365,11 +384,13 @@ fun EditorAusenciaScreen(
                                 ) {
                                     Text(
                                         text = dia.format(formatter),
+                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
                                         text = dia.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale("pt", "PT")).uppercase(),
+                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline
                                     )
@@ -393,6 +414,7 @@ fun EditorAusenciaScreen(
 
                                     Text(
                                         text = texto,
+                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium
                                     )

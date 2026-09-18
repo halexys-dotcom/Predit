@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
@@ -73,7 +74,16 @@ fun AplicarRotacaoScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Aplicar Rotação ${detalhe?.rotacao?.nome?.let { "— $it" } ?: ""}") },
+                // Fase 12b: o nome da rotacao e livre, logo o titulo pode ficar longo — mesmas guardas
+                // das outras barras (1 linha, sem quebra a meio da palavra, reticencias).
+                title = {
+                    Text(
+                        text = "Aplicar Rotação ${detalhe?.rotacao?.nome?.let { "— $it" } ?: ""}",
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onVoltar) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")

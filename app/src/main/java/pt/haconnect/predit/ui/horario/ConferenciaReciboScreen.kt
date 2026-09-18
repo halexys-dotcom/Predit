@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
@@ -69,7 +70,16 @@ fun ConferenciaReciboScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Recibo de vencimento") },
+                // Fase 12b: titulo encurtado + guardas. Com 3 actions na barra (Hoje/Guardar/Apagar)
+                // o texto "Recibo de vencimento" partia-se a meio da palavra ("Rec/ibo") num ecra de 360dp.
+                title = {
+                    Text(
+                        text = "Recibo",
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onVoltar) {
                         Icon(
@@ -112,6 +122,7 @@ fun ConferenciaReciboScreen(
             }
             Text(
                 text = uiState.anoMesFormatado,
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -258,6 +269,7 @@ private fun LinhaRubrica(
     ) {
         Text(
             text = "${linha.codigo} · ${linha.nome}",
+            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold
         )
@@ -268,6 +280,7 @@ private fun LinhaRubrica(
         ) {
             Text(
                 text = "Estimado: ${linha.valorEstimado.milParaEuros()}",
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall
             )
             OutlinedTextField(
@@ -293,6 +306,7 @@ private fun LinhaRubrica(
             val sinal = if (linha.divergencia < 0L) "\u2212" else "+"
             Text(
                 text = "\u26A0 $sinal${abs(linha.divergencia).milParaEuros()}",
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.testTag("divergencia-${linha.codigo}")
@@ -336,6 +350,7 @@ private fun LinhaTotal(rotulo: String, abonos: Long, descontos: Long, liquido: L
         )
         Text(
             text = "Abonos ${abonos.milParaEuros()} · Desc. ${descontos.milParaEuros()} · Líq. ${liquido.milParaEuros()}",
+            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodySmall
         )
     }

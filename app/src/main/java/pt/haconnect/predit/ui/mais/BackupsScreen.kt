@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
@@ -91,6 +92,7 @@ fun BackupsScreen(onVoltar: () -> Unit) {
                     )
                     Text(
                         text = "Localização: ${viewModel.pasta}",
+                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -214,12 +216,14 @@ private fun CartaoBackup(
         ) {
             Text(
                 text = backup.nome,
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = "${dataHora(backup.criadoEm)} · ${tamanhoLegivel(backup.tamanhoBytes)} · " +
                     "v${backup.versionBd} · ${if (backup.ehAutomatico) "automático" else "manual"}",
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

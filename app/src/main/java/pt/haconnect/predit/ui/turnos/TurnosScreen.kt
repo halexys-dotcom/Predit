@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
@@ -186,7 +187,7 @@ private fun CartaoTipoTurno(
                         .background(Color(tipo.cor).copy(alpha = alpha)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(tipo.emoji ?: tipo.abreviatura.take(2))
+                    Text(tipo.emoji ?: tipo.abreviatura.take(2), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                 }
 
                 Column {
@@ -196,12 +197,14 @@ private fun CartaoTipoTurno(
                     ) {
                         Text(
                             text = tipo.nome,
+                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
                         )
                         Text(
                             text = "(${tipo.abreviatura})",
+                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
                         )

@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
@@ -85,12 +86,12 @@ fun HorarioScreen(
                     Tab(
                         selected = abaSelecionada == 0,
                         onClick = { abaSelecionada = 0 },
-                        text = { Text("Mês") }
+                        text = { Text("Mês", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) }
                     )
                     Tab(
                         selected = abaSelecionada == 1,
                         onClick = { abaSelecionada = 1 },
-                        text = { Text("Conferência") }
+                        text = { Text("Conferência", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }
@@ -133,7 +134,7 @@ fun HorarioScreen(
                         ) {
                             Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Hoje", style = MaterialTheme.typography.labelMedium)
+                            Text("Hoje", style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                         }
                     }
 
@@ -188,11 +189,13 @@ fun HorarioScreen(
                                             ) {
                                                 Text(
                                                     text = linha.data.format(formatterData),
+                                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     fontWeight = FontWeight.Bold
                                                 )
                                                 Text(
                                                     text = linha.data.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale("pt", "PT")).uppercase(),
+                                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.outline
                                                 )
@@ -214,6 +217,7 @@ fun HorarioScreen(
                                                 }
                                                 Text(
                                                     text = "${formatarHoraMin(diaReal.inicioMin)}–${formatarHoraMin(diaReal.fimMin)}",
+                                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                                     style = MaterialTheme.typography.bodySmall
                                                 )
                                             }
@@ -235,6 +239,7 @@ fun HorarioScreen(
                                         if (!diaReal.posto.isNullOrBlank()) {
                                             Text(
                                                 text = diaReal.posto,
+                                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.labelMedium,
                                                 color = MaterialTheme.colorScheme.outline,
                                                 modifier = Modifier.padding(top = 4.dp)
@@ -261,8 +266,8 @@ fun HorarioScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Horas reais registadas", style = MaterialTheme.typography.bodyMedium)
-                            Text(formatarHoraMin(totais.minutosReais), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text("Horas reais registadas", style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                            Text(formatarHoraMin(totais.minutosReais), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -270,28 +275,30 @@ fun HorarioScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text(totais.rotuloPrevisto, style = MaterialTheme.typography.bodyMedium)
+                                Text(totais.rotuloPrevisto, style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                                 if (totais.subtituloPrevisto != null) {
                                     Text(
                                         text = totais.subtituloPrevisto,
+                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.outline
                                     )
                                 }
                             }
-                            Text(formatarHoraMin(totais.minutosPrevistos), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text(formatarHoraMin(totais.minutosPrevistos), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                         }
                         HorizontalDivider()
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Diferença face à escala", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text("Diferença face à escala", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                             val dif = totais.diferencaMinutos
                             val sinal = if (dif >= 0) "+" else "-"
                             val absDif = abs(dif)
                             Text(
                                 text = "$sinal${formatarHoraMin(absDif)}",
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = if (dif >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
@@ -364,7 +371,7 @@ private fun ConferenciaTabContent(
                 ) {
                     Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Hoje", style = MaterialTheme.typography.labelMedium)
+                    Text("Hoje", style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                 }
 
                 IconButton(onClick = onSemestreSeguinte) {
@@ -464,6 +471,7 @@ private fun ConferenciaTabContent(
 
             Text(
                 text = "Fechado em $dtFechoStr",
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -485,14 +493,14 @@ private fun ConferenciaTabContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("Real total", style = MaterialTheme.typography.bodyMedium)
-                    Text(formatarHoraMin(uiState.realTotalMinutos), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text(formatarHoraMin(uiState.realTotalMinutos), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("Jornada ciclo", style = MaterialTheme.typography.bodyMedium)
-                    Text(formatarHoraMin(uiState.jornadaTotalMinutos), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text(formatarHoraMin(uiState.jornadaTotalMinutos), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -501,6 +509,7 @@ private fun ConferenciaTabContent(
                     Text("Extras pagos", style = MaterialTheme.typography.bodyMedium)
                     Text(
                         text = "+${formatarHoraMin(uiState.extrasPagosTotalMinutos)}",
+                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -521,6 +530,7 @@ private fun ConferenciaTabContent(
                                 .format(dfFecho)
                             Text(
                                 text = "(limpo em $dtFechoStr)",
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -539,6 +549,7 @@ private fun ConferenciaTabContent(
                     }
                     Text(
                         text = txtSaldo,
+                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )

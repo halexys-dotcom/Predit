@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.R
@@ -84,6 +85,7 @@ fun MaisScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 text = "Contrato de Trabalho",
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -142,6 +144,7 @@ fun MaisScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 text = "Recibo de vencimento",
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -186,6 +189,7 @@ fun MaisScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 text = "Ausências Registadas",
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -230,6 +234,7 @@ fun MaisScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 text = "Importar planning",
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -275,6 +280,7 @@ fun MaisScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 text = "Backups",
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -320,6 +326,7 @@ fun MaisScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 text = "Atualizações",
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
