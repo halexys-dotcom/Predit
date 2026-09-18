@@ -8,6 +8,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,13 +68,15 @@ fun ConferenciaReciboScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     var pedirConfirmacao by remember { mutableStateOf(false) }
+    var menuAberto by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                // Fase 12b: titulo encurtado + guardas. Com 3 actions na barra (Hoje/Guardar/Apagar)
-                // o texto "Recibo de vencimento" partia-se a meio da palavra ("Rec/ibo") num ecra de 360dp.
+                // Fase 12b (A2): titulo curto + guardas e acoes em icone. Com 3 TextButtons na barra
+                // e font_scale 1.3 sobravam ~28dp para o titulo: primeiro partia a meio da palavra
+                // ("Rec/ibo"), depois de encurtado ficava "R…". Com icones sobram ~144dp.
                 title = {
                     Text(
                         text = "Recibo",
@@ -89,15 +94,40 @@ fun ConferenciaReciboScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = { viewModel.irParaHoje() }) { Text("Hoje") }
-                    TextButton(
+                    // A2: icones em vez de texto para libertar o titulo. DateRange e o mesmo icone
+                    // do separador Escala (Navegacao.CALENDARIO) e do botao "Hoje" do calendario.
+                    IconButton(onClick = { viewModel.irParaHoje() }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Ir para hoje")
+                    }
+                    IconButton(
                         onClick = { viewModel.guardar() },
                         enabled = uiState.podeGuardar
-                    ) { Text("Guardar") }
-                    TextButton(
-                        onClick = { pedirConfirmacao = true },
-                        enabled = uiState.podeApagar
-                    ) { Text("Apagar") }
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = "Guardar recibo")
+                    }
+                    Box {
+                        IconButton(onClick = { menuAberto = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Mais opções")
+                        }
+                        DropdownMenu(
+                            expanded = menuAberto,
+                            onDismissRequest = { menuAberto = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "Apagar registo",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                enabled = uiState.podeApagar,
+                                onClick = {
+                                    menuAberto = false
+                                    pedirConfirmacao = true
+                                }
+                            )
+                        }
+                    }
                 }
             )
         }
@@ -134,7 +164,8 @@ fun ConferenciaReciboScreen(
             }
         }
 
-        // Os botões Hoje/Guardar/Apagar passaram para as actions da TopAppBar (Passo B).
+        // Os botões Hoje/Guardar/Apagar passaram para as actions da TopAppBar (Fase 12a, Passo B)
+        // e daí para ícones + menu ⋮ (Fase 12b, A2) para libertar o título da barra.
 
         if (!uiState.carregando) {
             Column(
