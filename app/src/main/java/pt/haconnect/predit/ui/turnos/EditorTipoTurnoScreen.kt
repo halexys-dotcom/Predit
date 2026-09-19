@@ -32,15 +32,40 @@ import pt.haconnect.predit.domain.calc.formatarHoraMin
 import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.domain.model.TipoTurno
 
-val CORES_PREDEFINIDAS = listOf(
-    0xFFC0392BL, // Vermelho
-    0xFF1ABC9CL, // Verde-água
-    0xFF2980B9L, // Azul
-    0xFF8E44ADL, // Roxo
-    0xFFE67E22L, // Laranja
-    0xFF16A085L, // Verde escuro
-    0xFF2C3E50L, // Cinza escuro
-    0xFFD35400L  // Amarelo/Acastanhado
+/**
+ * 12c D — paleta expandida de 8 para 24 cores (3 linhas de 8 no FlowRow do editor).
+ * A primeira cor livre desta lista é também a sugestão automática para um tipo novo.
+ */
+val PALETA_CORES = listOf(
+    // Linha 1 — vermelhos, laranjas, amarelos
+    0xFFC62828L, // vermelho escuro
+    0xFFE53935L, // vermelho
+    0xFFEF6C00L, // laranja escuro
+    0xFFFB8C00L, // laranja
+    0xFFF9A825L, // amarelo escuro
+    0xFFFDD835L, // amarelo
+    0xFF827717L, // azeitona
+    0xFF9E9D24L, // verde-lima escuro
+
+    // Linha 2 — verdes, teals, azuis claros
+    0xFF2E7D32L, // verde escuro
+    0xFF43A047L, // verde
+    0xFF00897BL, // teal escuro
+    0xFF00ACC1L, // ciano
+    0xFF0288D1L, // azul claro escuro
+    0xFF039BE5L, // azul claro
+    0xFF3949ABL, // índigo
+    0xFF5E35B1L, // roxo escuro
+
+    // Linha 3 — roxos, rosas, neutros
+    0xFF8E24AAL, // roxo
+    0xFFAB47BCL, // lilás
+    0xFFC2185BL, // rosa escuro
+    0xFFD81B60L, // rosa
+    0xFF6D4C41L, // castanho
+    0xFF546E7AL, // azul-acinzentado
+    0xFF37474FL, // cinza escuro
+    0xFF212121L  // quase preto
 )
 
 fun CategoriaTurno.nomeFormatado(): String {
@@ -53,7 +78,7 @@ fun CategoriaTurno.nomeFormatado(): String {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EditorTipoTurnoScreen(
     tipoId: Long,
@@ -75,7 +100,7 @@ fun EditorTipoTurnoScreen(
     }
 
     val primeiraCorLivre = remember(coresEmUso) {
-        CORES_PREDEFINIDAS.firstOrNull { it !in coresEmUso } ?: CORES_PREDEFINIDAS.first()
+        PALETA_CORES.firstOrNull { it !in coresEmUso } ?: PALETA_CORES.first()
     }
 
     var nome by rememberSaveable { mutableStateOf("") }
@@ -104,7 +129,9 @@ fun EditorTipoTurnoScreen(
 
     LaunchedEffect(tipoId, tiposTurno) {
         if (!carregado) {
-            if (tipoId != 0L) {
+            if (tipoId == 0L) {
+                carregado = true
+            } else {
                 val tipoExistente = tiposTurno.find { it.id == tipoId }
                 if (tipoExistente != null) {
                     nome = tipoExistente.nome
@@ -131,9 +158,9 @@ fun EditorTipoTurnoScreen(
                     val pausaFmt = tipoExistente.pausaMin.toString()
                     pausaMinTexto = pausaFmt
                     pausaMinTextoInicial = pausaFmt
+                    carregado = true
                 }
             }
-            carregado = true
         }
     }
 
@@ -183,7 +210,7 @@ fun EditorTipoTurnoScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (tipoId == 0L) "Novo tipo de turno" else "Editar tipo de turno",
+                        text = "Editor",
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis
@@ -343,11 +370,14 @@ fun EditorTipoTurnoScreen(
             }
 
             Text("Cor", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            Row(
+            // 12c D — 24 cores em linhas de 8 (a paleta anterior tinha 8 numa única linha).
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                maxItemsInEachRow = 8,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                CORES_PREDEFINIDAS.forEach { corHex ->
+                PALETA_CORES.forEach { corHex ->
                     val emUso = corHex in coresEmUso
                     Box(
                         modifier = Modifier

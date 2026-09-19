@@ -26,4 +26,11 @@ interface TipoTurnoDao {
 
     @Query("UPDATE tipo_turno SET ativo = :ativo WHERE id = :id")
     suspend fun definirAtivo(id: Long, ativo: Boolean)
+
+    /**
+     * 12c C.4 — apaga definitivamente. Se o tipo estiver a ser usado em rotacao_slot, ausencia
+     * ou dia_real (ON DELETE RESTRICT) o SQLite lança SQLiteConstraintException.
+     */
+    @Query("DELETE FROM tipo_turno WHERE id = :id")
+    suspend fun apagar(id: Long)
 }

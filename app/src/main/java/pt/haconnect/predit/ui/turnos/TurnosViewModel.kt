@@ -31,6 +31,26 @@ class TurnosViewModel(private val repository: TipoTurnoRepository) : ViewModel()
         }
     }
 
+    /**
+     * 12c C.3 — apaga o tipo de turno. O [onResultado] devolve `false` (com explicação para o
+     * utilizador) quando o tipo está a ser usado numa rotação, ausência ou registo: a FK de
+     * tipo_turno é ON DELETE RESTRICT, logo o SQLite recusa o DELETE.
+     */
+    fun apagar(id: Long, onResultado: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                repository.apagar(id)
+                onResultado(true, null)
+            } catch (e: Exception) {
+                onResultado(
+                    false,
+                    "Este tipo está a ser usado numa rotação, ausência ou registo. " +
+                        "Desativa-o em vez de o apagar."
+                )
+            }
+        }
+    }
+
     class Factory(private val repository: TipoTurnoRepository) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

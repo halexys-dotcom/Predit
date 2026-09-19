@@ -34,6 +34,11 @@ class TipoTurnoRepository(private val dao: TipoTurnoDao) {
         dao.definirAtivo(id, ativo)
     }
 
+    /** 12c C.3 — apaga definitivamente; propaga SQLiteConstraintException se o tipo estiver em uso. */
+    suspend fun apagar(id: Long) {
+        dao.apagar(id)
+    }
+
     private fun TipoTurnoEntity.paraModelo() = TipoTurno(
         id = id,
         nome = nome,

@@ -1,7 +1,9 @@
 package pt.haconnect.predit.ui.turnos
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,7 +30,7 @@ import pt.haconnect.predit.domain.calc.duracaoMinutos
 import pt.haconnect.predit.domain.calc.formatarHoraMin
 import pt.haconnect.predit.domain.model.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TurnosScreen(
     modifier: Modifier = Modifier,
@@ -53,6 +55,11 @@ fun TurnosScreen(
     val mapaTipos = remember(tiposTurno) { tiposTurno.associateBy { it.id } }
 
     var abaSelecionada by remember { mutableIntStateOf(0) }
+
+    // 12c C.1/C.2 — long press num tipo de turno abre o dialogo remover / desativar.
+    var tipoParaAcao by remember { mutableStateOf<TipoTurno?>(null) }
+    var tipoParaErro by remember { mutableStateOf<TipoTurno?>(null) }
+    var mensagemErro by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -116,7 +123,8 @@ fun TurnosScreen(
                         items(tiposTurno, key = { it.id }) { tipo ->
                             CartaoTipoTurno(
                                 tipo = tipo,
-                                onClick = { onNavegarParaEditorTipoTurno(tipo.id) }
+                                onClick = { onNavegarParaEditorTipoTurno(tipo.id) },
+                                onLongClick = { tipoParaAcao = tipo }
                             )
                         }
                     }
@@ -154,19 +162,98 @@ fun TurnosScreen(
             }
         }
     }
+
+    // 12c C.2 — dialogo do long press: desativar (reversivel) ou apagar (definitivo).
+    tipoParaAcao?.let { tipo ->
+        AlertDialog(
+            onDismissRequest = { tipoParaAcao = null },
+            title = { Text("Remover \"${tipo.nome}\"?") },
+            text = {
+                Text(
+                    "Podes desativar (deixa de aparecer na escala) ou apagar definitivamente. " +
+                        "Só é possível apagar se nunca tiver sido usado em rotações, ausências ou registos."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        turnosViewModel.apagar(tipo.id) { sucesso, mensagem ->
+                            tipoParaAcao = null
+                            if (!sucesso) {
+                                tipoParaErro = tipo
+                                mensagemErro = mensagem
+                            }
+                        }
+                    }
+                ) {
+                    Text("Apagar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            turnosViewModel.desativarOuAtivar(tipo.id, false)
+                            tipoParaAcao = null
+                        }
+                    ) {
+                        Text("Desativar")
+                    }
+                    TextButton(onClick = { tipoParaAcao = null }) {
+                        Text("Cancelar")
+                    }
+                }
+            }
+        )
+    }
+
+    // 12c C.2 — o DELETE foi recusado (tipo em uso): oferece desativar em alternativa.
+    mensagemErro?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { mensagemErro = null },
+            title = { Text("Não foi possível apagar") },
+            text = { Text(msg) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        tipoParaErro?.let { turnosViewModel.desativarOuAtivar(it.id, false) }
+                        tipoParaErro = null
+                        mensagemErro = null
+                    }
+                ) {
+                    Text("Desativar em vez disso")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        tipoParaErro = null
+                        mensagemErro = null
+                    }
+                ) {
+                    Text("Fechar")
+                }
+            }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CartaoTipoTurno(
     tipo: TipoTurno,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {}
 ) {
     val alpha = if (tipo.ativo) 1f else 0.5f
 
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
     ) {
         Row(
             modifier = Modifier

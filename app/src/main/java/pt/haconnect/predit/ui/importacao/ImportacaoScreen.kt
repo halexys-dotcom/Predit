@@ -67,7 +67,7 @@ fun ImportacaoScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Importar Planning") },
+                title = { Text("Importar Horário") },
                 navigationIcon = {
                     IconButton(onClick = onVoltar) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
@@ -270,7 +270,7 @@ fun ImportacaoScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Total do Planning", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text("Total do Horário", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                         Text(formatarHoraMin(plano.totalMinutos), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -307,7 +307,7 @@ fun ImportacaoScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Escolhe um ficheiro PDF de planning para importar.",
+                        text = "Escolhe um ficheiro PDF da escala mensal para importar.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline
                     )

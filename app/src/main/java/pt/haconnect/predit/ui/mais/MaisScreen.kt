@@ -233,13 +233,13 @@ fun MaisScreen(
 
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                text = "Importar planning",
+                                text = "Importar Horário",
                                 maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Importar ficheiro PDF de planning mensal",
+                                text = "Importar ficheiro PDF da escala mensal",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

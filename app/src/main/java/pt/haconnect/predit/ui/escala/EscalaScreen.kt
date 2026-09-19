@@ -84,13 +84,9 @@ fun EscalaScreen(
     var diaSelecionadoParaDetalhe by remember { mutableStateOf<DiaMesEscala?>(null) }
     var ausenciaParaRemoverId by remember { mutableStateOf<Long?>(null) }
 
+    // 12c A.1 - sem TopAppBar "Escala": o separador inferior ja identifica o ecra.
     Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text("Escala") }
-            )
-        }
+        modifier = modifier
     ) { padding ->
         Column(
             modifier = Modifier
@@ -156,9 +152,9 @@ fun EscalaScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Reserva de espaço à esquerda (48dp, mesma largura do IconButton "Hoje")
+                        // Reserva de espaço à esquerda (36dp, mesma largura do IconButton "Hoje" — 12c A.2)
                         Box(
-                            modifier = Modifier.width(48.dp),
+                            modifier = Modifier.width(36.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             // Espaço reservado para centragem ótica
@@ -169,7 +165,7 @@ fun EscalaScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            IconButton(onClick = { viewModel.mesAnterior() }) {
+                            IconeNavegacaoMes(onClick = { viewModel.mesAnterior() }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                                     contentDescription = "Mês anterior"
@@ -182,7 +178,7 @@ fun EscalaScreen(
                                 fontWeight = FontWeight.Bold
                             )
 
-                            IconButton(onClick = { viewModel.mesSeguinte() }) {
+                            IconeNavegacaoMes(onClick = { viewModel.mesSeguinte() }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                     contentDescription = "Mês seguinte"
@@ -190,13 +186,13 @@ fun EscalaScreen(
                             }
                         }
 
-                        // Direita: Ícone "Hoje" (largura fixa 48dp)
+                        // Direita: Ícone "Hoje" (largura fixa 36dp — 12c A.2)
                         Box(
-                            modifier = Modifier.width(48.dp),
+                            modifier = Modifier.width(36.dp),
                             contentAlignment = Alignment.CenterEnd
                         ) {
                             if (uiState.anoMesAtual != YearMonth.now()) {
-                                IconButton(onClick = { viewModel.irParaHoje() }) {
+                                IconeNavegacaoMes(onClick = { viewModel.irParaHoje() }) {
                                     Icon(
                                         imageVector = Icons.Default.DateRange,
                                         contentDescription = "Ir para hoje",
@@ -290,7 +286,7 @@ fun EscalaScreen(
                 ) {
                     Column(
                         modifier = Modifier
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                             .fillMaxWidth()
                     ) {
                         Row(
@@ -388,10 +384,11 @@ fun EscalaScreen(
                             Text(
                                 text = "Fonte: planeamento importado",
                                 style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.outline,
                                 maxLines = 1,
                                 softWrap = false,
-                                modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                                modifier = Modifier.padding(top = 2.dp, start = 4.dp)
                             )
                         }
                     }
@@ -663,8 +660,9 @@ fun EscalaScreen(
 }
 
 /**
- * Fase 12b — chip largo da célula do calendário (estilo Supershift): ocupa a largura da célula
- * em vez de ser um círculo. Precedência de cores: feriado (azul) > hoje (branco) > cor do tipo.
+ * Fase 12c B.1 — chip largo da célula do calendário (estilo Supershift): ocupa a largura da célula
+ * em vez de ser um círculo. O chip nunca é azul: a cor é sempre a do tipo de turno
+ * (ou branco quando é hoje). O feriado pinta o fundo da célula, não o chip.
  */
 @Composable
 private fun ChipDiaCalendario(
@@ -672,19 +670,10 @@ private fun ChipDiaCalendario(
     corFundo: Color,
     corTexto: Color,
     modifier: Modifier = Modifier,
-    ehHoje: Boolean = false,
-    ehFeriado: Boolean = false
+    ehHoje: Boolean = false
 ) {
-    val corFundoFinal = when {
-        ehFeriado -> Color(0xFF2196F3).copy(alpha = 0.55f) // azul Material com transparência
-        ehHoje -> Color.White.copy(alpha = 0.85f)
-        else -> corFundo
-    }
-    val corTextoFinal = when {
-        ehFeriado -> Color.White
-        ehHoje -> Color.Black
-        else -> corTexto
-    }
+    val corFundoFinal = if (ehHoje) Color.White.copy(alpha = 0.85f) else corFundo
+    val corTextoFinal = if (ehHoje) Color.Black else corTexto
     val tamanhoFonte = when {
         texto.length <= 3 -> 10.sp
         texto.length <= 5 -> 9.sp
@@ -716,6 +705,27 @@ private fun ChipDiaCalendario(
     }
 }
 
+/**
+ * 12c A.2 — IconButton compacto (36dp) para a barra de navegação do mês.
+ * O Modifier.size(36.dp) sozinho não chega: o Material3 impõe 48dp de área mínima de toque
+ * (minimumInteractiveComponentSize). Aqui o mínimo é baixado para 36dp, de modo a que a barra
+ * do mês meça 36dp em vez de 48dp.
+ */
+@Composable
+private fun IconeNavegacaoMes(
+    onClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 36.dp) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.size(36.dp)
+        ) {
+            content()
+        }
+    }
+}
+
 @Composable
 private fun CelulaDiaCalendario(
     dia: DiaMesEscala,
@@ -726,10 +736,10 @@ private fun CelulaDiaCalendario(
     val tipoChip = dia.tipoTurnoChip
 
     Surface(
+        // 12c B.2 — precedência: feriado (azul no fundo da célula) > hoje (branco) > surface.
         color = when {
+            dia.ehFeriado -> Color(0xFF2196F3).copy(alpha = 0.20f)
             dia.ehHoje -> Color.White.copy(alpha = 0.15f)
-            // Feriado sem turno projetado: a célula ganha a tinta azul (senão ficava vazia).
-            dia.ehFeriado && tipoChip == null -> Color(0xFF2196F3).copy(alpha = 0.15f)
             else -> MaterialTheme.colorScheme.surface
         },
         shape = RoundedCornerShape(4.dp),
@@ -763,7 +773,6 @@ private fun CelulaDiaCalendario(
                         corFundo = corTipo.copy(alpha = 0.85f),
                         corTexto = if (corTipo.luminance() > 0.55f) Color.Black else Color.White,
                         ehHoje = dia.ehHoje,
-                        ehFeriado = dia.ehFeriado,
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else {

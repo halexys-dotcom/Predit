@@ -190,7 +190,7 @@ class ImportacaoViewModel(
                 result = result?.substring(cut + 1)
             }
         }
-        return result ?: "Planning.pdf"
+        return result ?: "Horario.pdf"
     }
 
     class Factory(
