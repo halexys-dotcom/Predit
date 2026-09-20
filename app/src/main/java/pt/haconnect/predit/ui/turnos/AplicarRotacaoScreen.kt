@@ -61,6 +61,7 @@ fun AplicarRotacaoScreen(
     var validoDeTexto by remember { mutableStateOf(dataAtual.format(formatter)) }
 
     var mostrarConfirmacao by remember { mutableStateOf(false) }
+    var mensagemErro by remember { mutableStateOf<String?>(null) }
 
     val dataAncoraParsed = parseData(dataAncoraTexto)
     val validoDeParsed = parseData(validoDeTexto)
@@ -240,8 +241,12 @@ fun AplicarRotacaoScreen(
                                 rotacaoId = rotacaoId,
                                 dataAncora = dataAncoraParsed.toEpochDay(),
                                 validoDe = validoDeParsed.toEpochDay()
-                            ) {
-                                onVoltar()
+                            ) { sucesso, mensagem ->
+                                if (sucesso) {
+                                    onVoltar()
+                                } else {
+                                    mensagemErro = mensagem
+                                }
                             }
                         }
                     ) {
@@ -251,6 +256,20 @@ fun AplicarRotacaoScreen(
                 dismissButton = {
                     TextButton(onClick = { mostrarConfirmacao = false }) {
                         Text("Cancelar")
+                    }
+                }
+            )
+        }
+
+        // 12e A - o DAO recusa datas anteriores a aplicacao aberta mais recente.
+        mensagemErro?.let { msg ->
+            AlertDialog(
+                onDismissRequest = { mensagemErro = null },
+                title = { Text("Não foi possível aplicar") },
+                text = { Text(msg) },
+                confirmButton = {
+                    TextButton(onClick = { mensagemErro = null }) {
+                        Text("Fechar")
                     }
                 }
             )

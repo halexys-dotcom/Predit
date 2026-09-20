@@ -83,7 +83,7 @@ fun EditorDiaRealScreen(
 
     LaunchedEffect(epochDay, tiposTrabalhoAtivos) {
         if (!carregado) {
-            val aplicacoes = rotacaoRepository.obterAplicacoesVigentes()
+            val aplicacoes = rotacaoRepository.obterTodasAplicacoes()
             val proj = projetarDia(epochDay, aplicacoes)
             tipoProjetadoNoDia = proj.tipoTurnoId?.let { mapaTipos[it] }
 

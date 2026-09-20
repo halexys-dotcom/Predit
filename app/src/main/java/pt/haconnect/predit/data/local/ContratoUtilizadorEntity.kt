@@ -21,5 +21,10 @@ data class ContratoUtilizadorEntity(
     val regiao: String = "CONTINENTE",    // CONTINENTE | ACORES | MADEIRA
     // Município escolhido (municipio.id), para o feriado municipal (Fase 10).
     // Nulo = não escolhido. A coluna é nullable e sem DEFAULT: vem de ALTER TABLE simples.
-    val municipioId: Int? = null
+    val municipioId: Int? = null,
+    // 13a B.2 - chave da categoria CCT (parametros_cct.codigoCategoria). O nome de exibição
+    // continua em categoriaNivel: aqui guarda-se a chave, que é o que o recibo procura.
+    // Coluna com DEFAULT, por isso o defaultValue é obrigatório (ver comentário em regiao).
+    @ColumnInfo(defaultValue = "APAA")
+    val categoriaCodigo: String = "APAA"
 )

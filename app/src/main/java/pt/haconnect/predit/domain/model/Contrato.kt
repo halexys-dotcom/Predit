@@ -31,5 +31,11 @@ data class ContratoUtilizador(
      * Município escolhido (municipio.id), para o feriado municipal (Fase 10).
      * Nulo = não escolhido: o recibo fica só com os feriados nacionais.
      */
-    val municipioId: Int? = null
+    val municipioId: Int? = null,
+    /**
+     * Categoria CCT do contrato (13a), chave de parametros_cct.codigoCategoria. O nome legível
+     * para o ecrã continua em [categoriaNivel]; é esta chave que o recibo usa para escolher a
+     * tabela salarial. Por omissão APAA, que é a categoria de referência.
+     */
+    val categoriaCodigo: String = CATEGORIA_CCT_PADRAO
 )

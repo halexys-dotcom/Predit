@@ -68,7 +68,7 @@ data class ContextoEstimativa(
 
 /** Códigos que o estimador calcula. Tudo o resto sai com 0 (introduzido à mão). */
 private val CODIGOS_ESTIMADOS = setOf(
-    "VENC", "SUP_ALIM", "SUP_TRAN", "HNOT",
+    "VENC", "SUP_ALIM", "SUP_TRAN", "SUP_FUNCAO", "HNOT",
     "HSUP_DN", "HSUP_NT", "HSUP_DN_FER", "HSUP_NT_FER", "HSUP_DN_DESC", "HSUP_NT_DESC",
     "DESC_FER", "DESC_DESC",
     "D01", "D02", "D04"
@@ -80,6 +80,12 @@ private val CODIGOS_DESCONTO = setOf("D01", "D02", "D04")
 /** Jornada diária normal (8h) e mês comercial usado nos proporcionais. */
 private const val MINUTOS_JORNADA_DIA = 8 * 60
 private const val DIAS_MES_COMERCIAL = 30L
+
+/**
+ * Base de dias do subsídio de função (13a). Regra pedida pelo utilizador: 22 dias, independente
+ * dos 30 do subsídio de transporte — não "corrigir" para 30 sem nova instrução.
+ */
+private const val DIAS_BASE_SUBFUNCAO = 22L
 
 /** Taxas em basis points: 11% de Segurança Social e 1% de sindicato. */
 private const val TAXA_SEGURANCA_SOCIAL_BPS = 1_100L
@@ -213,6 +219,17 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
             (DIAS_MES_COMERCIAL - diasUteisAusencia).coerceAtLeast(0L),
         DIAS_MES_COMERCIAL
     )
+    // Subsídio de função (13a): só as categorias que o têm (hoje o Team Leader, 43,00 €/mês).
+    // Mensal × (22 − dias úteis de ausência) ÷ 22, com o mesmo corte por ausências do SUP_ALIM.
+    // Zero para as restantes categorias — e nesse caso nem se faz a conta.
+    val supFuncaoMil = if (ctx.parametrosCCT.subsidioFuncaoMil > 0L) {
+        dividirArredondando(
+            ctx.parametrosCCT.subsidioFuncaoMil * (DIAS_BASE_SUBFUNCAO - diasUteisAusencia).coerceAtLeast(0L),
+            DIAS_BASE_SUBFUNCAO
+        )
+    } else {
+        0L
+    }
 
     val valores = linkedMapOf(
         "VENC" to venc,
@@ -225,6 +242,7 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         "HSUP_NT_DESC" to valorMinutos(minSupNtDesc, valorHora, TipoHora.SUP_NOTURNO_DESCANSO),
         "SUP_ALIM" to subAlim,
         "SUP_TRAN" to subTran,
+        "SUP_FUNCAO" to supFuncaoMil,
         "DESC_FER" to descFerMil,
         "DESC_DESC" to descDescMil
     )

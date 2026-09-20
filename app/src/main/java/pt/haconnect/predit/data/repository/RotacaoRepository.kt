@@ -41,7 +41,9 @@ class RotacaoRepository(private val dao: RotacaoDao) {
         return dao.aplicarNovaRotacao(rotacaoId, dataAncora, validoDe)
     }
 
-    fun observarAplicacoesVigentes(): Flow<List<pt.haconnect.predit.domain.calc.AplicacaoVigente>> {
+    // 12e C - nome honesto: devolve TODAS as aplicacoes (abertas e encerradas), por validoDe.
+    // O filtro de vigencia e feito por aplicacaoPara(), no cliente.
+    fun observarTodasAplicacoes(): Flow<List<pt.haconnect.predit.domain.calc.AplicacaoVigente>> {
         return dao.observarTodasAplicacoes().map { lista ->
             lista.mapNotNull { ap ->
                 val detalhe = dao.porId(ap.rotacaoId)
@@ -58,7 +60,7 @@ class RotacaoRepository(private val dao: RotacaoDao) {
         }
     }
 
-    suspend fun obterAplicacoesVigentes(): List<pt.haconnect.predit.domain.calc.AplicacaoVigente> {
+    suspend fun obterTodasAplicacoes(): List<pt.haconnect.predit.domain.calc.AplicacaoVigente> {
         val lista = dao.obterTodasAplicacoes()
         return lista.mapNotNull { ap ->
             val detalhe = dao.porId(ap.rotacaoId)
@@ -71,6 +73,14 @@ class RotacaoRepository(private val dao: RotacaoDao) {
                     slots = slotsOrdenados
                 )
             } else null
+        }
+    }
+
+    // 12e C - versao que filtra a vigencia na data pedida. Ainda NAO e usada: fica disponivel
+    // para quando a Escala/Recibo passarem a projetar a partir da data em causa.
+    fun observarAplicacoesVigentes(epochDay: Long): Flow<List<pt.haconnect.predit.domain.calc.AplicacaoVigente>> {
+        return observarTodasAplicacoes().map { lista ->
+            lista.filter { epochDay >= it.validoDe && (it.validoAte == null || epochDay <= it.validoAte) }
         }
     }
 

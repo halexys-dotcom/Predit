@@ -27,6 +27,7 @@ import pt.haconnect.predit.domain.calc.projetarIntervalo
 import pt.haconnect.predit.domain.calc.valorHoraMil
 import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
+import pt.haconnect.predit.domain.model.CATEGORIA_CCT_PADRAO
 import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.DiaReal
 import pt.haconnect.predit.domain.model.LIMIAR_DIVERGENCIA_UNIDADES
@@ -166,7 +167,7 @@ class ReciboViewModel(
     private val diasReais = diaRealRepository.observarTodos()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val aplicacoes = rotacaoRepository.observarAplicacoesVigentes()
+    private val aplicacoes = rotacaoRepository.observarTodasAplicacoes()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val tiposTurno = tipoTurnoRepository.observarTodos()
@@ -219,7 +220,13 @@ class ReciboViewModel(
         val formatado = formatarAnoMes(fontes.cabecalho.anoMes)
         val inicio = fontes.cabecalho.anoMes.atDay(1).toEpochDay()
         val contrato = fontes.catalogo.contrato
-        val vigente = parametrosCCTRepository.vigentePara(fontes.catalogo.parametros, inicio)
+        // 13a: a tabela salarial é a da categoria do contrato; sem categoria (ou sem tabela para
+        // o ano do mês) cai na APAA, que é a categoria de referência da app.
+        val vigente = parametrosCCTRepository.paraCategoria(
+            fontes.catalogo.parametros,
+            contrato?.categoriaCodigo ?: CATEGORIA_CCT_PADRAO,
+            inicio
+        )
 
         // Enquanto o catálogo não chegou (primeira emissão do stateIn), não desenhar nada.
         // Sem isto, a primeira emissão da combine corre com rubricas=0 e devolve estado vazio
@@ -446,8 +453,9 @@ class ReciboViewModel(
         val anoMes = YearMonth.parse(estado.anoMes)
         val inicio = anoMes.atDay(1).toEpochDay()
         val contrato = contratoRepository.obter()
-        val vigente = parametrosCCTRepository.vigentePara(
+        val vigente = parametrosCCTRepository.paraCategoria(
             parametrosCCTRepository.observarTodos().first(),
+            contrato?.categoriaCodigo ?: CATEGORIA_CCT_PADRAO,
             inicio
         )
         val categorias = tipoTurnoRepository.observarTodos().first()
@@ -455,7 +463,7 @@ class ReciboViewModel(
         val projetados = projetarIntervalo(
             inicio,
             anoMes.atEndOfMonth().toEpochDay(),
-            rotacaoRepository.obterAplicacoesVigentes()
+            rotacaoRepository.obterTodasAplicacoes()
         )
         val diasUteis = projetados.count { dia ->
             dia.tipoTurnoId?.let { categorias[it] } == CategoriaTurno.TRABALHO

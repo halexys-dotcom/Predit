@@ -204,8 +204,9 @@ fun EditorRotacaoScreen(
                                     } else {
                                         Box(
                                             modifier = Modifier
-                                                .size(14.dp)
-                                                .clip(CircleShape)
+                                                .height(14.dp)
+                                                .widthIn(min = 21.dp)
+                                                .clip(RoundedCornerShape(3.dp))
                                                 .background(Color(tipo.cor))
                                         )
                                     }
@@ -355,9 +356,9 @@ fun EditorRotacaoScreen(
                                         CelulaTipoTurno(
                                             tipo = tipo,
                                             tamanho = 40.dp,
+                                            formato = FormatoCelula.RETANGULAR,
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .aspectRatio(1f)
                                                 .combinedClickable(
                                                     onClick = {
                                                         tipoSelecionado?.let { slots[index] = it.id }

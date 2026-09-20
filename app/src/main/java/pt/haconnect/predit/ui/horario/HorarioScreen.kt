@@ -31,6 +31,7 @@ import pt.haconnect.predit.domain.calc.duracaoMinutos
 import pt.haconnect.predit.domain.calc.formatarHoraMin
 import pt.haconnect.predit.ui.turnos.CelulaPosto
 import pt.haconnect.predit.ui.turnos.CelulaTipoTurno
+import pt.haconnect.predit.ui.turnos.FormatoCelula
 import pt.haconnect.predit.ui.turnos.TextoSemQuebra
 import java.time.Instant
 import java.time.YearMonth
@@ -77,11 +78,13 @@ fun HorarioScreen(
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        // 12e A.1 - sem TopAppBar "Horário": o separador inferior já identifica o ecrã e os
+        // sub-separadores (Mês / Conferência) ficam no topo, com o mesmo respiro da Escala.
         topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text("Horário") }
-                )
+            Column(
+                modifier = Modifier.statusBarsPadding()
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
                 TabRow(selectedTabIndex = abaSelecionada) {
                     Tab(
                         selected = abaSelecionada == 0,
@@ -210,7 +213,7 @@ fun HorarioScreen(
                                                             modifier = Modifier.size(28.dp)
                                                         )
                                                     } else {
-                                                        CelulaTipoTurno(tipo = tipo, tamanho = 28.dp, modifier = Modifier.size(28.dp))
+                                                        CelulaTipoTurno(tipo = tipo, tamanho = 28.dp, formato = FormatoCelula.RETANGULAR)
                                                     }
                                                 } else {
                                                     Spacer(modifier = Modifier.size(28.dp))

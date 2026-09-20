@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,7 +26,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.data.repository.MunicipioRepository
+import pt.haconnect.predit.data.repository.ParametrosCCTRepository
 import pt.haconnect.predit.domain.calc.RegiaoIRS
+import pt.haconnect.predit.domain.model.CATEGORIA_CCT_PADRAO
 import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.EstadoCivil
 import pt.haconnect.predit.domain.model.Municipio
@@ -48,7 +51,10 @@ fun ContratoScreen(
     val db = context.database
 
     val viewModel: ContratoViewModel = viewModel(
-        factory = ContratoViewModel.Factory(ContratoRepository(db.contratoDao()))
+        factory = ContratoViewModel.Factory(
+            repository = ContratoRepository(db.contratoDao()),
+            parametrosCCTRepository = ParametrosCCTRepository(db.parametrosCCTDao())
+        )
     )
 
     // Catálogo de municípios (Fase 10): semeado em PreditApplication, só se lê daqui.
@@ -56,6 +62,8 @@ fun ContratoScreen(
     val municipios by municipioRepository.observarTodos().collectAsState(initial = emptyList())
 
     val contratoExistente by viewModel.contrato.collectAsState()
+    // 13a: categorias do CCT para o selector (vêm dos parâmetros semeados).
+    val categorias by viewModel.categorias.collectAsState()
 
     val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
     val hoje = LocalDate.now()
@@ -68,9 +76,15 @@ fun ContratoScreen(
     var titularesTexto by rememberSaveable { mutableStateOf("1") }
     var regiao by rememberSaveable { mutableStateOf(RegiaoIRS.CONTINENTE) }
     var municipioId by rememberSaveable { mutableStateOf<Int?>(null) }
+    // 13a: categoria do contrato. A chave (categoriaCodigo) é o que o recibo procura na tabela
+    // salarial; categoriaNivel é o nome que se mostra, no formato que a app já usava.
+    var categoriaCodigo by rememberSaveable { mutableStateOf(CATEGORIA_CCT_PADRAO) }
+    var categoriaNivel by rememberSaveable { mutableStateOf("XIII, Vigilante Aeroportuário/APA-A") }
 
     var pickerMunicipioAberto by remember { mutableStateOf(false) }
     var pesquisaMunicipio by rememberSaveable { mutableStateOf("") }
+    var pickerCategoriaAberto by remember { mutableStateOf(false) }
+    var pesquisaCategoria by rememberSaveable { mutableStateOf("") }
 
     var carregado by remember { mutableStateOf(false) }
 
@@ -87,6 +101,8 @@ fun ContratoScreen(
             titularesTexto = c.titulares.toString()
             regiao = c.regiao
             municipioId = c.municipioId
+            categoriaCodigo = c.categoriaCodigo
+            categoriaNivel = c.categoriaNivel
             carregado = true
         }
     }
@@ -124,7 +140,8 @@ fun ContratoScreen(
                             if (dataAdmissaoParsed != null) {
                                 val c = ContratoUtilizador(
                                     id = 1,
-                                    categoriaNivel = "XIII, Vigilante Aeroportuário/APA-A",
+                                    categoriaNivel = categoriaNivel,
+                                    categoriaCodigo = categoriaCodigo,
                                     dataAdmissao = dataAdmissaoParsed.toEpochDay(),
                                     regimeHorario = regimeHorario,
                                     horarioSemanalH = horarioSemanalTexto.toIntOrNull() ?: 40,
@@ -187,12 +204,110 @@ fun ContratoScreen(
             }
 
             Text("Categoria / Nível Professional", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            OutlinedTextField(
-                value = "XIII, Vigilante Aeroportuário/APA-A",
-                onValueChange = {},
-                readOnly = true,
+            // 13a: selector de categoria, com o mesmo padrão do município — Surface clicável em
+            // vez de OutlinedTextField readOnly, que engolia o toque e nunca abria o picker.
+            Surface(
+                onClick = { pickerCategoriaAberto = true },
+                shape = MaterialTheme.shapes.extraSmall,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = categoriaNivel,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text("▾", style = MaterialTheme.typography.titleMedium)
+                }
+            }
+            Text(
+                text = "A categoria escolhe a tabela salarial do CCT: vencimento, subsídio de " +
+                    "alimentação e subsídio de função do recibo.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            if (pickerCategoriaAberto) {
+                val procurada = pesquisaCategoria.trim()
+                val visiveis = categorias.filter { c ->
+                    procurada.isEmpty() ||
+                        c.nome.contains(procurada, ignoreCase = true) ||
+                        c.codigo.contains(procurada, ignoreCase = true) ||
+                        c.nivel.contains(procurada, ignoreCase = true)
+                }
+
+                ModalBottomSheet(onDismissRequest = { pickerCategoriaAberto = false }) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Categoria / Nível",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        OutlinedTextField(
+                            value = pesquisaCategoria,
+                            onValueChange = { pesquisaCategoria = it },
+                            label = { Text("Pesquisar (categoria, nível ou código)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        if (visiveis.isEmpty()) {
+                            Text(
+                                text = "Nenhuma categoria do CCT corresponde à pesquisa.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 420.dp)
+                        ) {
+                            items(visiveis, key = { it.codigo }) { categoria ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            categoriaCodigo = categoria.codigo
+                                            categoriaNivel = "${categoria.nivel}, ${categoria.nome}"
+                                            pickerCategoriaAberto = false
+                                        }
+                                        .padding(vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(categoria.nome, style = MaterialTheme.typography.bodyLarge)
+                                        Text(
+                                            text = "${categoria.nivel} · ${categoria.codigo}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (categoria.codigo == categoriaCodigo) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Categoria escolhida",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             Text("Data de Admissão *", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             OutlinedTextField(

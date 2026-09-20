@@ -48,16 +48,31 @@ class RotacoesViewModel(private val repository: RotacaoRepository) : ViewModel()
         }
     }
 
-    fun apagarRotacao(id: Long) {
+    /** 12d E: apaga a rotação e devolve o resultado à UI (o FK de aplicacao_rotacao é RESTRICT). */
+    fun apagarRotacao(id: Long, onResultado: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
-            repository.apagarRotacao(id)
+            try {
+                repository.apagarRotacao(id)
+                onResultado(true, null)
+            } catch (e: Exception) {
+                onResultado(false, "Esta rotação já foi aplicada à escala. Só é possível apagar rotações que nunca tenham estado em vigor.")
+            }
         }
     }
 
-    fun aplicarRotacao(rotacaoId: Long, dataAncora: Long, validoDe: Long, onConcluido: () -> Unit = {}) {
+    /**
+     * 12e A: aplica a rotação e devolve o resultado à UI. A recusa de datas anteriores à
+     * aplicação aberta mais recente vem do DAO (IllegalStateException) e chega aqui como
+     * mensagem para o diálogo.
+     */
+    fun aplicarRotacao(rotacaoId: Long, dataAncora: Long, validoDe: Long, onResultado: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
-            repository.aplicarNovaRotacao(rotacaoId, dataAncora, validoDe)
-            onConcluido()
+            try {
+                repository.aplicarNovaRotacao(rotacaoId, dataAncora, validoDe)
+                onResultado(true, null)
+            } catch (e: Exception) {
+                onResultado(false, e.message ?: "Não foi possível aplicar a rotação. Tenta novamente.")
+            }
         }
     }
 

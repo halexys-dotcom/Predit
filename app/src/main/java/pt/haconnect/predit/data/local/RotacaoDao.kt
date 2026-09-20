@@ -72,19 +72,39 @@ interface RotacaoDao {
     @Query("SELECT * FROM aplicacao_rotacao WHERE validoAte IS NULL ORDER BY validoDe DESC LIMIT 1")
     suspend fun obterAplicacaoAtual(): AplicacaoRotacaoEntity?
 
+    @Query("SELECT * FROM aplicacao_rotacao WHERE validoAte IS NULL")
+    suspend fun obterTodasAbertas(): List<AplicacaoRotacaoEntity>
+
     @Insert
     suspend fun inserirAplicacao(aplicacao: AplicacaoRotacaoEntity): Long
 
     @Update
     suspend fun atualizarAplicacao(aplicacao: AplicacaoRotacaoEntity)
 
+    /**
+     * 12e A: aplica uma rotação à escala.
+     *  - Recusa datas anteriores à aplicação aberta mais recente: sem isto, uma aplicação antiga
+     *    ficava aberta para sempre e a escolha do tipo de cada dia passava a depender da ordem
+     *    em que a query devolvia as linhas (empate de validoDe).
+     *  - Encerra TODAS as aplicações abertas que começam até ao novo validoDe; antes encerrava
+     *    só a "atual", o que deixava órfãs quando havia mais do que uma aberta.
+     */
     @Transaction
     suspend fun aplicarNovaRotacao(rotacaoId: Long, dataAncora: Long, validoDe: Long): Long {
-        // Se já existe aplicação vigente com a mesma data, termina-a antes de inserir a nova
-        val atual = obterAplicacaoAtual()
-        if (atual != null && atual.validoDe <= validoDe) {
-            atualizarAplicacao(atual.copy(validoAte = validoDe - 1))
+        val abertas = obterTodasAbertas()
+        val maisRecente = abertas.maxByOrNull { it.validoDe }
+
+        if (maisRecente != null && maisRecente.validoDe > validoDe) {
+            throw IllegalStateException(
+                "Já existe uma rotação em vigor a partir de uma data posterior. " +
+                    "Escolhe uma data igual ou posterior."
+            )
         }
+
+        abertas.filter { it.validoDe <= validoDe }.forEach { aberta ->
+            atualizarAplicacao(aberta.copy(validoAte = validoDe - 1))
+        }
+
         return inserirAplicacao(
             AplicacaoRotacaoEntity(
                 rotacaoId = rotacaoId,

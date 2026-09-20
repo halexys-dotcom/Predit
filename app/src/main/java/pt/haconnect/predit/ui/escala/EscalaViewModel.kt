@@ -82,7 +82,7 @@ class EscalaViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val aplicacoesVigentes: StateFlow<List<AplicacaoVigente>> =
-        rotacaoRepository.observarAplicacoesVigentes()
+        rotacaoRepository.observarTodasAplicacoes()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val tiposTurno: StateFlow<List<TipoTurno>> =

@@ -87,4 +87,43 @@ class MigracaoTest {
         helper.createDatabase("teste-migracao-12-13", 12).apply { close() }
         helper.runMigrationsAndValidate("teste-migracao-12-13", 13, true, PreditDatabase.MIGRATION_12_13)
     }
+
+    /**
+     * 13a: as cinco colunas novas entram com DEFAULT, logo uma BD que já tenha parâmetros
+     * salariais e um contrato passa a tê-los como APAA sem perder nada do que lá estava.
+     */
+    @Test
+    fun migrar13Para14() {
+        helper.createDatabase("teste-migracao-13-14", 13).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-13-14", 14, true, PreditDatabase.MIGRATION_13_14)
+    }
+
+    /**
+     * 13a (correção): o Team Leader é nível XIII do CCT (equivalente ao APA-A), não um nível
+     * "TL" à parte. A migração só mexe em dados — corrige as linhas semeadas com o nome antigo.
+     */
+    @Test
+    fun migrar14Para15() {
+        helper.createDatabase("teste-migracao-14-15", 14).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-14-15", 15, true, PreditDatabase.MIGRATION_14_15)
+    }
+
+    /**
+     * 13b: a BD fica com as 11 categorias de segurança (22 linhas, 11 × 2 vigências), o Team
+     * Leader passa a nível XXX e o SUP_FUNCAO sobe para a ordem 17. Só dados — o esquema é o mesmo.
+     */
+    @Test
+    fun migrar15Para16() {
+        helper.createDatabase("teste-migracao-15-16", 15).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-15-16", 16, true, PreditDatabase.MIGRATION_15_16)
+    }
+
+    /**
+     * 13c: o subsídio de função do Team Leader passa a 52,46 € (524 600 em 1/10000 €). Só dados.
+     */
+    @Test
+    fun migrar16Para17() {
+        helper.createDatabase("teste-migracao-16-17", 16).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-16-17", 17, true, PreditDatabase.MIGRATION_16_17)
+    }
 }

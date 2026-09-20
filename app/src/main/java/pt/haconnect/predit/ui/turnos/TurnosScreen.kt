@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
@@ -61,13 +62,18 @@ fun TurnosScreen(
     var tipoParaErro by remember { mutableStateOf<TipoTurno?>(null) }
     var mensagemErro by remember { mutableStateOf<String?>(null) }
 
+    // 12d E - long press numa rotacao abre o dialogo de apagar.
+    var rotacaoParaAcao by remember { mutableStateOf<Rotacao?>(null) }
+    var mensagemErroRotacao by remember { mutableStateOf<String?>(null) }
+
     Scaffold(
         modifier = modifier,
+        // 12e A.2 - sem TopAppBar "Turnos e Rotações": ficam só os sub-separadores no topo.
         topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text("Turnos e Rotações") }
-                )
+            Column(
+                modifier = Modifier.statusBarsPadding()
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
                 TabRow(selectedTabIndex = abaSelecionada) {
                     Tab(
                         selected = abaSelecionada == 0,
@@ -149,6 +155,7 @@ fun TurnosScreen(
                                 rotacaoDetalhada = detalhe,
                                 mapaTipos = mapaTipos,
                                 ehVigente = ehVigente,
+                                onLongClick = { rotacaoParaAcao = detalhe.rotacao },
                                 onClickEditar = {
                                     onNavegarParaEditorRotacao(detalhe.rotacao.id)
                                 },
@@ -236,6 +243,54 @@ fun TurnosScreen(
             }
         )
     }
+
+    // 12d E — long press numa rotação: apagar (só é possível se nunca tiver sido aplicada).
+    rotacaoParaAcao?.let { rotacao ->
+        AlertDialog(
+            onDismissRequest = { rotacaoParaAcao = null },
+            title = { Text("Apagar \"${rotacao.nome}\"?") },
+            text = {
+                Text(
+                    "Só é possível apagar rotações que nunca tenham sido aplicadas à escala. " +
+                        "Se já estiver em vigor, a app recusa apagar."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        rotacoesViewModel.apagarRotacao(rotacao.id) { sucesso, mensagem ->
+                            rotacaoParaAcao = null
+                            if (!sucesso) {
+                                mensagemErroRotacao = mensagem
+                            }
+                        }
+                    }
+                ) {
+                    Text("Apagar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { rotacaoParaAcao = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // 12d E — a rotação já foi usada: sem coluna "ativo" no schema, só resta informar.
+    mensagemErroRotacao?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { mensagemErroRotacao = null },
+            title = { Text("Não foi possível apagar") },
+            text = { Text(msg) },
+            confirmButton = {
+                TextButton(onClick = { mensagemErroRotacao = null }) {
+                    Text("Fechar")
+                }
+            }
+        )
+    }
+
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -269,12 +324,20 @@ private fun CartaoTipoTurno(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color(tipo.cor).copy(alpha = alpha)),
+                        .height(36.dp)
+                        .widthIn(min = 54.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(tipo.cor).copy(alpha = alpha))
+                        .padding(horizontal = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(tipo.emoji ?: tipo.abreviatura.take(2), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        text = tipo.emoji ?: tipo.abreviatura.take(2),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        color = calcularCorTexto(tipo.cor)
+                    )
                 }
 
                 Column {
@@ -328,11 +391,13 @@ private fun CartaoTipoTurno(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CartaoRotacao(
     rotacaoDetalhada: RotacaoDetalhada,
     mapaTipos: Map<Long, TipoTurno>,
     ehVigente: Boolean,
+    onLongClick: () -> Unit = {},
     onClickEditar: () -> Unit,
     onClickAplicar: () -> Unit
 ) {
@@ -342,7 +407,10 @@ private fun CartaoRotacao(
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClickEditar)
+            .combinedClickable(
+                onClick = onClickEditar,
+                onLongClick = onLongClick
+            )
     ) {
         Column(
             modifier = Modifier

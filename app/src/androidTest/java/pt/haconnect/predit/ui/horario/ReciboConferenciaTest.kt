@@ -148,12 +148,15 @@ class ReciboConferenciaTest {
         esperarPorTexto("Recibo de vencimento")
 
         // O toque no cartão às vezes cai a meio da transição e não navega: repete até o
-        // ecrã abrir (a action "Hoje" só existe no ecrã do recibo).
+        // ecrã abrir. O marcador é a action do topo do recibo ("Ir para hoje"): desde a Fase 12a
+        // (commit 900f815) os botões da barra são ícones e o antigo texto "Hoje" já não existe
+        // nesse ecrã — esperar por ele fazia o ciclo repetir depois de já ter navegado, e o toque
+        // seguinte no cartão falhava contra o ecrã do recibo (falha intermitente).
         var tentativas = 0
         while (tentativas < 4) {
             composeTestRule.onNodeWithTag("entrada-recibo").performClick()
             try {
-                esperarPorTexto("Hoje", timeoutMs = 8_000)
+                esperarPorDescricao("Ir para hoje", timeoutMs = 8_000)
                 break
             } catch (_: ComposeTimeoutException) {
                 tentativas++
@@ -215,7 +218,9 @@ class ReciboConferenciaTest {
         // Mês sem recibo: o cabeçalho di-lo e não há nada para apagar
         irParaRubrica("VENC")
         composeTestRule.onNodeWithText("Sem recibo introduzido").assertExists()
-        composeTestRule.onNodeWithText("Apagar").assertIsNotEnabled()
+        // As acções da barra são ícones desde a Fase 12a: o apagar vive no menu de overflow.
+        composeTestRule.onNodeWithContentDescription("Mais opções").performClick()
+        composeTestRule.onNodeWithText("Apagar registo").assertIsNotEnabled()
     }
 
     @Test
@@ -235,7 +240,7 @@ class ReciboConferenciaTest {
         abrirRecibo()
 
         campo("VENC").performTextReplacement("1137,98")
-        composeTestRule.onNodeWithText("Guardar").performClick()
+        composeTestRule.onNodeWithContentDescription("Guardar recibo").performClick()
 
         // Gravou: cabeçalho + uma linha por rubrica do catálogo. A escrita é assíncrona,
         // por isso espera-se aqui fora (dentro do waitUntil do Compose bloquearia).
@@ -253,7 +258,8 @@ class ReciboConferenciaTest {
         assertEquals(chave, cabecalho.anoMes)
 
         val linhas = runBlocking { app.database.reciboLinhaDao().obterPorMes(chave) }
-        assertEquals("uma linha por rubrica do catálogo", 20, linhas.size)
+        // Uma linha por rubrica do catálogo: 21 desde a 13a (o SUP_FUNCAO entrou no catálogo).
+        assertEquals("uma linha por rubrica do catálogo", 21, linhas.size)
 
         val idVenc = runBlocking { app.database.rubricaDao().obterPorCodigo("VENC") }!!.id
         val linhaVenc = linhas.first { it.rubricaId == idVenc }
@@ -269,6 +275,6 @@ class ReciboConferenciaTest {
 
         campo("VENC").assertTextContains("1 137,98", substring = true)
         // Já gravado e sem alterações por guardar
-        composeTestRule.onNodeWithText("Guardar").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Guardar recibo").assertIsNotEnabled()
     }
 }

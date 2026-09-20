@@ -8,6 +8,7 @@ package pt.haconnect.predit.ui.escala
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -734,12 +735,19 @@ private fun CelulaDiaCalendario(
 ) {
     val alpha = if (dia.pertenceAoMesAtual) 1f else 0.38f
     val tipoChip = dia.tipoTurnoChip
+    val ehModoEscuro = isSystemInDarkTheme()
 
     Surface(
-        // 12c B.2 — precedência: feriado (azul no fundo da célula) > hoje (branco) > surface.
+        // 12c B.2 — precedência: feriado (azul no fundo da célula) > hoje > surface.
+        // 13c C — o realce do "hoje" tem de se ver nos dois temas: branco translúcido no escuro
+        // (como estava) e cinza no claro, onde o branco quase não se distinguia do fundo.
         color = when {
             dia.ehFeriado -> Color(0xFF2196F3).copy(alpha = 0.20f)
-            dia.ehHoje -> Color.White.copy(alpha = 0.15f)
+            dia.ehHoje -> if (ehModoEscuro) {
+                Color.White.copy(alpha = 0.15f)
+            } else {
+                Color.Gray.copy(alpha = 0.35f)
+            }
             else -> MaterialTheme.colorScheme.surface
         },
         shape = RoundedCornerShape(4.dp),
@@ -748,12 +756,14 @@ private fun CelulaDiaCalendario(
             .clickable(onClick = onClick)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // 13a A - data e chip no topo da celula: com Arrangement.Top o espaco que sobra
+            // fica vazio por baixo. Antes era SpaceBetween, que empurrava o chip para o fundo.
             Column(
                 modifier = Modifier
-                    .padding(2.dp)
+                    .padding(horizontal = 2.dp, vertical = 2.dp)
                     .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
+                verticalArrangement = Arrangement.Top
             ) {
                 Text(
                     text = "${dia.data.dayOfMonth}",
@@ -767,16 +777,15 @@ private fun CelulaDiaCalendario(
                 if (tipoChip != null) {
                     val textoPosto = abreviarPosto(dia.diaReal?.posto)
                     val textoChip = textoPosto ?: tipoChip.abreviatura
-                    val corTipo = Color(tipoChip.cor)
+                    val corChip = if (tipoChip.ativo) Color(tipoChip.cor) else Color(0xFF546E7A)  // 12e D - tipos desativados em cinza
+                    Spacer(modifier = Modifier.height(2.dp))
                     ChipDiaCalendario(
                         texto = textoChip,
-                        corFundo = corTipo.copy(alpha = 0.85f),
-                        corTexto = if (corTipo.luminance() > 0.55f) Color.Black else Color.White,
+                        corFundo = corChip.copy(alpha = 0.85f),
+                        corTexto = if (corChip.luminance() > 0.55f) Color.Black else Color.White,
                         ehHoje = dia.ehHoje,
                         modifier = Modifier.fillMaxWidth()
                     )
-                } else {
-                    Spacer(modifier = Modifier.height(22.dp))
                 }
             }
 

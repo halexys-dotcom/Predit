@@ -94,7 +94,7 @@ fun EditorAusenciaScreen(
 
     LaunchedEffect(ausenciaId, tiposAusenciaAtivos) {
         if (!carregado) {
-            aplicacoesVigentes = rotacaoRepository.obterAplicacoesVigentes()
+            aplicacoesVigentes = rotacaoRepository.obterTodasAplicacoes()
             ausenciasExistentes = ausenciaRepository.observarTodas().first()
 
             if (ausenciaId != 0L) {

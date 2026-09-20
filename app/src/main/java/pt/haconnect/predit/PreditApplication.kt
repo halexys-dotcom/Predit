@@ -10,14 +10,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pt.haconnect.predit.data.backup.BackupManager
+import pt.haconnect.predit.data.local.CATEGORIAS_CCT
 import pt.haconnect.predit.data.local.ContratoUtilizadorEntity
 import pt.haconnect.predit.data.local.MunicipioEntity
-import pt.haconnect.predit.data.local.ParametrosCCTEntity
 import pt.haconnect.predit.data.local.PreditDatabase
 import pt.haconnect.predit.data.local.RubricaEntity
 import pt.haconnect.predit.data.local.TipoCalculo
 import pt.haconnect.predit.data.local.TipoTurnoEntity
 import pt.haconnect.predit.data.local.TABELAS_IRS_2026
+import pt.haconnect.predit.data.local.para2025
+import pt.haconnect.predit.data.local.para2026
 import pt.haconnect.predit.data.repository.CicloJornadaRepository
 import pt.haconnect.predit.data.repository.PlanejamentoMesRepository
 import pt.haconnect.predit.data.repository.ReciboRepository
@@ -72,7 +74,11 @@ class PreditApplication : Application() {
             PreditDatabase.MIGRATION_9_10,
             PreditDatabase.MIGRATION_10_11,
             PreditDatabase.MIGRATION_11_12,
-            PreditDatabase.MIGRATION_12_13
+            PreditDatabase.MIGRATION_12_13,
+            PreditDatabase.MIGRATION_13_14,
+            PreditDatabase.MIGRATION_14_15,
+            PreditDatabase.MIGRATION_15_16,
+            PreditDatabase.MIGRATION_16_17
         )
         .addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
@@ -89,6 +95,8 @@ class PreditApplication : Application() {
                 // recibo_mes→recibo_linha e o RESTRICT de rubrica ficavam inertes.
                 // O onOpen corre fora de transação (RoomOpenHelper.onOpen), logo pega.
                 db.execSQL("PRAGMA foreign_keys = ON")
+                // 12e B - higiene: se ficaram varias aplicacoes abertas, fecha todas menos a mais recente.
+                fecharAplicacoesOrfas(db)
                 CoroutineScope(Dispatchers.IO).launch {
                     garantirContratoInicial()
                     garantirParametrosCCT()
@@ -139,30 +147,24 @@ class PreditApplication : Application() {
     }
 
     /**
-     * Parâmetros do CCT, versionados por vigência. Idempotente: só escreve se a tabela
-     * estiver vazia. Unidade: 1/10000 € (ver domain/model/Dinheiro.kt).
+     * Parâmetros do CCT, versionados por vigência e por categoria (13a).
+     *
+     * Idempotente por chave composta (codigoCategoria, validoDe): uma BD que já tenha as linhas
+     * APAA não as duplica, e as outras 23 categorias entram na primeira vez que a app abrir
+     * depois da migração 13→14. Unidade: 1/10000 € (ver domain/model/Dinheiro.kt).
      */
     private suspend fun garantirParametrosCCT() {
         val dao = database.parametrosCCTDao()
-        if (dao.contar() != 0) return
-        dao.inserir(
-            ParametrosCCTEntity(
-                validoDe = LocalDate.of(2025, 1, 1).toEpochDay(),
-                vencimentoBaseMil = 10_760_000,   // 1 076,00 €
-                subAlimentacaoDiaMil = 74_200,    // 7,42 €/dia
-                subTransporteMesMil = 492_500,    // 49,25 €/mês
-                horarioSemanalReferencia = 40
-            )
-        )
-        dao.inserir(
-            ParametrosCCTEntity(
-                validoDe = LocalDate.of(2026, 1, 1).toEpochDay(),
-                vencimentoBaseMil = 11_379_800,   // 1 137,98 €
-                subAlimentacaoDiaMil = 78_500,    // 7,85 €/dia
-                subTransporteMesMil = 520_900,    // 52,09 €/mês
-                horarioSemanalReferencia = 40
-            )
-        )
+        val vigencia2025 = LocalDate.of(2025, 1, 1).toEpochDay()
+        val vigencia2026 = LocalDate.of(2026, 1, 1).toEpochDay()
+        for (linha in CATEGORIAS_CCT) {
+            if (!dao.existe(linha.codigo, vigencia2025)) {
+                dao.inserir(linha.para2025(vigencia2025))
+            }
+            if (!dao.existe(linha.codigo, vigencia2026)) {
+                dao.inserir(linha.para2026(vigencia2026))
+            }
+        }
     }
 
     /**
@@ -199,6 +201,9 @@ class PreditApplication : Application() {
             RubricaEntity(0L, "D01", "Segurança Social (11%)", false, false, false, TipoCalculo.DERIVADO, true, 20),
             RubricaEntity(0L, "D02", "IRS", false, false, false, TipoCalculo.DERIVADO, true, 21),
             RubricaEntity(0L, "D04", "Sindicato (1%)", false, false, false, TipoCalculo.DERIVADO, true, 22),
+            // 13a: subsídio de função. Só as categorias que o têm (hoje o Team Leader) o trazem
+            // a valores; nas outras o valor é 0. Incide SS e IRS, não incide sindicato.
+            RubricaEntity(0L, "SUP_FUNCAO", "Subsídio de função", true, true, false, TipoCalculo.DERIVADO, true, 23),
             RubricaEntity(0L, "OUTROS", "Outros", true, true, true, TipoCalculo.MANUAL, false, 99)
         )
         iniciais.forEach { rubrica ->
@@ -257,6 +262,24 @@ class PreditApplication : Application() {
                 MunicipioEntity(20, "Horta", "Açores", "ACORES", 24, 6, "São João (por verificar)", false),
                 MunicipioEntity(21, "Ponta Delgada", "Açores", "ACORES", 29, 6, "São Pedro (por verificar)", false)
             )
+        )
+    }
+
+    /**
+     * 12e B: fecha aplicações de rotação órfãs (mais do que uma linha com validoAte = NULL).
+     * Antes da correção do aplicarNovaRotacao (12e A) podiam ficar várias abertas; aqui só a
+     * mais recente continua aberta e as restantes são encerradas no dia anterior. É idempotente
+     * (com uma só aberta não faz nada) e não precisa de migração: mexe apenas em dados, em bruto,
+     * porque no onOpen ainda não há DAO utilizável.
+     */
+    private fun fecharAplicacoesOrfas(db: SupportSQLiteDatabase) {
+        val cursor = db.query("SELECT MAX(validoDe) FROM aplicacao_rotacao WHERE validoAte IS NULL")
+        val maisRecente: Long? = if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null
+        cursor.close()
+        if (maisRecente == null) return
+        db.execSQL(
+            "UPDATE aplicacao_rotacao SET validoAte = ? WHERE validoAte IS NULL AND validoDe < ?",
+            arrayOf(maisRecente - 1, maisRecente)
         )
     }
 
