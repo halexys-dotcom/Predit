@@ -1,7 +1,7 @@
 {
-  "versionCode": 14,
-  "versionName": "0.11.0",
+  "versionCode": 15,
+  "versionName": "1.0.0",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v0.11.0/app-release.apk",
-  "changelog": "- Calculo de subsidios em ferias e baixa\n- Feriados nacionais e municipais\n- Backups internos\n- Conferencia do recibo contra o recibo real"
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v1.0.0/app-release.apk",
+  "changelog": "- Escala com projecao, importacao de PDF da escala mensal, feriados nacionais e municipais\n- Horario com registo real de dias, ciclo semestral e conferencia do recibo\n- Turnos personalizaveis com 24 cores e rotacoes\n- Contrato com 11 categorias CCT de seguranca privada\n- Estimador de recibo com CCT, IRS e subsidios\n- Backups internos e auto-backup no arranque\n- Atualizacoes OTA via GitHub Releases"
 }
