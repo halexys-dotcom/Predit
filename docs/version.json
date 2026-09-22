@@ -1,7 +1,7 @@
 {
-  "versionCode": 17,
-  "versionName": "1.1.1",
+  "versionCode": 18,
+  "versionName": "1.1.2",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v1.1.1/app-release.apk",
-  "changelog": "Versão de manutenção. Sem alterações funcionais — existe apenas para validar o fluxo de atualização automática."
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v1.1.2/app-release.apk",
+  "changelog": "Correcção do cálculo das horas nocturnas: acréscimo de 25% sobre o valor/hora (não o valor total), e corte às 8h de jornada para não duplicar com suplementares. Tipografia dos ecrãs uniformizada."
 }
