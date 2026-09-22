@@ -120,10 +120,12 @@ fun ContratoScreen(
         topBar = {
             TopAppBar(
                 title = {
+                    // Fase 18d: título curto "Contrato" e sem bold (o cartão do Menu Mais continua
+                    // com "Contrato de Trabalho" + subtítulo: lá tem espaço e não sofre truncagem).
                     TextoSemQuebra(
-                        texto = "Contrato de Trabalho",
+                        texto = "Contrato",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Normal
                     )
                 },
                 navigationIcon = {

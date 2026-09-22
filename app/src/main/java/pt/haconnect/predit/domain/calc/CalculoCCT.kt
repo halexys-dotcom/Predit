@@ -38,10 +38,17 @@ fun valorDiaMil(ctx: ContextoCalculo): Int = valorHoraMil(ctx) * 8
 /**
  * Multiplicadores da CCT (handover, secção 4), em fracções exatas — nunca Double:
  * 1,25 = 5/4 · 1,5 = 3/2 · 2,1875 = 35/16 · 3 = 3/1 · 4,375 = 35/8 · 4,5 = 9/2 · 5,25 = 21/4.
+ *
+ * Duas leituras, e é preciso não as trocar:
+ *  - as SUP_* pagam a hora por inteiro (a hora extra não está no vencimento mensal, que já
+ *    paga as horas normais do contrato), por isso o multiplicador é o total da CCT;
+ *  - [NOTURNA_ACRESCIMO] é só o acréscimo sobre a hora normal (0,25 = 1/4): a hora noturna
+ *    é uma hora da jornada, essa já está paga no VENC, e a empresa só soma os 25% — é o que
+ *    o recibo ICTS confirma ("H01 Horas nocturnas 25% — 1,64 €/h").
  */
 enum class TipoHora(val multiplicadorNumerador: Int, val multiplicadorDenominador: Int) {
     NORMAL(1, 1),                    // 1.0
-    NOTURNA(5, 4),                   // 1.25
+    NOTURNA_ACRESCIMO(1, 4),         // 0.25 (acréscimo: 1,64 €/h em 2026)
     SUP_DIURNO_NORMAL(3, 2),         // 1.5
     SUP_NOTURNO_NORMAL(35, 16),      // 2.1875
     SUP_DIURNO_FERIADO(3, 1),        // 3.0

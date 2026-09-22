@@ -157,12 +157,20 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     var minSupNtDesc = 0L
 
     for (dia in diasTrabalhados) {
-        minutosNoturnos += minutosNaJanela(dia.inicioMin, dia.fimMin, janela)
+        // Espelho do cálculo do HSUP: só a janela noturna dentro das primeiras 8h de jornada.
+        // As horas extra noturnas (após as 8h) já são pagas via HSUP_NT*, e é a mesma `noturno`
+        // que as classifica lá — a subtração cobre também os turnos que atravessam a meia-noite,
+        // onde somar 8h ao início não dá uma hora do mesmo dia.
+        val noturnoDoDia = minutosNaJanela(dia.inicioMin, dia.fimMin, janela)
 
         val extra = duracaoMinutos(dia.inicioMin, dia.fimMin, dia.pausaMin) - MINUTOS_JORNADA_DIA
-        if (extra <= 0) continue
+        if (extra <= 0) {
+            minutosNoturnos += noturnoDoDia
+            continue
+        }
 
         val noturno = minutosNaJanela(dia.inicioMin + MINUTOS_JORNADA_DIA, dia.fimMin, janela)
+        minutosNoturnos += noturnoDoDia - noturno
         val diurno = extra - noturno
         when {
             dia.data in feriados -> {
@@ -233,7 +241,7 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
 
     val valores = linkedMapOf(
         "VENC" to venc,
-        "HNOT" to valorMinutos(minutosNoturnos, valorHora, TipoHora.NOTURNA),
+        "HNOT" to valorMinutos(minutosNoturnos, valorHora, TipoHora.NOTURNA_ACRESCIMO),
         "HSUP_DN" to valorMinutos(minSupDn, valorHora, TipoHora.SUP_DIURNO_NORMAL),
         "HSUP_NT" to valorMinutos(minSupNt, valorHora, TipoHora.SUP_NOTURNO_NORMAL),
         "HSUP_DN_FER" to valorMinutos(minSupDnFer, valorHora, TipoHora.SUP_DIURNO_FERIADO),

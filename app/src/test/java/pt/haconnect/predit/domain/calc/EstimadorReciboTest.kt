@@ -147,11 +147,12 @@ class EstimadorReciboTest {
     )
 
     /** Turno das 13h às 22h — 9h, das quais 1h na janela noturna (21h–22h). */
+    /** Turno da tarde de 9h (14h–23h): 1h noturna dentro da jornada e a 9.ª hora também noturna. */
     private fun turnoDaTarde(epochDay: Long, origem: String) = DiaReal(
         data = epochDay,
         tipoTurnoId = null,
-        inicioMin = 13 * 60,
-        fimMin = 22 * 60,
+        inicioMin = 14 * 60,
+        fimMin = 23 * 60,
         pausaMin = 0,
         origem = origem
     )
@@ -298,9 +299,10 @@ class EstimadorReciboTest {
         )
 
         // O utilizador registou o dia à mão: disse "trabalhei", conta apesar das férias.
-        // 1h noturna (21h–22h): 65 653 × 5 ÷ 4 = 82 066 (8,21 €).
-        assertEquals(82_066L, est.valor("HNOT"))
-        // O dia tem 9h: a hora extra cai toda dentro da janela noturna.
+        // 1h noturna dentro da jornada (21h–22h): 65 653 × 1 ÷ 4 = 16 413 (1,64 €) — o HNOT é
+        // o acréscimo de 25%, a hora em si já vem no VENC.
+        assertEquals(16_413L, est.valor("HNOT"))
+        // A 9.ª hora (22h–23h) é extra e também noturna: sai pelo HSUP_NT, com a noite dentro.
         assertEquals(143_616L, est.valor("HSUP_NT"))
         // Trabalhar num dia de férias dá as horas, mas não devolve o dia útil ao subsídio:
         // é o mesmo valor do T6, porque a regra dos subsídios não olha aos dias trabalhados.
@@ -522,8 +524,10 @@ class EstimadorReciboTest {
         // feriado: 120 min × 6,5653 € × 4,375 = 574 464 (57,45 €) · HSUP_NT_FER
         assertEquals(574_464L, est.valor("HSUP_NT_FER"))
         assertEquals(0L, est.valor("HSUP_DN_FER"))
-        // As horas noturnas do dia são as mesmas 2h: 120 min × 6,5653 € × 1,25 = 164 133.
-        assertEquals(164_133L, est.valor("HNOT"))
+        // O HNOT não soma nada: as 8h de jornada (13h–21h) são todas diurnas, e as 2h noturnas
+        // que restam já vão dentro do HSUP_NT_FER acima (4,375 = 1,75 × 1,25, com a noite lá
+        // dentro) — somá-las aqui outra vez pagava o acréscimo noturno em duplicado.
+        assertEquals(0L, est.valor("HNOT"))
     }
 
 

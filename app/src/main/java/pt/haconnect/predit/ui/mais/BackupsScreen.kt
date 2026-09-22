@@ -54,7 +54,14 @@ fun BackupsScreen(onVoltar: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Backups") },
+                // Fase 18d: 16 sp sem bold — todas as barras da app com o mesmo tamanho visual.
+                title = {
+                    Text(
+                        text = "Backups",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Normal
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onVoltar) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")

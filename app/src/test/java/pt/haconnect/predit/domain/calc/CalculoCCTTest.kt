@@ -38,9 +38,10 @@ class CalculoCCTTest {
     }
 
     @Test
-    fun `T3 - hora noturna 2026`() {
-        // 65 653 × 5 ÷ 4 = 328 265 ÷ 4 = 82 066,25 → 82 066
-        assertEquals(82_066, valorHoraTipo(contexto2026(), TipoHora.NOTURNA))
+    fun `T3 - acrescimo noturno 2026`() {
+        // 65 653 × 1 ÷ 4 = 16 413,25 → 16 413 (1,64 €/h): é o acréscimo de 25% sobre a hora
+        // normal, não o valor total da hora — a hora em si já vem no VENC.
+        assertEquals(16_413, valorHoraTipo(contexto2026(), TipoHora.NOTURNA_ACRESCIMO))
     }
 
     @Test

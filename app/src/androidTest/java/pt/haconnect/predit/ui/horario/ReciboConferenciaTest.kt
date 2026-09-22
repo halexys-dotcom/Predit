@@ -164,7 +164,7 @@ class ReciboConferenciaTest {
         }
 
         try {
-            esperarPorTexto("VENC · Vencimento", timeoutMs = 25_000)
+            esperarPorTexto("Vencimento", timeoutMs = 25_000)
         } catch (_: ComposeTimeoutException) {
             val noEcra = listOf(
                 "A carregar catálogo e parâmetros...",
@@ -201,19 +201,20 @@ class ReciboConferenciaTest {
         // Cabeçalho com o mês corrente por extenso
         composeTestRule.onNodeWithText(nomeDoMes()).assertExists()
 
-        // A primeira rubrica, com o estimado do CCT de 2026 (1 137,98 €)
-        composeTestRule.onNodeWithText("VENC · Vencimento").assertExists()
+        // A primeira rubrica, com o estimado do CCT de 2026 (1 137,98 €). Fase 18c: a lista
+        // mostra só o nome da rubrica (o código VENC/HNOT/D01 deixou de aparecer).
+        composeTestRule.onNodeWithText("Vencimento").assertExists()
         composeTestRule.onNodeWithText("Estimado: 1 137,98 €").assertExists()
 
         // O miolo e o fim do catálogo, depois de rolar até lá (a lista é lazy)
         irParaRubrica("D01")
-        composeTestRule.onNodeWithText("D01 · Segurança Social (11%)").assertExists()
+        composeTestRule.onNodeWithText("Segurança Social (11%)").assertExists()
 
         irParaRubrica("D04")
-        composeTestRule.onNodeWithText("D04 · Sindicato (1%)").assertExists()
+        composeTestRule.onNodeWithText("Sindicato (1%)").assertExists()
 
         irParaRubrica("OUTROS")
-        composeTestRule.onNodeWithText("OUTROS · Outros").assertExists()
+        composeTestRule.onNodeWithText("Outros").assertExists()
 
         // Mês sem recibo: o cabeçalho di-lo e não há nada para apagar
         irParaRubrica("VENC")
@@ -271,7 +272,7 @@ class ReciboConferenciaTest {
         esperarPorTexto("Recibo de vencimento")
         composeTestRule.onNodeWithTag("entrada-recibo").performClick()
         // Reabrir o ecrã volta a compor tudo do zero: o mesmo tempo generoso da 1.ª abertura.
-        esperarPorTexto("VENC · Vencimento", timeoutMs = 25_000)
+        esperarPorTexto("Vencimento", timeoutMs = 25_000)
 
         campo("VENC").assertTextContains("1 137,98", substring = true)
         // Já gravado e sem alterações por guardar

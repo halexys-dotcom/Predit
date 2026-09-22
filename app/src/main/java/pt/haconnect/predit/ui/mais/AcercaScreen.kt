@@ -45,7 +45,15 @@ fun AcercaScreen(onVoltar: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Acerca", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                // Fase 18d: 16 sp sem bold — todas as barras da app com o mesmo tamanho visual.
+                title = {
+                    Text(
+                        text = "Acerca",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onVoltar) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")

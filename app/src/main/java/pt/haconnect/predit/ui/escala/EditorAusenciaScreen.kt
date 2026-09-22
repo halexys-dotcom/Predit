@@ -158,6 +158,9 @@ fun EditorAusenciaScreen(
                 title = {
                     Text(
                         text = if (ausenciaId == 0L) "Marcar Ausência" else "Editar Ausência",
+                        // Fase 18d: 16 sp sem bold — todas as barras da app com o mesmo tamanho visual.
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Normal,
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis

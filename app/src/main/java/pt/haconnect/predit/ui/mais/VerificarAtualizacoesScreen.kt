@@ -45,7 +45,14 @@ fun VerificarAtualizacoesScreen(onVoltar: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Atualizações") },
+                // Fase 18d: 16 sp sem bold — todas as barras da app com o mesmo tamanho visual.
+                title = {
+                    Text(
+                        text = "Atualizações",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Normal
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onVoltar) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")

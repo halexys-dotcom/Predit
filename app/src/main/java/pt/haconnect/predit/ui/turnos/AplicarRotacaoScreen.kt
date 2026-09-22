@@ -93,6 +93,9 @@ fun AplicarRotacaoScreen(
                 title = {
                     Text(
                         text = "Aplicar Rotação ${detalhe?.rotacao?.nome?.let { "— $it" } ?: ""}",
+                        // Fase 18d: 16 sp sem bold — todas as barras da app com o mesmo tamanho visual.
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Normal,
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis

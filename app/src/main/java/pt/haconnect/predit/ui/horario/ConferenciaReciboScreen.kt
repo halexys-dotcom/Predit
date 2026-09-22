@@ -19,11 +19,15 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.AusenciaRepository
@@ -37,6 +41,8 @@ import pt.haconnect.predit.data.repository.TabelaIRSRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.NaturezaRubrica
 import pt.haconnect.predit.domain.model.milParaEuros
+import pt.haconnect.predit.ui.turnos.TextoSemQuebra
+
 import kotlin.math.abs
 
 /**
@@ -79,11 +85,13 @@ fun ConferenciaReciboScreen(
                 // e font_scale 1.3 sobravam ~28dp para o titulo: primeiro partia a meio da palavra
                 // ("Rec/ibo"), depois de encurtado ficava "R…". Com icones sobram ~144dp.
                 title = {
-                    Text(
-                        text = "Recibo",
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis
+                    // Fase 18d: 16 sp sem bold, com o mesmo TextoSemQuebra da barra do Contrato —
+                    // todas as barras da app ficam com o mesmo tamanho visual. As guardas (1 linha,
+                    // sem quebra a meio da palavra e reticências) vêm de dentro do TextoSemQuebra.
+                    TextoSemQuebra(
+                        texto = "Recibo",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Normal
                     )
                 },
                 navigationIcon = {
@@ -118,6 +126,8 @@ fun ConferenciaReciboScreen(
                                 text = {
                                     Text(
                                         text = "Apagar registo",
+                                        // Fase 18b: item de menu a 14 sp.
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                                         color = MaterialTheme.colorScheme.error
                                     )
                                 },
@@ -154,7 +164,8 @@ fun ConferenciaReciboScreen(
             Text(
                 text = uiState.anoMesFormatado,
                 maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.titleMedium,
+                // Fase 18c: 16 sp = tamanho do título de cartão do Menu Mais (titleMedium).
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
                 fontWeight = FontWeight.Bold
             )
             IconButton(onClick = { viewModel.moverMes(1) }) {
@@ -208,7 +219,8 @@ fun ConferenciaReciboScreen(
         if (!uiState.carregando && !uiState.guardado) {
             Text(
                 text = "Sem recibo introduzido",
-                style = MaterialTheme.typography.labelMedium,
+                // Fase 18b: nota de estado a 12 sp.
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                 color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
@@ -217,7 +229,7 @@ fun ConferenciaReciboScreen(
         uiState.mensagemErro?.let { erro ->
             Text(
                 text = erro,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
@@ -226,7 +238,7 @@ fun ConferenciaReciboScreen(
         if (uiState.carregando) {
             Text(
                 text = "A carregar catálogo e parâmetros...",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                 color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.padding(12.dp)
             )
@@ -248,8 +260,11 @@ fun ConferenciaReciboScreen(
                     if (doGrupo.isEmpty()) continue
                     Text(
                         text = if (natureza == NaturezaRubrica.ABONO) "ABONOS" else "DESCONTOS",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.outline,
+                        // Fase 18c: 12 sp (igual ao subtítulo do cartão do Mais) + letterSpacing.
+                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
                     )
                     for (linha in doGrupo) {
@@ -288,7 +303,7 @@ fun ConferenciaReciboScreen(
     }
 }
 
-/** Uma rubrica: código · nome, estimado, campo do real e a divergência quando passa 1 cêntimo. */
+/** Uma rubrica: nome, estimado, campo do real e a divergência quando passa 1 cêntimo. */
 @Composable
 private fun LinhaRubrica(
     linha: LinhaConferencia,
@@ -300,9 +315,11 @@ private fun LinhaRubrica(
             .alpha(if (linha.ativaConferencia) 1f else 0.5f)
     ) {
         Text(
-            text = "${linha.codigo} · ${linha.nome}",
+            // Fase 18c: só o nome da rubrica (sem o código): o VENC/HNOT/D01... já não aparece.
+            text = linha.nome,
             maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
+            // Fase 18c: título de rubrica a 14 sp (um degrau abaixo do título de cartão do Mais).
+            style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp),
             fontWeight = FontWeight.Bold
         )
         Row(
@@ -310,15 +327,24 @@ private fun LinhaRubrica(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Fase 18b: rótulo "Estimado:" a 11 sp e valor a 14 sp — um só Text com dois
+            // estilos, para o texto continuar a ser "Estimado: 1 137,98 €" inteiro.
             Text(
-                text = "Estimado: ${linha.valorEstimado.milParaEuros()}",
-                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodySmall
+                text = buildAnnotatedString {
+                    withStyle(
+                        SpanStyle(fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    ) { append("Estimado: ") }
+                    withStyle(SpanStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium)) {
+                        append(linha.valorEstimado.milParaEuros())
+                    }
+                },
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis
             )
             OutlinedTextField(
                 value = linha.textoRealEditavel,
                 onValueChange = onTextoAlterado,
-                label = { Text("Real") },
+                label = { Text("Real", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)) },
                 singleLine = true,
                 isError = linha.textoInvalido,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -330,7 +356,8 @@ private fun LinhaRubrica(
         if (!linha.ativaConferencia) {
             Text(
                 text = "não conferida",
-                style = MaterialTheme.typography.labelSmall,
+                // Fase 18b: 11 sp (labels).
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                 color = MaterialTheme.colorScheme.outline
             )
         }
@@ -339,7 +366,8 @@ private fun LinhaRubrica(
             Text(
                 text = "\u26A0 $sinal${abs(linha.divergencia).milParaEuros()}",
                 maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelMedium,
+                // Fase 18b: 11 sp, na cor de erro.
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.testTag("divergencia-${linha.codigo}")
             )
@@ -360,7 +388,8 @@ private fun TotaisRecibo(uiState: ReciboUiState) {
         // Totais estimados
         Text(
             text = "Totais estimados",
-            style = MaterialTheme.typography.labelLarge,
+            // Fase 18c: 14 sp (igual ao título de rubrica).
+            style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -374,7 +403,7 @@ private fun TotaisRecibo(uiState: ReciboUiState) {
         // Totais reais
         Text(
             text = "Totais reais",
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -401,7 +430,8 @@ private fun LinhaTotal(
     ) {
         Text(
             text = rotulo,
-            style = MaterialTheme.typography.bodyMedium,
+            // Fase 18b: rótulos e valores das linhas do rodapé a 13 sp.
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
             fontWeight = if (destaque) FontWeight.Bold else FontWeight.Normal,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -409,7 +439,7 @@ private fun LinhaTotal(
         )
         Text(
             text = valorMil.milParaEuros(),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
             fontWeight = if (destaque) FontWeight.Bold else FontWeight.Medium,
             color = if (destaque) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurface,

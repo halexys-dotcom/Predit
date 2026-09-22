@@ -67,7 +67,15 @@ fun ImportacaoScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Importar Horário") },
+                // Fase 18d: 16 sp sem bold — todas as barras da app com o mesmo tamanho visual
+                // (sem isto o título herdava o default do Material, 22 sp).
+                title = {
+                    Text(
+                        text = "Importar Horário",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Normal
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onVoltar) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
