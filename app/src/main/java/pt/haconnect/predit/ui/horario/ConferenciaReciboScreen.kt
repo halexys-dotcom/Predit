@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -346,7 +347,7 @@ private fun LinhaRubrica(
     }
 }
 
-/** Rodapé com os totais estimados e os reais. */
+/** Rodapé com os totais estimados e os reais, em quatro linhas alinhadas. */
 @Composable
 private fun TotaisRecibo(uiState: ReciboUiState) {
     Column(
@@ -356,33 +357,65 @@ private fun TotaisRecibo(uiState: ReciboUiState) {
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         HorizontalDivider()
-        LinhaTotal(
-            "Totais estimados",
-            uiState.totalAbonosEstimado,
-            uiState.totalDescontosEstimado,
-            uiState.liquidoEstimado
+        // Totais estimados
+        Text(
+            text = "Totais estimados",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        LinhaTotal(
-            "Totais reais",
-            uiState.totalAbonosReal,
-            uiState.totalDescontosReal,
-            uiState.liquidoReal
+
+        LinhaTotal("Abonos", uiState.totalAbonosEstimado)
+        LinhaTotal("Desc.", uiState.totalDescontosEstimado)
+        LinhaTotal("Líquido", uiState.liquidoEstimado, destaque = true)
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Totais reais
+        Text(
+            text = "Totais reais",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        LinhaTotal("Abonos", uiState.totalAbonosReal)
+        LinhaTotal("Desc.", uiState.totalDescontosReal)
+        LinhaTotal("Líquido", uiState.liquidoReal, destaque = true)
     }
 }
 
+/** Uma linha do rodapé: rótulo à esquerda, valor à direita. */
 @Composable
-private fun LinhaTotal(rotulo: String, abonos: Long, descontos: Long, liquido: Long) {
-    Column(modifier = Modifier.padding(top = 4.dp)) {
+private fun LinhaTotal(
+    rotulo: String,
+    valorMil: Long,
+    destaque: Boolean = false
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(
             text = rotulo,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.outline
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (destaque) FontWeight.Bold else FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            softWrap = false
         )
         Text(
-            text = "Abonos ${abonos.milParaEuros()} · Desc. ${descontos.milParaEuros()} · Líq. ${liquido.milParaEuros()}",
-            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall
+            text = valorMil.milParaEuros(),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (destaque) FontWeight.Bold else FontWeight.Medium,
+            color = if (destaque) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            softWrap = false,
+            textAlign = TextAlign.End
         )
     }
 }
