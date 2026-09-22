@@ -1,7 +1,7 @@
 {
-  "versionCode": 16,
-  "versionName": "1.1.0",
+  "versionCode": 17,
+  "versionName": "1.1.1",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v1.1.0/app-release.apk",
-  "changelog": "Correção: campo Em vigor a partir de herda a âncora"
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v1.1.1/app-release.apk",
+  "changelog": "Versão de manutenção. Sem alterações funcionais — existe apenas para validar o fluxo de atualização automática."
 }
