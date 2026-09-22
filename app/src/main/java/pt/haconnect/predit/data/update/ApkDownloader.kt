@@ -1,13 +1,9 @@
 package pt.haconnect.predit.data.update
 
 import android.app.DownloadManager
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
-import androidx.core.content.ContextCompat
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +18,9 @@ import java.io.File
  * O DownloadManager corre noutro processo e nao escreve dentro da cache interna da app,
  * por isso o destino e o armazenamento externo proprio (`files/Download/`). No fim o
  * ficheiro e copiado para a cache, que e onde o FileProvider o sabe entregar ao instalador.
+ *
+ * Desde a fase 14b o fim do download e detetado por polling de `COLUMN_STATUS` (500 ms),
+ * sem depender do broadcast ACTION_DOWNLOAD_COMPLETE.
  */
 class ApkDownloader(private val context: Context) {
 
@@ -61,10 +60,23 @@ class ApkDownloader(private val context: Context) {
     fun observar(id: Long): Flow<EstadoDownload> = callbackFlow {
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context?, intent: Intent?) {
-                val idRecebido = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) ?: -1
-                if (idRecebido != id) return
+        // 14b - deixou de haver BroadcastReceiver de ACTION_DOWNLOAD_COMPLETE. Em alguns
+        // dispositivos (Honor/Android 16) esse broadcast e enviado pelo processo do media
+        // (uid 10034) e o ActivityManager recusa a entrega a um receiver registado com
+        // RECEIVER_NOT_EXPORTED ("Exported Denial"), por isso o "concluido" nunca
+        // chegava e o ecra ficava preso em 100%. O estado passa a ser lido diretamente da
+        // base do DownloadManager, no mesmo polling que ja reportava o progresso.
+        val progresso = launch {
+            val inicio = System.currentTimeMillis()
+            while (isActive) {
+                delay(INTERVALO_PROGRESSO_MS)
+
+                // 15 minutos sem conclusao: desiste e avisa (nao existia prazo).
+                if (System.currentTimeMillis() - inicio > TIMEOUT_MS) {
+                    trySend(EstadoDownload.Falhou)
+                    close()
+                    break
+                }
 
                 val cursor = dm.query(DownloadManager.Query().setFilterById(id))
                 try {
@@ -73,41 +85,34 @@ class ApkDownloader(private val context: Context) {
                             cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
                         )
                         when (status) {
-                            DownloadManager.STATUS_SUCCESSFUL -> trySend(EstadoDownload.Concluido)
-                            DownloadManager.STATUS_FAILED -> trySend(EstadoDownload.Falhou)
+                            DownloadManager.STATUS_SUCCESSFUL -> {
+                                trySend(EstadoDownload.Concluido)
+                                close()
+                                break
+                            }
+
+                            DownloadManager.STATUS_FAILED -> {
+                                trySend(EstadoDownload.Falhou)
+                                close()
+                                break
+                            }
+
+                            else -> {
+                                val baixado = cursor.getLong(
+                                    cursor.getColumnIndexOrThrow(
+                                        DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR
+                                    )
+                                )
+                                val total = cursor.getLong(
+                                    cursor.getColumnIndexOrThrow(
+                                        DownloadManager.COLUMN_TOTAL_SIZE_BYTES
+                                    )
+                                )
+                                if (total > 0) {
+                                    trySend(EstadoDownload.Progresso(baixado, total))
+                                }
+                            }
                         }
-                    }
-                } finally {
-                    cursor.close()
-                }
-                close()
-            }
-        }
-
-        // Com targetSdk 34+ um receiver de runtime tem de dizer se e exportado; o
-        // ACTION_DOWNLOAD_COMPLETE vem do sistema, logo nada aqui e para outras apps.
-        ContextCompat.registerReceiver(
-            context,
-            receiver,
-            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-
-        val progresso = launch {
-            while (isActive) {
-                delay(INTERVALO_PROGRESSO_MS)
-                val cursor = dm.query(DownloadManager.Query().setFilterById(id))
-                try {
-                    if (cursor.moveToFirst()) {
-                        val baixado = cursor.getLong(
-                            cursor.getColumnIndexOrThrow(
-                                DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR
-                            )
-                        )
-                        val total = cursor.getLong(
-                            cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
-                        )
-                        if (total > 0) trySend(EstadoDownload.Progresso(baixado, total))
                     }
                 } finally {
                     cursor.close()
@@ -116,11 +121,7 @@ class ApkDownloader(private val context: Context) {
         }
 
         awaitClose {
-            try {
-                context.unregisterReceiver(receiver)
-            } catch (_: Exception) {
-                // ja desregistado (processo a terminar): nada a fazer.
-            }
+            // 14b - o polling e o unico trabalho pendente; cancelado, o fluxo fecha.
             progresso.cancel()
         }
     }
@@ -151,6 +152,9 @@ class ApkDownloader(private val context: Context) {
     private companion object {
         const val NOME_APK = "predit-update.apk"
         const val INTERVALO_PROGRESSO_MS = 500L
+
+        /** Sem conclusao ao fim de 15 minutos, o download e dado como falhado. */
+        const val TIMEOUT_MS = 15 * 60 * 1000L
     }
 }
 

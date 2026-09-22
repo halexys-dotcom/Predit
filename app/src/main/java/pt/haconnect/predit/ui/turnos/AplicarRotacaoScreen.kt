@@ -60,6 +60,19 @@ fun AplicarRotacaoScreen(
     var dataAncoraTexto by remember { mutableStateOf(dataAtual.format(formatter)) }
     var validoDeTexto by remember { mutableStateOf(dataAtual.format(formatter)) }
 
+    // Controla se o utilizador mexeu manualmente no segundo campo
+    var validoDeEditadoManualmente by remember { mutableStateOf(false) }
+
+    // 14 - o segundo campo segue a ancora enquanto o utilizador nao lhe tocar. Era aqui que
+    // nascia a rotacao desalinhada: os dois campos arrancavam em "hoje" e nada os relacionava,
+    // por isso quem escrevia a ancora (p.ex. 04/08/2026) deixava o "em vigor a partir de" no dia
+    // da instalacao - a escala ficava sem rotacao ate esse dia e o ciclo comecava a meio.
+    LaunchedEffect(dataAncoraTexto) {
+        if (!validoDeEditadoManualmente) {
+            validoDeTexto = dataAncoraTexto
+        }
+    }
+
     var mostrarConfirmacao by remember { mutableStateOf(false) }
     var mensagemErro by remember { mutableStateOf<String?>(null) }
 
@@ -144,12 +157,37 @@ fun AplicarRotacaoScreen(
 
             OutlinedTextField(
                 value = validoDeTexto,
-                onValueChange = { validoDeTexto = it },
+                onValueChange = {
+                    validoDeEditadoManualmente = true
+                    validoDeTexto = it
+                },
                 label = { Text("Em vigor a partir de (DD/MM/YYYY) *") },
                 singleLine = true,
                 isError = validoDeParsed == null,
                 modifier = Modifier.fillMaxWidth()
             )
+
+            // 14 - aviso quando as duas datas divergem. Sem isto o desalinhamento era silencioso:
+            // entre a ancora e o "em vigor a partir de" a escala fica sem rotacao, e a partir do
+            // segundo dia o ciclo arranca numa posicao intermedia (nao na 0).
+            if (dataAncoraParsed != null && validoDeParsed != null &&
+                dataAncoraParsed != validoDeParsed) {
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Atenção: a data em vigor é diferente do início do ciclo. " +
+                            "Entre as duas datas a escala fica sem rotação, e a partir de " +
+                            "$validoDeTexto o ciclo arranca numa posição intermédia. " +
+                            "Usa datas iguais se não tens a certeza.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
 
             if (dataAncoraParsed != null && validoDeParsed != null && cicloSize > 0) {
                 Text(
@@ -231,7 +269,19 @@ fun AplicarRotacaoScreen(
                 onDismissRequest = { mostrarConfirmacao = false },
                 title = { Text("Aplicar rotação à escala?") },
                 text = {
-                    Text("A aplicação atual da escala será encerrada e a nova rotação ficará em vigor a partir de $validoDeTexto. Deseja continuar?")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("A aplicação atual da escala será encerrada e a nova rotação ficará em vigor a partir de $validoDeTexto. Deseja continuar?")
+                        // 14 - segunda linha de aviso quando as duas datas divergem.
+                        // O dialogo so abre com as duas datas validas (ver o if de fora),
+                        // por isso aqui basta comparar as datas.
+                        if (dataAncoraParsed != validoDeParsed) {
+                            Text(
+                                text = "As datas que introduziste são diferentes. Confirmas que é intencional?",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
                 },
                 confirmButton = {
                     Button(
