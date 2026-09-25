@@ -1,7 +1,7 @@
 {
-  "versionCode": 18,
-  "versionName": "1.1.2",
+  "versionCode": 20,
+  "versionName": "2.0.0",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v1.1.2/app-release.apk",
-  "changelog": "Correcção do cálculo das horas nocturnas: acréscimo de 25% sobre o valor/hora (não o valor total), e corte às 8h de jornada para não duplicar com suplementares. Tipografia dos ecrãs uniformizada."
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.0.0/app-release.apk",
+  "changelog": "Modo de escala por PDF mensal, IRS Jovem, simulador de IRS anual (com tributação conjunta, mínimo de existência e deduções à coleta), correção do cálculo de horas noturnas, categorias CCT revisadas, ícone próprio."
 }
