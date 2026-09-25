@@ -14,13 +14,19 @@ import pt.haconnect.predit.data.repository.PlanejamentoMesRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.AplicacaoVigente
+import pt.haconnect.predit.domain.calc.ORIGEM_PDF
+import pt.haconnect.predit.domain.calc.TIPO_ESCALA_PDF_MENSAL
+import pt.haconnect.predit.domain.calc.TIPO_ESCALA_ROTACAO
 import pt.haconnect.predit.domain.calc.aplicarAusencias
+import pt.haconnect.predit.domain.calc.diasProjetadosPara
 import pt.haconnect.predit.domain.calc.duracaoMinutos
 import pt.haconnect.predit.domain.calc.feriadoMunicipal
 import pt.haconnect.predit.domain.calc.feriadosNacionais
-import pt.haconnect.predit.domain.calc.projetarIntervalo
+import pt.haconnect.predit.domain.calc.temEscalaAplicada
+import pt.haconnect.predit.domain.calc.tipoDerivadoDoPdf
 import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
+import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.DiaReal
 import pt.haconnect.predit.domain.model.PlanejamentoMes
 import pt.haconnect.predit.domain.model.TipoTurno
@@ -58,7 +64,9 @@ data class EscalaUiState(
     val anoMesAtual: YearMonth = YearMonth.now(),
     val diasGrelha: List<DiaMesEscala> = emptyList(),
     val estatisticas: EstatisticasMes = EstatisticasMes(0, 0, 0, 0),
-    val temEscalaAplicada: Boolean = false
+    val temEscalaAplicada: Boolean = false,
+    /** Modo de escala do contrato (Fase 19): decide a mensagem do estado vazio. */
+    val tipoEscala: String = TIPO_ESCALA_ROTACAO
 )
 
 class EscalaViewModel(
@@ -97,14 +105,21 @@ class EscalaViewModel(
         diaRealRepository.observarTodos()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Contrato: traz o modo de escala (Fase 19) e o município dos feriados (12b). */
+    private val contratoAtual: StateFlow<ContratoUtilizador?> =
+        contratoRepository.observar()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     val uiState: StateFlow<EscalaUiState> = combine(
         combine(_anoMesAtual, planejamentoDoMes) { mes, plan -> mes to plan },
         aplicacoesVigentes,
         tiposTurno,
         ausencias,
-        diasReais
-    ) { (mes, planejamento), aplicacoes, tipos, listaAusencias, listaDiasReais ->
-        val temEscala = aplicacoes.isNotEmpty()
+        // Fase 19: o contrato entra aninhado com os dias reais — o combine externo já usa as
+        // cinco fontes que a API oferece sem varargs.
+        combine(diasReais, contratoAtual) { dias, contrato -> dias to contrato }
+    ) { (mes, planejamento), aplicacoes, tipos, listaAusencias, (listaDiasReais, contrato) ->
+        val tipoEscala = contrato?.tipoEscala ?: TIPO_ESCALA_ROTACAO
         val mapaTipos = tipos.associateBy { it.id }
         val categoriasPorTipo = tipos.associate { it.id to it.categoria }
 
@@ -121,17 +136,17 @@ class EscalaViewModel(
         // Feriados do ano visível: nacionais + o municipal do contrato (Fase 12b).
         // O município e o contrato são fixos — buscá-los por mês visível é barato.
         val feriadosDoAno = feriadosNacionais(mes.year).toMutableSet()
-        contratoRepository.obter()?.municipioId
+        contrato?.municipioId
             ?.let { municipioRepository.obterPorId(it) }
             ?.let { m -> feriadoMunicipal(mes.year, m.feriadoDia, m.feriadoMes)?.let { feriadosDoAno.add(it) } }
 
-        val diasProjetados = if (temEscala) {
-            projetarIntervalo(
-                deEpochDay = inicioGrelha.toEpochDay(),
-                ateEpochDay = fimGrelha.toEpochDay(),
-                aplicacoes = aplicacoes
-            )
-        } else emptyList()
+        val diasProjetados = diasProjetadosPara(
+            tipoEscala = tipoEscala,
+            diasReais = listaDiasReais,
+            deEpochDay = inicioGrelha.toEpochDay(),
+            ateEpochDay = fimGrelha.toEpochDay(),
+            aplicacoes = aplicacoes
+        )
 
         val diasComEstado = aplicarAusencias(diasProjetados, listaAusencias, categoriasPorTipo, listaDiasReais)
         val mapaComEstado = diasComEstado.associateBy { it.epochDay }
@@ -145,7 +160,13 @@ class EscalaViewModel(
             val ausenciaBruta = estado?.ausenciaBruta
             val ausenciaEfetiva = estado?.ausenciaEfetiva
             val diaReal = estado?.diaReal
-            val tipoChip = estado?.tipoTurnoChipId?.let { mapaTipos[it] }
+            // Fase 19: no modo PDF o dia_real guarda só horas e posto (o tipo é null), por isso o
+            // chip deriva-se das horas do PDF; o texto continua a ser o posto (EscalaScreen).
+            val tipoChip = if (tipoEscala == TIPO_ESCALA_PDF_MENSAL && diaReal?.origem == ORIGEM_PDF) {
+                tipoDerivadoDoPdf(diaReal, tipos)
+            } else {
+                estado?.tipoTurnoChipId?.let { mapaTipos[it] }
+            }
 
             listaDiasGrelha.add(
                 DiaMesEscala(
@@ -206,7 +227,8 @@ class EscalaViewModel(
                 totalMinutosTrabalho = totalMinutos,
                 fonte = fonte
             ),
-            temEscalaAplicada = temEscala
+            temEscalaAplicada = temEscalaAplicada(tipoEscala, listaDiasReais, aplicacoes, mes),
+            tipoEscala = tipoEscala
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), EscalaUiState())
 

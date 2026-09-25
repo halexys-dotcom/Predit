@@ -126,4 +126,25 @@ class MigracaoTest {
         helper.createDatabase("teste-migracao-16-17", 16).apply { close() }
         helper.runMigrationsAndValidate("teste-migracao-16-17", 17, true, PreditDatabase.MIGRATION_16_17)
     }
+
+    /**
+     * Fase 19: o contrato ganha o modo de escala (ROTACAO por omissão). A coluna nova entra com
+     * DEFAULT, logo uma BD que já existia fica com a rotação e não perde nada do que lá estava.
+     */
+    @Test
+    fun migrar17Para18() {
+        helper.createDatabase("teste-migracao-17-18", 17).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-17-18", 18, true, PreditDatabase.MIGRATION_17_18)
+    }
+
+    /**
+     * Fase 20: o contrato ganha o IRS Jovem (dois anos nullable + um switch a 0). O esquema é
+     * validado contra o 19.json: os dois anos ficam INTEGER sem DEFAULT e o switch
+     * INTEGER NOT NULL DEFAULT 0 — é isso que o ALTER TABLE tem de reproduzir.
+     */
+    @Test
+    fun migrar18Para19() {
+        helper.createDatabase("teste-migracao-18-19", 18).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-18-19", 19, true, PreditDatabase.MIGRATION_18_19)
+    }
 }

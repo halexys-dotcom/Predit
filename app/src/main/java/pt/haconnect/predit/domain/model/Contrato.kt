@@ -1,6 +1,7 @@
 package pt.haconnect.predit.domain.model
 
 import pt.haconnect.predit.domain.calc.RegiaoIRS
+import pt.haconnect.predit.domain.calc.TIPO_ESCALA_ROTACAO
 
 enum class RegimeHorario {
     NORMAL,
@@ -37,5 +38,20 @@ data class ContratoUtilizador(
      * para o ecrã continua em [categoriaNivel]; é esta chave que o recibo usa para escolher a
      * tabela salarial. Por omissão APAA, que é a categoria de referência.
      */
-    val categoriaCodigo: String = CATEGORIA_CCT_PADRAO
+    val categoriaCodigo: String = CATEGORIA_CCT_PADRAO,
+    /**
+     * Modo de escala (Fase 19). [TIPO_ESCALA_ROTACAO] — o ciclo da rotação projeta os meses;
+     * [TIPO_ESCALA_PDF_MENSAL] — os chips do calendário vêm dos dias importados do PDF.
+     * Coluna TEXT NOT NULL DEFAULT 'ROTACAO': quem já usava a app mantém a rotação.
+     */
+    val tipoEscala: String = TIPO_ESCALA_ROTACAO,
+    /**
+     * IRS Jovem (Fase 20). [aplicarIrsJovem] liga o regime no recibo; os dois anos são os
+     * únicos dados que o motor precisa para descobrir a percentagem de isenção
+     * (domain/calc/IrsJovem.kt: 100 %, 75 %, 50 % ou 25 %, conforme o ano de obtenção).
+     * Nulos por omissão: o regime só se aplica a quem o ligar e tiver os dois anos.
+     */
+    val anoNascimento: Int? = null,
+    val anoPrimeiroRendimento: Int? = null,
+    val aplicarIrsJovem: Boolean = false
 )

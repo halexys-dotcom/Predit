@@ -278,6 +278,33 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         regiao = ctx.contrato.regiao,
         tabelas = ctx.escaloesIRS
     )
+
+    // Fase 20 — IRS Jovem: o D02 passa a refletir a isenção quando o contrato a pede. A base é
+    // a mesma que alimentou o cálculo normal (baseIRS) e a taxa efetiva é a do D02 normal;
+    // [aplicarIrsJovem] aplica o teto mensal e devolve a retenção normal quando o jovem já não
+    // se enquadra (percentagem null) ou quando falta um dos anos. Sem isto, tudo como antes.
+    val d02Normal = valores["D02"] ?: 0L
+    val anoNascimento = ctx.contrato.anoNascimento
+    val anoPrimeiroRendimento = ctx.contrato.anoPrimeiroRendimento
+    val percentagemIrsJovem = if (
+        ctx.contrato.aplicarIrsJovem && anoNascimento != null && anoPrimeiroRendimento != null
+    ) {
+        percentagemIsencaoIrsJovem(
+            anoNascimento = anoNascimento,
+            anoPrimeiroRendimento = anoPrimeiroRendimento,
+            anoAtual = ctx.anoMes.year
+        )
+    } else null
+
+    valores["D02"] = if (percentagemIrsJovem != null) {
+        aplicarIrsJovem(
+            baseMil = baseIRS,
+            retencaoNormalMil = d02Normal,
+            percentagem = percentagemIrsJovem,
+            anoAtual = ctx.anoMes.year
+        )
+    } else d02Normal
+
     // Decisão do utilizador (2026-09-16): o sindicato (1%) incide SÓ sobre o VENC — não
     // sobre as horas suplementares nem sobre o subsídio de transporte. Por isso esta conta
     // não passa pelas bases de incidência: o flag incideSindicato do catálogo fica por usar

@@ -43,6 +43,7 @@ import pt.haconnect.predit.ui.importacao.ImportacaoScreen
 import pt.haconnect.predit.ui.mais.AcercaScreen
 import pt.haconnect.predit.ui.mais.BackupsScreen
 import pt.haconnect.predit.ui.mais.MaisScreen
+import pt.haconnect.predit.ui.mais.SimuladorIrsScreen
 import pt.haconnect.predit.ui.mais.VerificarAtualizacoesScreen
 import pt.haconnect.predit.ui.turnos.AplicarRotacaoScreen
 import pt.haconnect.predit.ui.turnos.EditorRotacaoScreen
@@ -126,6 +127,17 @@ fun PreditApp() {
                                 restoreState = true
                             }
                         },
+                        // Fase 19: com o modo de escala em PDF o estado vazio da Escala manda para
+                        // o Menu Mais, que é onde está o Importar Horário.
+                        onNavegarParaMais = {
+                            navController.navigate(Destino.MAIS.rota) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
                         onNavegarParaMarcarAusencia = { epochDay ->
                             navController.navigate("escala/ausencia/nova?dataInicio=$epochDay")
                         },
@@ -168,6 +180,7 @@ fun PreditApp() {
                         onNavegarParaAusencias = { navController.navigate("ausencias") },
                         onNavegarParaImportarPdf = { navController.navigate("mais/importar-pdf") },
                         onNavegarParaRecibo = { navController.navigate("mais/recibo") },
+                        onNavegarParaSimuladorIrs = { navController.navigate("mais/simulador-irs") },
                         onNavegarParaBackups = { navController.navigate("mais/backups") },
                         onNavegarParaAtualizacoes = { navController.navigate("mais/atualizacoes") },
                         onNavegarParaAcerca = { navController.navigate("mais/acerca") }
@@ -182,6 +195,12 @@ fun PreditApp() {
 
                 composable("mais/recibo") {
                     ConferenciaReciboScreen(
+                        onVoltar = { navController.popBackStack() }
+                    )
+                }
+
+                composable("mais/simulador-irs") {
+                    SimuladorIrsScreen(
                         onVoltar = { navController.popBackStack() }
                     )
                 }

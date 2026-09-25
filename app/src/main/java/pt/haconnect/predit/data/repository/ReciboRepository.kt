@@ -28,8 +28,28 @@ class ReciboRepository(private val db: PreditDatabase) {
     fun observarMes(anoMes: String): Flow<ReciboMes?> =
         mesDao.observarPorMes(anoMes).map { it?.paraModelo() }
 
+    /**
+     * Os cabeçalhos dos recibos de um ano ("2026" apanha 2026-01 a 2026-12).
+     *
+     * O simulador de IRS anual pré-preenche o rendimento com a soma do `totalAbonos` dos meses
+     * guardados e diz em quantos meses se apoia — para isso precisa dos cabeçalhos, não só das
+     * linhas. Não há tabela nova nem migração: é a mesma recibo_mes, lida por ano.
+     */
+    fun observarMesesDoAno(ano: Int): Flow<List<ReciboMes>> =
+        mesDao.observarTodos().map { lista ->
+            lista.filter { it.anoMes.startsWith("$ano-") }.map { it.paraModelo() }
+        }
+
     fun observarLinhas(anoMes: String): Flow<List<ReciboLinha>> =
         linhaDao.observarPorMes(anoMes).map { lista -> lista.map { it.paraModelo() } }
+
+    /**
+     * As linhas de todos os meses de um ano — o simulador de IRS anual soma os D02 do ano
+     * para saber quanto já foi retido. Não há tabela nova nem migração: é a mesma que serve
+     * a conferência do recibo, lida por ano.
+     */
+    fun observarLinhasDoAno(ano: Int): Flow<List<ReciboLinha>> =
+        linhaDao.observarDoAno(ano.toString()).map { lista -> lista.map { it.paraModelo() } }
 
     /**
      * Grava um recibo completo (cabeçalho + linhas) numa transacção.

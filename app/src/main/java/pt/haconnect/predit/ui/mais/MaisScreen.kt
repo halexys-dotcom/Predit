@@ -39,6 +39,7 @@ fun MaisScreen(
     onNavegarParaAusencias: () -> Unit = {},
     onNavegarParaImportarPdf: () -> Unit = {},
     onNavegarParaRecibo: () -> Unit = {},
+    onNavegarParaSimuladorIrs: () -> Unit = {},
     onNavegarParaBackups: () -> Unit = {},
     onNavegarParaAtualizacoes: () -> Unit = {},
     onNavegarParaAcerca: () -> Unit = {}
@@ -174,6 +175,52 @@ fun MaisScreen(
                             )
                             Text(
                                 text = "Conferir o recibo do mês contra os cálculos da app",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("entrada-simulador-irs")
+                    .clickable(onClick = onNavegarParaSimuladorIrs)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_calculo),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "Simulador de IRS",
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Estimar o IRS a pagar ou a receber",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

@@ -36,7 +36,11 @@ class ContratoRepository(private val dao: ContratoUtilizadorDao) {
             primeiroArranqueConcluido = primeiroArranqueConcluido,
             regiao = try { RegiaoIRS.valueOf(regiao) } catch (_: Exception) { RegiaoIRS.CONTINENTE },
             municipioId = municipioId,
-            categoriaCodigo = categoriaCodigo
+            categoriaCodigo = categoriaCodigo,
+            tipoEscala = tipoEscala,
+            anoNascimento = anoNascimento,
+            anoPrimeiroRendimento = anoPrimeiroRendimento,
+            aplicarIrsJovem = aplicarIrsJovem
         )
     }
 
@@ -53,7 +57,11 @@ class ContratoRepository(private val dao: ContratoUtilizadorDao) {
             primeiroArranqueConcluido = primeiroArranqueConcluido,
             regiao = regiao.name,
             municipioId = municipioId,
-            categoriaCodigo = categoriaCodigo
+            categoriaCodigo = categoriaCodigo,
+            tipoEscala = tipoEscala,
+            anoNascimento = anoNascimento,
+            anoPrimeiroRendimento = anoPrimeiroRendimento,
+            aplicarIrsJovem = aplicarIrsJovem
         )
     }
 }

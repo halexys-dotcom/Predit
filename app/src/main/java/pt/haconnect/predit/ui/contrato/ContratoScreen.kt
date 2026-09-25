@@ -27,7 +27,12 @@ import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.data.repository.MunicipioRepository
 import pt.haconnect.predit.data.repository.ParametrosCCTRepository
+import pt.haconnect.predit.domain.calc.ANOS_MAXIMOS_IRS_JOVEM
+import pt.haconnect.predit.domain.calc.IDADE_MAXIMA_IRS_JOVEM
 import pt.haconnect.predit.domain.calc.RegiaoIRS
+import pt.haconnect.predit.domain.calc.TIPO_ESCALA_PDF_MENSAL
+import pt.haconnect.predit.domain.calc.TIPO_ESCALA_ROTACAO
+import pt.haconnect.predit.domain.calc.percentagemIsencaoIrsJovem
 import pt.haconnect.predit.domain.model.CATEGORIA_CCT_PADRAO
 import pt.haconnect.predit.domain.model.ContratoUtilizador
 import pt.haconnect.predit.domain.model.EstadoCivil
@@ -80,6 +85,14 @@ fun ContratoScreen(
     // salarial; categoriaNivel é o nome que se mostra, no formato que a app já usava.
     var categoriaCodigo by rememberSaveable { mutableStateOf(CATEGORIA_CCT_PADRAO) }
     var categoriaNivel by rememberSaveable { mutableStateOf("XIII, Vigilante Aeroportuário/APA-A") }
+    // Fase 19: modo de escala — ROTACAO (o ciclo projeta os meses) ou PDF_MENSAL (o calendário
+    // mostra o PDF importado). Por omissão ROTACAO, como a coluna na BD.
+    var tipoEscala by rememberSaveable { mutableStateOf(TIPO_ESCALA_ROTACAO) }
+    // Fase 20: IRS Jovem. O switch liga o regime no recibo; os dois anos são o que o motor
+    // precisa para descobrir a percentagem (domain/calc/IrsJovem.kt). Guardam-se como Int?.
+    var aplicarIrsJovem by rememberSaveable { mutableStateOf(false) }
+    var anoNascimentoTexto by rememberSaveable { mutableStateOf("") }
+    var anoPrimeiroRendimentoTexto by rememberSaveable { mutableStateOf("") }
 
     var pickerMunicipioAberto by remember { mutableStateOf(false) }
     var pesquisaMunicipio by rememberSaveable { mutableStateOf("") }
@@ -103,6 +116,10 @@ fun ContratoScreen(
             municipioId = c.municipioId
             categoriaCodigo = c.categoriaCodigo
             categoriaNivel = c.categoriaNivel
+            tipoEscala = c.tipoEscala
+            aplicarIrsJovem = c.aplicarIrsJovem
+            anoNascimentoTexto = c.anoNascimento?.toString() ?: ""
+            anoPrimeiroRendimentoTexto = c.anoPrimeiroRendimento?.toString() ?: ""
             carregado = true
         }
     }
@@ -152,7 +169,15 @@ fun ContratoScreen(
                                     titulares = titularesTexto.toIntOrNull() ?: 1,
                                     primeiroArranqueConcluido = true,
                                     regiao = regiao,
-                                    municipioId = municipioId
+                                    municipioId = municipioId,
+                                    tipoEscala = tipoEscala,
+                                    // Um ano inválido (ou vazio) entra como null: o motor só
+                                    // aplica o IRS Jovem com os dois preenchidos.
+                                    anoNascimento = anoNascimentoTexto.trim().toIntOrNull()
+                                        ?.takeIf { it in ANO_MINIMO_CONTRATO..hoje.year },
+                                    anoPrimeiroRendimento = anoPrimeiroRendimentoTexto.trim().toIntOrNull()
+                                        ?.takeIf { it in ANO_MINIMO_CONTRATO..hoje.year },
+                                    aplicarIrsJovem = aplicarIrsJovem
                                 )
                                 viewModel.guardar(c) {
                                     onVoltar()
@@ -340,6 +365,27 @@ fun ContratoScreen(
                 )
             }
 
+            // Fase 19: de onde vêm os chips do calendário da Escala.
+            Text("Tipo de Escala", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = tipoEscala == TIPO_ESCALA_ROTACAO,
+                    onClick = { tipoEscala = TIPO_ESCALA_ROTACAO },
+                    label = { Text("Rotação fixa") }
+                )
+                FilterChip(
+                    selected = tipoEscala == TIPO_ESCALA_PDF_MENSAL,
+                    onClick = { tipoEscala = TIPO_ESCALA_PDF_MENSAL },
+                    label = { Text("PDF mensal") }
+                )
+            }
+            Text(
+                text = "Rotação fixa: o ciclo projeta os meses automaticamente.\n" +
+                    "PDF mensal: importas o PDF do mês em Mais → Importar Horário.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             Text("Município", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             // Surface clicável em vez de OutlinedTextField readOnly: o campo de texto engolia o
             // toque (fica para edição/seleção) e o picker nunca abria.
@@ -397,6 +443,94 @@ fun ContratoScreen(
                         selected = regiao == r,
                         onClick = { regiao = r },
                         label = { Text(rotulos.getValue(r)) }
+                    )
+                }
+            }
+
+            // Fase 20: IRS Jovem. O regime é opcional — com o switch desligado os dois anos nem
+            // aparecem. A percentagem e os limites (35 anos, 10 anos) vêm do motor
+            // (domain/calc/IrsJovem.kt): assim o ecrã e o recibo não podem divergir.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "IRS Jovem",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Aplicar desconto IRS Jovem no recibo mensal",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = aplicarIrsJovem,
+                    onCheckedChange = { aplicarIrsJovem = it }
+                )
+            }
+
+            if (aplicarIrsJovem) {
+                val anoNascimento = anoNascimentoTexto.trim().toIntOrNull()
+                    ?.takeIf { it in ANO_MINIMO_CONTRATO..hoje.year }
+                val anoPrimeiroRendimento = anoPrimeiroRendimentoTexto.trim().toIntOrNull()
+                    ?.takeIf { it in ANO_MINIMO_CONTRATO..hoje.year }
+
+                OutlinedTextField(
+                    value = anoNascimentoTexto,
+                    onValueChange = { anoNascimentoTexto = it.filter { c -> c.isDigit() }.take(4) },
+                    label = { Text("Ano de nascimento") },
+                    singleLine = true,
+                    isError = anoNascimentoTexto.isNotBlank() && anoNascimento == null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = anoPrimeiroRendimentoTexto,
+                    onValueChange = { anoPrimeiroRendimentoTexto = it.filter { c -> c.isDigit() }.take(4) },
+                    label = { Text("Ano do 1.º rendimento como sujeito passivo") },
+                    singleLine = true,
+                    isError = anoPrimeiroRendimentoTexto.isNotBlank() && anoPrimeiroRendimento == null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                val percentagem = if (anoNascimento != null && anoPrimeiroRendimento != null) {
+                    percentagemIsencaoIrsJovem(anoNascimento, anoPrimeiroRendimento, hoje.year)
+                } else null
+                val anoDeObtencao = hoje.year - (anoPrimeiroRendimento ?: hoje.year) + 1
+
+                when {
+                    percentagem != null -> {
+                        Text(
+                            text = "Estás no $anoDeObtencao.º ano de obtenção de rendimentos.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Isenção aplicável: $percentagem%.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    anoNascimento == null || anoPrimeiroRendimento == null -> Text(
+                        text = "Preenche os dois anos ($ANO_MINIMO_CONTRATO–${hoje.year}) para " +
+                            "calcular a isenção.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    hoje.year - anoNascimento > IDADE_MAXIMA_IRS_JOVEM -> Text(
+                        text = "Já não se enquadra no IRS Jovem (idade > $IDADE_MAXIMA_IRS_JOVEM).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    else -> Text(
+                        text = "Já ultrapassou os $ANOS_MAXIMOS_IRS_JOVEM primeiros anos de rendimentos.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
             }
@@ -541,6 +675,11 @@ fun ContratoScreen(
         }
     }
 }
+
+/**
+ * Ano mais antigo aceite nos campos de ano (IRS Jovem). Abaixo disto é gralha, não história.
+ */
+private const val ANO_MINIMO_CONTRATO = 1900
 
 private fun EstadoCivil.nomeFormatado(): String {
     return when (this) {

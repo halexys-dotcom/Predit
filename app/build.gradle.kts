@@ -26,8 +26,8 @@ android {
         applicationId = "pt.haconnect.predit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "1.1.2"
+        versionCode = 19
+        versionName = "2.0.0-rc1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

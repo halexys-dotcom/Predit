@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,6 +45,7 @@ import pt.haconnect.predit.data.repository.DiaRealRepository
 import pt.haconnect.predit.data.repository.MunicipioRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
+import pt.haconnect.predit.domain.calc.TIPO_ESCALA_PDF_MENSAL
 import pt.haconnect.predit.domain.calc.abreviarPosto
 import pt.haconnect.predit.domain.calc.duracaoMinutos
 import pt.haconnect.predit.domain.calc.formatarHoraMin
@@ -61,6 +63,7 @@ import java.util.Locale
 fun EscalaScreen(
     modifier: Modifier = Modifier,
     onNavegarParaTurnos: () -> Unit = {},
+    onNavegarParaMais: () -> Unit = {},
     onNavegarParaMarcarAusencia: (Long) -> Unit = {},
     onNavegarParaRegistoReal: (Long) -> Unit = {}
 ) {
@@ -123,20 +126,31 @@ fun EscalaScreen(
                                 tint = MaterialTheme.colorScheme.primary
                             )
 
+                            // Fase 19: em modo PDF a app não projeta escala nenhuma — a mensagem
+                            // diz o que falta (importar o PDF do mês) e o botão leva ao Menu Mais.
+                            val modoPdf = uiState.tipoEscala == TIPO_ESCALA_PDF_MENSAL
                             Text(
-                                text = "Ainda não há escala. Cria uma rotação em Turnos e aplica-a.",
+                                text = if (modoPdf) {
+                                    "Sem escala neste mês. Importa o PDF da empresa em Mais → Importar Horário."
+                                } else {
+                                    "Ainda não há escala. Cria uma rotação em Turnos e aplica-a."
+                                },
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
 
                             Button(
-                                onClick = onNavegarParaTurnos,
+                                onClick = if (modoPdf) onNavegarParaMais else onNavegarParaTurnos,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(
+                                    imageVector = if (modoPdf) Icons.Default.MoreVert else Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Ir para Turnos")
+                                Text(if (modoPdf) "Ir para Mais" else "Ir para Turnos")
                             }
                         }
                     }
