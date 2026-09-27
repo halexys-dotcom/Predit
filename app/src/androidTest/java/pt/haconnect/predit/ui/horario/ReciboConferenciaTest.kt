@@ -17,15 +17,20 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlin.math.abs
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import pt.haconnect.predit.MainActivity
 import pt.haconnect.predit.PreditApplication
+import pt.haconnect.predit.data.repository.ParametrosCCTRepository
+import pt.haconnect.predit.domain.model.CATEGORIA_CCT_PADRAO
+import pt.haconnect.predit.domain.model.milParaEuros
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -114,6 +119,20 @@ class ReciboConferenciaTest {
     @Before
     fun prepararSe() {
         garantirContratoConfigurado()
+
+        // Pre-condicao (explicita, de proposito): o CCT do mes tem de existir para a categoria
+        // do contrato. O teste deriva o valor esperado dessa categoria (vencimentoDoContratoMil),
+        // e sem esta guarda a derivacao cairia em silencio no fallback da categoria padrao --
+        // estaria a medir outra coisa sem o dizer. Falha aqui, cedo e com o nome da categoria.
+        val categoria = runBlocking {
+            app.database.contratoDao().observar().first()?.categoriaCodigo
+        } ?: CATEGORIA_CCT_PADRAO
+        assertTrue(
+            "sem parametros_cct para '$categoria' em $chave",
+            runBlocking { app.database.parametrosCCTDao().observarTodos().first() }
+                .any { it.codigoCategoria == categoria && it.validoDe <= mes.atDay(1).toEpochDay() }
+        )
+
         // Cada teste começa com o mês limpo: sem isto, um recibo que fique gravado de uma
         // corrida anterior (por exemplo quando um teste falha a meio) faz o T1 falhar.
         limparReciboDeTeste()
@@ -194,6 +213,35 @@ class ReciboConferenciaTest {
         return "$capitalizado ${mes.year}"
     }
 
+    /**
+     * O vencimento base da categoria que o contrato tiver, vigente no mês de teste.
+     *
+     * Este teste deixou de assumir a APAA: lê a categoria do contrato e o CCT desse mês pela
+     * mesma regra do motor (`parametrosDaCategoria`, com queda para a CATEGORIA_CCT_PADRAO
+     * quando a categoria não tem tabela). A pré-condição em prepararSe() garante que a
+     * categoria do contrato tem tabela própria — sem ela, este helper podia estar a medir o
+     * fallback sem o dizer.
+     */
+    private fun vencimentoDoContratoMil(): Int {
+        val categoria = runBlocking {
+            app.database.contratoDao().observar().first()?.categoriaCodigo
+        } ?: CATEGORIA_CCT_PADRAO
+        val repo = ParametrosCCTRepository(app.database.parametrosCCTDao())
+        val lista = runBlocking { repo.observarTodos().first() }
+        val vigente = repo.paraCategoria(lista, categoria, mes.atDay(1).toEpochDay())
+        return vigente?.vencimentoBaseMil
+            ?: error("sem parametros_cct para '$categoria' (nem fallback '$CATEGORIA_CCT_PADRAO') em $chave")
+    }
+
+    /** "1 137,98 €" — como a UI mostra o estimado. */
+    private fun vencimentoComEuro(): String = vencimentoDoContratoMil().toLong().milParaEuros()
+
+    /** "1 137,98" — para asserções por substring. */
+    private fun vencimentoSemEuro(): String = vencimentoComEuro().removeSuffix(" €")
+
+    /** "1137,98" — para escrever no campo. */
+    private fun vencimentoParaCampo(): String = vencimentoSemEuro().replace(" ", "")
+
     @Test
     fun T1_reciboMostraCatalogoEMesCorrente() {
         abrirRecibo()
@@ -201,10 +249,11 @@ class ReciboConferenciaTest {
         // Cabeçalho com o mês corrente por extenso
         composeTestRule.onNodeWithText(nomeDoMes()).assertExists()
 
-        // A primeira rubrica, com o estimado do CCT de 2026 (1 137,98 €). Fase 18c: a lista
-        // mostra só o nome da rubrica (o código VENC/HNOT/D01 deixou de aparecer).
+        // A primeira rubrica, com o estimado do CCT da categoria do contrato (ver
+        // vencimentoDoContratoMil). Fase 18c: a lista mostra só o nome da rubrica (o código
+        // VENC/HNOT/D01 deixou de aparecer).
         composeTestRule.onNodeWithText("Vencimento").assertExists()
-        composeTestRule.onNodeWithText("Estimado: 1 137,98 €").assertExists()
+        composeTestRule.onNodeWithText("Estimado: ${vencimentoComEuro()}").assertExists()
 
         // O miolo e o fim do catálogo, depois de rolar até lá (a lista é lazy)
         irParaRubrica("D01")
@@ -228,19 +277,20 @@ class ReciboConferenciaTest {
     fun T2_editarValorReal_mostraADivergenciaComOSinal() {
         abrirRecibo()
 
-        // 1 100,00 € contra os 1 137,98 € estimados: 37,98 € a menos
+        // 1 100,00 € contra o estimado do CCT da categoria do contrato: a diferença é derivada
         campo("VENC").performTextReplacement("1100,00")
 
+        val divergencia = abs(vencimentoDoContratoMil().toLong() - 11_000_000L)
         composeTestRule.onNodeWithTag("divergencia-VENC")
             .assertExists()
-            .assertTextContains("37,98", substring = true)
+            .assertTextContains(divergencia.milParaEuros().removeSuffix(" €"), substring = true)
     }
 
     @Test
     fun T3_guardarPersisteEVoltaAParecerDepoisDeSairDoEcra() {
         abrirRecibo()
 
-        campo("VENC").performTextReplacement("1137,98")
+        campo("VENC").performTextReplacement(vencimentoParaCampo())
         composeTestRule.onNodeWithContentDescription("Guardar recibo").performClick()
 
         // Gravou: cabeçalho + uma linha por rubrica do catálogo. A escrita é assíncrona,
@@ -264,8 +314,8 @@ class ReciboConferenciaTest {
 
         val idVenc = runBlocking { app.database.rubricaDao().obterPorCodigo("VENC") }!!.id
         val linhaVenc = linhas.first { it.rubricaId == idVenc }
-        assertEquals(11_379_800L, linhaVenc.valorReal)
-        assertEquals(11_379_800L, linhaVenc.valorEstimado)
+        assertEquals(vencimentoDoContratoMil().toLong(), linhaVenc.valorReal)
+        assertEquals(vencimentoDoContratoMil().toLong(), linhaVenc.valorEstimado)
 
         // Volta atrás e entra outra vez: o ecrã relê da base e os valores continuam lá
         composeTestRule.onNodeWithContentDescription("Voltar").performClick()
@@ -274,7 +324,7 @@ class ReciboConferenciaTest {
         // Reabrir o ecrã volta a compor tudo do zero: o mesmo tempo generoso da 1.ª abertura.
         esperarPorTexto("Vencimento", timeoutMs = 25_000)
 
-        campo("VENC").assertTextContains("1 137,98", substring = true)
+        campo("VENC").assertTextContains(vencimentoSemEuro(), substring = true)
         // Já gravado e sem alterações por guardar
         composeTestRule.onNodeWithContentDescription("Guardar recibo").assertIsNotEnabled()
     }
