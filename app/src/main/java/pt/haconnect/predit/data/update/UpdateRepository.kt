@@ -3,6 +3,7 @@ package pt.haconnect.predit.data.update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import pt.haconnect.predit.BuildConfig
 import pt.haconnect.predit.domain.update.VersionManifest
 import java.net.HttpURLConnection
 import java.net.URL
@@ -11,12 +12,22 @@ import java.net.URL
  * Vai buscar o `version.json` do ultimo GitHub Release (Fase 11d.2).
  *
  * Sem OkHttp, Retrofit, Gson ou Moshi: `HttpURLConnection` e `org.json` sao nativos.
+ *
+ * O OTA interno so esta ativo no flavor `github`. No flavor `playstore`, o
+ * `obterManifesto()` devolve falha imediata — as atualizacoes sao geridas pela
+ * Play Store, e a app nao pode auto-atualizar-se fora da loja (Play policy
+ * "Device and Network Abuse").
  */
 class UpdateRepository(
     private val urlManifesto: String = URL_MANIFESTO
 ) {
 
     suspend fun obterManifesto(): Result<VersionManifest> = withContext(Dispatchers.IO) {
+        if (!BuildConfig.OTA_ATIVO) {
+            return@withContext Result.failure(
+                NoSuchElementException("OTA desativado neste canal (Play Store)")
+            )
+        }
         try {
             val conn = (URL(urlManifesto).openConnection() as HttpURLConnection).apply {
                 connectTimeout = TIMEOUT_MS

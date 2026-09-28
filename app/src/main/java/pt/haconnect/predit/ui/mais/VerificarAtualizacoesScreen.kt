@@ -69,38 +69,64 @@ fun VerificarAtualizacoesScreen(onVoltar: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            CartaoVersaoInstalada(
-                versaoNome = estado.versaoAtualNome,
-                versaoCode = estado.versaoAtualCode,
-                ocupada = estado.estado is EstadoAtualizacao.AVerificar ||
-                    estado.estado is EstadoAtualizacao.ADescarregar,
-                onVerificar = { viewModel.verificar() }
-            )
-
-            when (val atual = estado.estado) {
-                is EstadoAtualizacao.Inicial ->
-                    TextoAjuda("Toca em \"Verificar agora\" para procurar atualizações.")
-
-                is EstadoAtualizacao.AVerificar -> LinhaAProcessar("A verificar...")
-
-                is EstadoAtualizacao.SemAtualizacao ->
-                    CartaoSucesso("Estás na versão mais recente.")
-
-                is EstadoAtualizacao.Disponivel -> CartaoDisponivel(
-                    manifest = atual.manifest,
-                    onDescarregar = { viewModel.descarregar(atual.manifest.apkUrl) }
+            if (!BuildConfig.OTA_ATIVO) {
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Versão instalada",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${estado.versaoAtualNome} (código ${estado.versaoAtualCode})",
+                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "As atualizações são geridas automaticamente pela Play Store.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                CartaoVersaoInstalada(
+                    versaoNome = estado.versaoAtualNome,
+                    versaoCode = estado.versaoAtualCode,
+                    ocupada = estado.estado is EstadoAtualizacao.AVerificar ||
+                        estado.estado is EstadoAtualizacao.ADescarregar,
+                    onVerificar = { viewModel.verificar() }
                 )
 
-                is EstadoAtualizacao.ADescarregar -> CartaoProgresso(atual.progresso)
+                when (val atual = estado.estado) {
+                    is EstadoAtualizacao.Inicial ->
+                        TextoAjuda("Toca em \"Verificar agora\" para procurar atualizações.")
 
-                is EstadoAtualizacao.Descarregado -> CartaoDescarregado(
-                    onInstalar = { viewModel.instalar(context) }
-                )
+                    is EstadoAtualizacao.AVerificar -> LinhaAProcessar("A verificar...")
 
-                is EstadoAtualizacao.Erro -> CartaoErro(
-                    mensagem = atual.mensagem,
-                    onTentar = { viewModel.verificar() }
-                )
+                    is EstadoAtualizacao.SemAtualizacao ->
+                        CartaoSucesso("Estás na versão mais recente.")
+
+                    is EstadoAtualizacao.Disponivel -> CartaoDisponivel(
+                        manifest = atual.manifest,
+                        onDescarregar = { viewModel.descarregar(atual.manifest.apkUrl) }
+                    )
+
+                    is EstadoAtualizacao.ADescarregar -> CartaoProgresso(atual.progresso)
+
+                    is EstadoAtualizacao.Descarregado -> CartaoDescarregado(
+                        onInstalar = { viewModel.instalar(context) }
+                    )
+
+                    is EstadoAtualizacao.Erro -> CartaoErro(
+                        mensagem = atual.mensagem,
+                        onTentar = { viewModel.verificar() }
+                    )
+                }
             }
         }
     }

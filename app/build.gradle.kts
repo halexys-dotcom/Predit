@@ -20,16 +20,28 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "pt.haconnect.predit"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "pt.haconnect.predit"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 20
         versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    flavorDimensions += "canal"
+    productFlavors {
+        create("github") {
+            dimension = "canal"
+            buildConfigField("boolean", "OTA_ATIVO", "true")
+        }
+        create("playstore") {
+            dimension = "canal"
+            buildConfigField("boolean", "OTA_ATIVO", "false")
+        }
     }
 
     signingConfigs {
