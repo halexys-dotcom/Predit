@@ -73,13 +73,13 @@ fun MaisScreen(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(96.dp)
+                        .size(120.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(colorResource(id = R.color.ic_launcher_background)),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
-                        painter = painterResource(id = R.mipmap.ic_launcher_foreground),
+                        painter = painterResource(id = R.drawable.ic_predit_sobre),
                         contentDescription = "Predit",
                         modifier = Modifier.fillMaxSize()
                     )
