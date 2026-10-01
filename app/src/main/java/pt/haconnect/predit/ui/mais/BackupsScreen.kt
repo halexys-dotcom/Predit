@@ -1,5 +1,8 @@
 package pt.haconnect.predit.ui.mais
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,9 +22,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pt.haconnect.predit.PreditApplication
 import pt.haconnect.predit.domain.model.BackupInfo
+import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Date
 import java.util.Locale
 
 /**
@@ -43,6 +48,16 @@ fun BackupsScreen(onVoltar: () -> Unit) {
 
     var paraRestaurar by remember { mutableStateOf<BackupInfo?>(null) }
     var paraApagar by remember { mutableStateOf<BackupInfo?>(null) }
+
+    val exportarLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri -> uri?.let { viewModel.exportarPara(it) } }
+
+    var uriParaRestaurar by remember { mutableStateOf<Uri?>(null) }
+
+    val importarLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri -> if (uri != null) uriParaRestaurar = uri }
 
     LaunchedEffect(estado.mensagem) {
         estado.mensagem?.let { texto ->
@@ -84,21 +99,38 @@ fun BackupsScreen(onVoltar: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
-                        onClick = { viewModel.criarManual() },
+                        onClick = {
+                            val nome = "predit-backup-" +
+                                SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".db"
+                            exportarLauncher.launch(nome)
+                        },
                         enabled = !estado.aProcessar,
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("criar-backup")
                     ) {
-                        Text("Criar backup agora")
+                        Text("Criar backup para ficheiro")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            importarLauncher.launch(
+                                arrayOf("application/octet-stream", "application/x-sqlite3", "*/*")
+                            )
+                        },
+                        enabled = !estado.aProcessar,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("importar-backup")
+                    ) {
+                        Text("Restaurar de ficheiro")
                     }
                     Text(
-                        text = "Backups automáticos: últimos 10 (1 por arranque)",
+                        text = "Backups automaticos internos: ultimos 10 (1 por arranque)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Localização: ${viewModel.pasta}",
+                        text = "Pasta interna: ${viewModel.pasta}",
                         maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -160,6 +192,34 @@ fun BackupsScreen(onVoltar: () -> Unit) {
                 onConfirmar = {
                     paraApagar = null
                     viewModel.apagar(backup)
+                }
+            )
+        }
+
+        uriParaRestaurar?.let { uri ->
+            AlertDialog(
+                onDismissRequest = { uriParaRestaurar = null },
+                title = { Text("Restaurar deste ficheiro?") },
+                text = {
+                    Text(
+                        "Os dados atuais vao ser substituidos pelo conteudo do ficheiro " +
+                        "escolhido. A app vai reiniciar."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        uriParaRestaurar = null
+                        viewModel.importarDe(uri) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Backup importado. A reiniciar...")
+                                delay(1_000L)
+                                Runtime.getRuntime().exit(0)
+                            }
+                        }
+                    }) { Text("Restaurar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { uriParaRestaurar = null }) { Text("Cancelar") }
                 }
             )
         }

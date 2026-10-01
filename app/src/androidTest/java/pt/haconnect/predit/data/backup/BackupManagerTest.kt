@@ -1,6 +1,7 @@
 package pt.haconnect.predit.data.backup
 
 import android.content.Context
+import android.net.Uri
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -135,6 +136,53 @@ class BackupManagerTest {
             context.getSharedPreferences(BackupManager.PREFS, Context.MODE_PRIVATE)
                 .getBoolean(BackupManager.CHAVE_RESTAURO_PENDENTE, false)
         )
+    }
+
+    @Test
+    fun T6_criarDumpTempProduzFicheiroSqliteValido() {
+        val temp = manager.criarDumpTemp()
+        try {
+            assertTrue(temp.exists())
+            assertTrue("tamanho > 0", temp.length() > 0L)
+            val cabecalho = ByteArray(16)
+            temp.inputStream().use { it.read(cabecalho) }
+            assertEquals("SQLite format 3\u0000", String(cabecalho, Charsets.US_ASCII))
+        } finally {
+            temp.delete()
+        }
+    }
+
+    @Test
+    fun T7_exportarParaUriEscreveFicheiroValido() = runBlocking {
+        val destino = File(pasta, "exportado.db")
+        val uri = Uri.fromFile(destino)
+        val resultado = manager.exportarParaUri(uri)
+        assertTrue("resultado: $resultado", resultado.isSuccess)
+        assertTrue(destino.exists())
+        assertTrue(destino.length() > 0L)
+    }
+
+    @Test
+    fun T8_importarDeUriComFicheiroValidoMarcaRestauro() = runBlocking {
+        val origem = File(pasta, "origem.db")
+        File(manager.criar().caminho).copyTo(origem, overwrite = true)
+        val uri = Uri.fromFile(origem)
+
+        assertFalse(manager.temRestauroPendente())
+        val resultado = manager.importarDeUri(uri)
+        assertTrue("resultado: $resultado", resultado.isSuccess)
+        assertTrue(manager.temRestauroPendente())
+    }
+
+    @Test
+    fun T9_importarDeUriRecusaFicheiroNaoSqlite() = runBlocking {
+        val origem = File(pasta, "lixo.db")
+        origem.writeText("isto nao e um ficheiro sqlite")
+        val uri = Uri.fromFile(origem)
+
+        val resultado = manager.importarDeUri(uri)
+        assertTrue(resultado.isFailure)
+        assertFalse(manager.temRestauroPendente())
     }
 
     private fun limparRestauroPendente() {

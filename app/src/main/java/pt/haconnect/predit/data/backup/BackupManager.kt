@@ -3,6 +3,7 @@ package pt.haconnect.predit.data.backup
 import android.content.Context
 import android.content.SharedPreferences
 import android.database.sqlite.SQLiteDatabase
+import android.net.Uri
 import android.util.Log
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.Dispatchers
@@ -66,24 +67,95 @@ class BackupManager(
     fun criar(ehAutomatico: Boolean = false): BackupInfo {
         val pasta = pastaBackups
         val destino = File(pasta, nomeLivre(pasta, ehAutomatico))
-        val db = database.openHelper.writableDatabase
+        escreverDump(destino)
+        return paraInfo(destino)
+    }
 
-        // 1) VACUUM INTO com o caminho ligado — SQLite 3.27+ (Android 10 em diante).
-        if (tentarVacuum(db, "VACUUM INTO ?", arrayOf<Any?>(destino.absolutePath), destino)) {
-            return paraInfo(destino)
-        }
-        // 2) O mesmo com o caminho embutido no SQL: há versões que recusam o parâmetro ligado.
+    /** Escreve um dump consistente da BD em [destino]. VACUUM INTO, com fallback. */
+    private fun escreverDump(destino: File) {
+        val db = database.openHelper.writableDatabase
+        if (tentarVacuum(db, "VACUUM INTO ?", arrayOf<Any?>(destino.absolutePath), destino)) return
         val literal = destino.absolutePath.replace("'", "''")
-        if (tentarVacuum(db, "VACUUM INTO '$literal'", null, destino)) {
-            return paraInfo(destino)
-        }
-        // 3) Sem VACUUM INTO (Android 8/SQLite 3.18): WAL para dentro do .db e cópia simples.
+        if (tentarVacuum(db, "VACUUM INTO '$literal'", null, destino)) return
         destino.delete()
         db.execSQL("PRAGMA wal_checkpoint(TRUNCATE)")
         File(db.path ?: context.getDatabasePath(NOME_BD).absolutePath).copyTo(destino, overwrite = true)
-        check(destino.length() > 0L) { "cópia vazia: ${destino.name}" }
-        Log.i(TAG, "backup por checkpoint + cópia do .db (sem VACUUM INTO): ${destino.name}")
-        return paraInfo(destino)
+        check(destino.length() > 0L) { "dump vazio: ${destino.name}" }
+        Log.i(TAG, "dump por checkpoint + copia do .db (sem VACUUM INTO): ${destino.name}")
+    }
+
+    /** Dump temporario em cacheDir. O chamador apaga. */
+    internal fun criarDumpTemp(): File {
+        val temp = File(context.cacheDir, "predit-export-${seloDeAgora()}.db")
+        temp.delete()
+        escreverDump(temp)
+        return temp
+    }
+
+    /**
+     * Exporta a BD para o URI escolhido pelo utilizador (SAF).
+     * VACUUM INTO escreve para um path, nao para um URI: o dump e criado em cacheDir
+     * e depois copiado para o OutputStream do URI.
+     */
+    suspend fun exportarParaUri(uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val temp = criarDumpTemp()
+            try {
+                val out = context.contentResolver.openOutputStream(uri, "wt")
+                    ?: return@withContext Result.failure(IllegalStateException("nao consegui abrir o destino"))
+                out.use { temp.inputStream().use { ins -> ins.copyTo(it) } }
+                Result.success(Unit)
+            } finally {
+                temp.delete()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "exportar para URI falhou", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Le um ficheiro escolhido pelo utilizador, valida-o (cabecalho SQLite + user_version)
+     * e deixa-o pronto para o restauro no proximo arranque.
+     */
+    suspend fun importarDeUri(uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val temp = File(context.cacheDir, "predit-import-${seloDeAgora()}.db")
+            temp.delete()
+            try {
+                val input = context.contentResolver.openInputStream(uri)
+                    ?: return@withContext Result.failure(IllegalStateException("nao consegui abrir o ficheiro"))
+                input.use { ins -> temp.outputStream().use { ins.copyTo(it) } }
+
+                if (!temCabecalhoSqlite(temp)) {
+                    return@withContext Result.failure(
+                        IllegalArgumentException("o ficheiro nao parece ser uma base de dados SQLite")
+                    )
+                }
+                val versao = lerUserVersion(temp)
+                if (versao <= 0) {
+                    return@withContext Result.failure(
+                        IllegalArgumentException("nao consegui ler a versao do ficheiro")
+                    )
+                }
+                if (versao > PreditDatabase.VERSAO_BD) {
+                    return@withContext Result.failure(
+                        IllegalArgumentException(
+                            "backup da versao $versao; esta app suporta ate ${PreditDatabase.VERSAO_BD}"
+                        )
+                    )
+                }
+
+                temp.copyTo(File(context.filesDir, NOME_PENDENTE), overwrite = true)
+                prefs(context).edit().putBoolean(CHAVE_RESTAURO_PENDENTE, true).apply()
+                Result.success(Unit)
+            } finally {
+                temp.delete()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "importar de URI falhou", e)
+            Result.failure(e)
+        }
     }
 
     /** Remove o ficheiro da cópia do disco. Não falha se ele já não existir. */

@@ -1,5 +1,6 @@
 package pt.haconnect.predit.ui.mais
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -44,17 +45,42 @@ class BackupsViewModel(private val backupManager: BackupManager) : ViewModel() {
         }
     }
 
-    fun criarManual() {
+    /** Exporta a BD para um URI escolhido pelo utilizador (SAF). */
+    fun exportarPara(uri: Uri) {
         viewModelScope.launch {
             _estado.update { it.copy(aProcessar = true) }
-            try {
-                val criado = withContext(Dispatchers.IO) { backupManager.criar() }
-                atualizarLista("Backup criado: ${criado.nome}")
-            } catch (e: Exception) {
-                _estado.update {
-                    it.copy(aProcessar = false, mensagem = "Não consegui criar o backup: ${e.message}")
-                }
+            val resultado = backupManager.exportarParaUri(uri)
+            _estado.update {
+                it.copy(
+                    aProcessar = false,
+                    mensagem = resultado.fold(
+                        onSuccess = { "Backup guardado no destino escolhido." },
+                        onFailure = { e -> "Nao consegui guardar: ${e.message}" }
+                    )
+                )
             }
+        }
+    }
+
+    /**
+     * Importa um backup de um URI escolhido pelo utilizador. Em caso de sucesso,
+     * chama [onPrecisaReiniciar] — o restauro entra no proximo arranque.
+     */
+    fun importarDe(uri: Uri, onPrecisaReiniciar: () -> Unit) {
+        viewModelScope.launch {
+            _estado.update { it.copy(aProcessar = true) }
+            val resultado = backupManager.importarDeUri(uri)
+            resultado.fold(
+                onSuccess = {
+                    _estado.update { it.copy(aProcessar = false) }
+                    onPrecisaReiniciar()
+                },
+                onFailure = { e ->
+                    _estado.update {
+                        it.copy(aProcessar = false, mensagem = "Nao consegui restaurar: ${e.message}")
+                    }
+                }
+            )
         }
     }
 
