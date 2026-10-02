@@ -349,6 +349,9 @@ h1 {
 .rodape a { color: var(--txt-2); text-decoration: none; }
 .rodape a:hover { color: var(--azul-claro); }
 
+/* Aviso de independencia: nota legal abaixo da linha de copyright. */
+.rodape .aviso-legal { max-width: 78ch; margin: 1.6rem 0 0; padding-top: 1.2rem; border-top: 1px solid var(--linha); font-size: 0.78rem; line-height: 1.65; }
+
 /* --- Responsivo --------------------------------------------------- */
 @media (max-width: 1000px) {
   .hero { grid-template-columns: 1fr; text-align: center; }
@@ -369,7 +372,7 @@ h1 {
   .telefone { width: min(250px, 78vw); }
   .chip-stat { left: -0.4rem; bottom: -2.2rem; padding: 0.55rem 0.75rem; }
   /* Chips do mini-calendario mais compactos: a 7 colunas num ecra estreito,
-     "Staff" e "T08H" precisam de caber dentro da celula. */
+     as abreviaturas (T, F, Fe, B) tem de caber dentro da celula. */
   .mini-grelha { gap: 0.2rem; }
   .tag:not(.grande) { min-width: 1.9rem; padding: 0.28rem 0.3rem; font-size: 0.62rem; }
   .mini-dia .num { font-size: 0.7rem; }
@@ -449,7 +452,7 @@ h1 {
     <div class="hero-visual">
       <div class="telefone">
         <img class="ecra" src="screens/escala.png" width="640" height="1380"
-             alt="Ecrã de escala mensal do Predit: calendário do mês com os postos de cada dia (CC, Staff, T08H) e as folgas, e o resumo de turnos e horas."
+             alt="Ecrã de escala mensal do Predit: calendário do mês com as etiquetas de cada dia (turnos, folgas e férias) e o resumo de turnos e horas."
              fetchpriority="high" decoding="async">
         <p class="chip-stat"><b>22 turnos · 8 folgas</b>174 h previstas no mês</p>
       </div>
@@ -506,7 +509,7 @@ h1 {
     <p class="lead">Cada tipo de dia tem uma cor própria, e é essa cor que aparece no calendário, no horário e na conferência do recibo. Estas são as quatro categorias base:</p>
 
     <div class="tags">
-      <span class="tag tag-turno grande" tabindex="0" data-info="Turno servido num posto (CC, Staff, T08H…)">Turno / CC</span>
+      <span class="tag tag-turno grande" tabindex="0" data-info="Dia de trabalho, no posto ou na função atribuída">Turno</span>
       <span class="tag tag-folga grande" tabindex="0" data-info="Dia de descanso — folga">Folga</span>
       <span class="tag tag-ferias grande" tabindex="0" data-info="Período de férias, contado ao dia">Férias</span>
       <span class="tag tag-baixa grande" tabindex="0" data-info="Baixa médica, contada ao dia">Baixa</span>
@@ -524,33 +527,33 @@ h1 {
           <span class="mini-dia fora"><span class="num">28</span></span>
           <span class="mini-dia fora"><span class="num">29</span></span>
           <span class="mini-dia fora"><span class="num">30</span></span>
-          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">1</span></span>
-          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">2</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">1</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">2</span></span>
           <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">3</span></span>
           <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">4</span></span>
 
-          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">5</span></span>
-          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">6</span></span>
-          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">7</span></span>
-          <span class="mini-dia"><span class="tag tag-turno">Staff</span><span class="num">8</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">5</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">6</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">7</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">8</span></span>
           <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">9</span></span>
-          <span class="mini-dia"><span class="tag tag-turno">T08H</span><span class="num">10</span></span>
-          <span class="mini-dia"><span class="tag tag-turno">T08H</span><span class="num">11</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">10</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">11</span></span>
 
-          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">12</span></span>
-          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">13</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">12</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">13</span></span>
           <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">14</span></span>
-          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">15</span></span>
-          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">16</span></span>
-          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">17</span></span>
-          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">18</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">Fe</span><span class="num">15</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">Fe</span><span class="num">16</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">Fe</span><span class="num">17</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">Fe</span><span class="num">18</span></span>
 
-          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">19</span></span>
-          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">20</span></span>
-          <span class="mini-dia hoje"><span class="tag tag-baixa">BM</span><span class="num">21</span></span>
-          <span class="mini-dia"><span class="tag tag-baixa">BM</span><span class="num">22</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">Fe</span><span class="num">19</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">Fe</span><span class="num">20</span></span>
+          <span class="mini-dia hoje"><span class="tag tag-baixa">B</span><span class="num">21</span></span>
+          <span class="mini-dia"><span class="tag tag-baixa">B</span><span class="num">22</span></span>
           <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">23</span></span>
-          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">24</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T</span><span class="num">24</span></span>
           <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">25</span></span>
         </div>
         <div class="mini-rodape">
@@ -578,7 +581,7 @@ h1 {
       <figure>
         <div class="telefone">
           <img class="ecra" src="screens/horario.png" width="640" height="1380" loading="lazy" decoding="async"
-               alt="Ecrã de horário do Predit: lista de dias com o posto, o intervalo de horas e o total do dia, e por baixo o resumo de horas reais contra as previstas.">
+               alt="Ecrã de horário do Predit: lista de dias com o tipo de turno, o intervalo de horas e o total do dia, e por baixo o resumo de horas reais contra as previstas.">
         </div>
         <figcaption>Horas reais contra as previstas, dia a dia, com o total do mês e a diferença.</figcaption>
       </figure>
@@ -634,6 +637,7 @@ h1 {
       <a href="#topo">Voltar ao topo</a>
     </nav>
   </div>
+  <p class="wrap aviso-legal">O Predit é uma aplicação independente destinada à organização pessoal e gestão de horários de trabalho. Não possui qualquer vínculo, afiliação, patrocínio ou representação oficial de quaisquer entidades empregadoras ou entidades gestoras aeroportuárias.</p>
 </footer>
 
 </body>
