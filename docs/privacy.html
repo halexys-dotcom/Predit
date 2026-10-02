@@ -4,88 +4,450 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Política de Privacidade — Predit</title>
+<meta name="description" content="Política de Privacidade do Predit: aplicação Android 100% offline que não recolhe, não transmite e não partilha dados pessoais. Os dados ficam apenas no dispositivo do utilizador.">
+<meta name="theme-color" content="#0b0f19">
+<meta name="color-scheme" content="dark">
+<meta name="author" content="Hugo Alexandre Henriques Correia">
+
+<!-- Preview em partilhas: mesmos metadados da landing page (index.html). -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Predit">
+<meta property="og:locale" content="pt_PT">
+<meta property="og:url" content="https://halexys-dotcom.github.io/Predit/privacy.html">
+<meta property="og:title" content="Política de Privacidade — Predit">
+<meta property="og:description" content="O Predit é 100% offline e não recolhe qualquer dado pessoal. Leia a política completa.">
+<meta property="og:image" content="https://halexys-dotcom.github.io/Predit/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+
+<!-- Inter vem do Google Fonts. O font-family abaixo ja traz a pilha de sistema
+     (Segoe UI, Roboto) como fallback, por isso a pagina continua correta sem
+     este <link> (offline ou com o CDN bloqueado). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-         max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6;
-         color: #222; }
-  h1 { border-bottom: 2px solid #444; padding-bottom: .3rem; }
-  h2 { margin-top: 2rem; color: #333; }
-  code { background: #f4f4f4; padding: .1rem .3rem; border-radius: 3px; }
-  .updated { color: #666; font-style: italic; }
+/* ------------------------------------------------------------------
+   Predit — Politica de Privacidade. Mesmo Dark Theme Premium da
+   landing page (docs/index.html): fundo em gradiente profundo,
+   cartoes em glassmorphism, tipografia Inter e acento azul
+   aeroportuario. Tudo num ficheiro so, sem JavaScript.
+   ------------------------------------------------------------------ */
+:root {
+  /* Fundo e superficies (identicos a docs/index.html) */
+  --bg-0: #0b0f19;
+  --bg-1: #111827;
+  --bg-2: #0d1527;
+  --cartao: rgba(22, 27, 38, 0.75);
+  --linha: rgba(255, 255, 255, 0.08);
+  --linha-forte: rgba(255, 255, 255, 0.16);
+
+  /* Texto: titulos a #f8fafc, paragrafos a #cbd5e1 */
+  --txt: #f8fafc;
+  --txt-corpo: #cbd5e1;
+  --txt-3: #7c8ba6;
+
+  /* Acentos aeroportuarios */
+  --azul: #0080ff;
+  --azul-claro: #38bdf8;
+  --grad-titulo: linear-gradient(to right, #ffffff, #93c5fd);
+  --grad-cta: linear-gradient(135deg, #0080ff, #38bdf8);
+
+  --raio: 16px;        /* cartoes e caixas internas */
+  --raio-caixa: 24px;  /* cartao do documento */
+  --raio-btn: 12px;    /* botoes */
+  --largura: 880px;    /* largura de leitura */
+  --sombra-cta: 0 0 20px rgba(0, 128, 255, 0.35);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(135deg, #0b0f19 0%, #111827 50%, #0d1527 100%);
+  background-color: var(--bg-0);
+  background-attachment: fixed;
+  color: var(--txt-corpo);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Brilho ambiente por cima do gradiente: mesmo efeito da landing page. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(58rem 38rem at 82% -12%, rgba(0, 128, 255, 0.16), transparent 62%),
+    radial-gradient(42rem 30rem at -4% 104%, rgba(56, 189, 248, 0.10), transparent 60%);
+}
+
+img { max-width: 100%; height: auto; }
+
+a { color: var(--azul-claro); }
+
+:focus-visible { outline: 2px solid var(--azul-claro); outline-offset: 3px; border-radius: 6px; }
+
+main { flex: 1 0 auto; }
+
+.wrap { width: min(var(--largura), 100% - 2.4rem); margin-inline: auto; }
+
+/* --- Cabecalho (igual ao da landing page) ------------------------- */
+.topo {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(11, 15, 25, 0.72);
+  border-bottom: 1px solid var(--linha);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.topo-linha { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; }
+.marca { display: flex; align-items: center; gap: 0.7rem; color: var(--txt); text-decoration: none; }
+.marca img {
+  width: 42px; height: 42px; border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--linha-forte), 0 8px 20px -8px rgba(0, 128, 255, 0.55);
+}
+.marca strong { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+
+/* --- Botoes (iguais aos da landing page) ------------------------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  padding: 0.7rem 1.05rem;
+  border: 1px solid transparent;
+  border-radius: var(--raio-btn);
+  font-size: 0.94rem; font-weight: 600; text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.2s ease;
+}
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn-cta { background: var(--grad-cta); color: #06192b; box-shadow: var(--sombra-cta); }
+.btn-cta svg { color: #06192b; }
+.btn-cta:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(0, 128, 255, 0.55), 0 12px 30px -14px rgba(56, 189, 248, 0.75); }
+.btn-ghost { background: rgba(255, 255, 255, 0.04); border-color: var(--linha-forte); color: var(--txt); }
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.09); transform: translateY(-2px); }
+/* --- Pagina e cartao do documento --------------------------------- */
+.pg { padding: clamp(2.2rem, 5vw, 3.4rem) 0 clamp(2.4rem, 5vw, 3.6rem); }
+
+.doc {
+  padding: clamp(1.6rem, 4vw, 3rem) clamp(1.3rem, 4vw, 2.8rem);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-caixa);
+  background: var(--cartao);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 40px 80px -46px rgba(0, 0, 0, 0.95);
+}
+
+.olho {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  margin: 0; padding: 0.35rem 0.8rem;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 999px;
+  background: rgba(0, 128, 255, 0.12);
+  color: var(--azul-claro);
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+h1 {
+  margin: 1rem 0 0;
+  font-size: clamp(1.9rem, 4.6vw, 2.8rem);
+  font-weight: 800; line-height: 1.1; letter-spacing: -0.03em;
+  background: var(--grad-titulo);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+}
+
+.sub { margin: 0.9rem 0 0; font-size: 1.02rem; font-weight: 500; }
+.updated { margin: 0.9rem 0 0; font-size: 0.83rem; color: var(--txt-3); font-style: italic; }
+
+/* Selos de resumo, iguais aos da landing page. */
+.estado { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 1.5rem; }
+.selo {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  background: var(--cartao);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: var(--txt);
+  font-size: 0.82rem; font-weight: 600;
+}
+.ponto { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.9); }
+
+/* --- Secoes: subtitulo com traco em azul aeroportuario ------------ */
+.sec h2 {
+  display: flex; align-items: center; gap: 0.65rem;
+  margin: 2.5rem 0 0;
+  font-size: clamp(1.1rem, 2.3vw, 1.32rem);
+  font-weight: 700; letter-spacing: -0.01em;
+  color: var(--txt);
+}
+.sec h2::before {
+  content: ""; flex: none;
+  width: 4px; height: 1.05em; border-radius: 2px;
+  background: var(--azul); box-shadow: 0 0 12px rgba(0, 128, 255, 0.75);
+}
+.sec > p { margin: 0.85rem 0 0; }
+.sec > ul { margin: 0.85rem 0 0; padding-left: 1.15rem; }
+.sec > ul > li { margin-top: 0.35rem; }
+.sec > ul > li::marker { color: var(--azul-claro); }
+
+strong { color: var(--txt); font-weight: 600; }
+
+code {
+  padding: 0.12rem 0.35rem;
+  border: 1px solid var(--linha);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--txt); font-size: 0.88em;
+}
+/* Caixa de resumo em destaque (100% offline / sem recolha de dados). */
+.resumo {
+  margin-top: 1.5rem; padding: 1.15rem 1.2rem;
+  border: 1px solid rgba(56, 189, 248, 0.26);
+  border-radius: var(--raio);
+  background: linear-gradient(135deg, rgba(0, 128, 255, 0.16), rgba(56, 189, 248, 0.05)), var(--cartao);
+}
+.resumo-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 0.75rem 1.3rem; margin: 0; padding: 0; list-style: none; }
+.resumo-lista li { display: flex; align-items: flex-start; gap: 0.6rem; margin: 0; font-size: 0.92rem; }
+.resumo-lista b { display: block; color: var(--txt); font-weight: 700; }
+.visto {
+  flex: none; display: grid; place-items: center;
+  width: 22px; height: 22px; margin-top: 0.2rem;
+  border-radius: 50%;
+  background: rgba(0, 128, 255, 0.16);
+  color: var(--azul-claro);
+  font-size: 0.72rem; font-weight: 800;
+}
+
+/* Nota destacada dentro do texto. */
+.destaque {
+  margin-top: 1rem; padding: 0.9rem 1.05rem;
+  border-left: 3px solid var(--azul);
+  border-radius: 0 var(--raio) var(--raio) 0;
+  background: rgba(0, 128, 255, 0.08);
+}
+.destaque p { margin: 0; font-size: 0.93rem; }
+.destaque p + p { margin-top: 0.55rem; }
+
+.nota { margin: 1rem 0 0; font-size: 0.83rem; color: var(--txt-3); }
+
+/* --- Faixa final de CTA ------------------------------------------- */
+.cta-final {
+  margin-top: 2.6rem;
+  padding: clamp(1.3rem, 3.5vw, 2rem);
+  border: 1px solid rgba(56, 189, 248, 0.26);
+  border-radius: var(--raio);
+  background: linear-gradient(135deg, rgba(0, 128, 255, 0.18), rgba(56, 189, 248, 0.06)), var(--cartao);
+  text-align: center;
+}
+.cta-titulo { margin: 0; font-size: clamp(1.25rem, 2.8vw, 1.6rem); font-weight: 800; letter-spacing: -0.02em; color: var(--txt); }
+.lead { margin: 0.6rem auto 0; max-width: 58ch; font-size: 0.94rem; }
+.acoes { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.8rem; margin-top: 1.4rem; }
+
+/* --- Rodape (igual ao da landing page) ---------------------------- */
+.rodape { flex: none; padding: 2.2rem 0 2.8rem; border-top: 1px solid var(--linha); font-size: 0.86rem; color: var(--txt-3); }
+.rodape-linha { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 1.6rem; }
+.rodape p { margin: 0; }
+.rodape nav { display: flex; flex-wrap: wrap; gap: 1.2rem; }
+.rodape a { color: var(--txt-corpo); text-decoration: none; }
+.rodape a:hover { color: var(--azul-claro); }
+
+/* --- Responsivo --------------------------------------------------- */
+@media (max-width: 620px) {
+  .wrap { width: min(var(--largura), 100% - 1.8rem); }
+  .marca img { width: 36px; height: 36px; }
+  .marca strong { font-size: 1.02rem; }
+  .btn { padding: 0.6rem 0.9rem; font-size: 0.86rem; }
+  .topo-linha { padding: 0.55rem 0; }
+  .doc { border-radius: var(--raio); }
+  .acoes .btn { width: 100%; justify-content: center; }
+}
+
+/* Acessibilidade: sem animacao para quem pediu menos movimento. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Alto contraste (Windows): sem gradiente no titulo e sem texto transparente. */
+@media (forced-colors: active) {
+  h1 { background: none; color: CanvasText; -webkit-text-fill-color: CanvasText; }
+  .doc, .selo, .resumo, .destaque, .cta-final { border: 1px solid CanvasText; }
+}
 </style>
 </head>
 <body>
+<header class="topo" id="topo">
+  <div class="wrap topo-linha">
+    <a class="marca" href="index.html" aria-label="Predit — início">
+      <img src="img/logo.png" width="42" height="42" alt="">
+      <strong>Predit</strong>
+    </a>
+    <a class="btn btn-ghost" href="index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+      Voltar ao Início
+    </a>
+  </div>
+</header>
 
-<h1>Política de Privacidade — Predit</h1>
-<p class="updated">Última atualização: 29 de setembro de 2026</p>
+<main class="pg">
+  <div class="wrap">
+    <article class="doc">
 
-<h2>1. Quem somos</h2>
-<p>O <strong>Predit</strong> é uma aplicação Android desenvolvida por
-<strong>Hugo Alexandre Henriques Correia</strong> (doravante "desenvolvedor", "nós").
-Contacto: <strong>haconnect@outlook.pt</strong>.</p>
-<p>Esta política descreve como o Predit trata a informação do utilizador.</p>
+      <p class="olho">Documento legal</p>
+      <h1>Política de Privacidade</h1>
+      <p class="sub">Como o Predit trata — e, sobretudo, como não trata — a informação do utilizador.</p>
+      <p class="updated">Última atualização: 29 de setembro de 2026</p>
 
-<h2>2. Que dados recolhemos</h2>
-<p><strong>Nenhum.</strong></p>
-<p>O Predit não recolhe, não transmite, não armazena em servidores externos e não
-partilha com terceiros qualquer dado pessoal do utilizador.</p>
-<p>Todas as informações que o utilizador introduz na app — tipos de turno, datas,
-horas, configurações de contrato — ficam armazenadas <strong>exclusivamente no
-próprio dispositivo</strong> do utilizador, numa base de dados local.</p>
+      <div class="estado">
+        <span class="selo"><span class="ponto"></span>100% Offline</span>
+        <span class="selo"><span class="ponto"></span>Sem recolha de dados</span>
+        <span class="selo"><span class="ponto"></span>Sem contas</span>
+      </div>
 
-<h2>3. Ligações de rede</h2>
-<p>O Predit funciona integralmente offline. Nenhuma funcionalidade depende de
-ligação à Internet.</p>
-<p><strong>Versão distribuída pela Play Store:</strong> a app não pede permissão
-de rede e não efetua qualquer pedido HTTP.</p>
-<p><strong>Versão distribuída pelo GitHub Releases (canal alternativo, não
-disponível na Play Store):</strong> essa versão inclui um mecanismo de
-verificação e instalação de atualizações, que consulta um ficheiro público de
-metadados alojado no GitHub. Essa consulta não transmite qualquer dado pessoal
-— apenas um pedido HTTP anónimo ao ficheiro público.</p>
+      <section class="sec">
+        <h2>1. Quem somos</h2>
+        <p>O <strong>Predit</strong> é uma aplicação Android desenvolvida por
+        <strong>Hugo Alexandre Henriques Correia</strong> (doravante "desenvolvedor", "nós").
+        Contacto: <strong><a href="mailto:haconnect@outlook.pt">haconnect@outlook.pt</a></strong>.</p>
+        <p>Esta política descreve como o Predit trata a informação do utilizador.</p>
+      </section>
 
-<h2>4. Permissões</h2>
-<p>A versão distribuída pela Play Store <strong>não solicita qualquer permissão
-sensível</strong>. A app não acede à Internet, não acede à câmara, não acede aos
-contactos, não acede à localização e não recolhe identificadores do
-dispositivo.</p>
-<p>A versão distribuída pelo GitHub Releases solicita duas permissões
-adicionais, exclusivamente para o mecanismo de atualização:</p>
-<ul>
-  <li><strong>Internet</strong> — para consultar o ficheiro público de
-      metadados de versão no GitHub.</li>
-  <li><strong>Instalar pacotes</strong> — para instalar, por ação explícita do
-      utilizador, o APK da versão mais recente.</li>
-</ul>
-<p>Estas duas permissões não existem na versão publicada na Play Store.</p>
+      <section class="sec">
+        <h2>2. Que dados recolhemos</h2>
+        <p><strong>Nenhum.</strong></p>
+        <p>O Predit não recolhe, não transmite, não armazena em servidores externos e não
+        partilha com terceiros qualquer dado pessoal do utilizador.</p>
 
-<h2>5. Backups</h2>
-<p>O Predit permite ao utilizador exportar e importar backups da sua base de dados.
-Esses ficheiros são criados no armazenamento local do dispositivo, sob controlo
-exclusivo do utilizador. Não são enviados para nenhum servidor.</p>
+        <div class="resumo">
+          <ul class="resumo-lista">
+            <li><span class="visto" aria-hidden="true">✓</span><span><b>100% Offline</b>Nenhuma funcionalidade depende de Internet.</span></li>
+            <li><span class="visto" aria-hidden="true">✓</span><span><b>Sem recolha de dados</b>Nada sai do seu telemóvel.</span></li>
+            <li><span class="visto" aria-hidden="true">✓</span><span><b>Sem contas</b>Não existe registo nem login.</span></li>
+            <li><span class="visto" aria-hidden="true">✓</span><span><b>Sem publicidade</b>Nem rastreadores de terceiros.</span></li>
+          </ul>
+        </div>
 
-<h2>6. Crianças</h2>
-<p>O Predit é uma aplicação profissional destinada a maiores de 18 anos. Não
-recolhe intencionalmente dados de menores.</p>
+        <p>Todas as informações que o utilizador introduz na app — tipos de turno, datas,
+        horas, configurações de contrato — ficam armazenadas <strong>exclusivamente no
+        próprio dispositivo</strong> do utilizador, numa base de dados local.</p>
+      </section>
 
-<h2>7. Direitos do utilizador (RGPD)</h2>
-<p>Como o Predit não recolhe nem processa dados pessoais em servidores próprios,
-não existe tratamento de dados sujeito ao RGPD por parte do desenvolvedor. Toda
-a informação está sob controlo exclusivo do utilizador no seu dispositivo.</p>
-<p>O utilizador pode, em qualquer momento:</p>
-<ul>
-  <li>Apagar todos os dados desinstalando a app;</li>
-  <li>Fazer backup dos seus dados para um ficheiro local;</li>
-  <li>Restaurar um backup anterior.</li>
-</ul>
+      <section class="sec">
+        <h2>3. Ligações de rede</h2>
+        <p>O Predit funciona integralmente offline. Nenhuma funcionalidade depende de
+        ligação à Internet.</p>
 
-<h2>8. Alterações a esta política</h2>
-<p>Esta política pode ser atualizada em caso de alteração de funcionalidades.
-A data no topo indica a versão em vigor.</p>
+        <div class="destaque">
+          <p><strong>Versão distribuída pela Play Store:</strong> a app não pede permissão
+          de rede e não efetua qualquer pedido HTTP.</p>
+          <p><strong>Versão distribuída pelo GitHub Releases (canal alternativo, não
+          disponível na Play Store):</strong> essa versão inclui um mecanismo de
+          verificação e instalação de atualizações, que consulta um ficheiro público de
+          metadados alojado no GitHub. Essa consulta não transmite qualquer dado pessoal
+          — apenas um pedido HTTP anónimo ao ficheiro público.</p>
+        </div>
+      </section>
+      <section class="sec">
+        <h2>4. Permissões</h2>
+        <p>A versão distribuída pela Play Store <strong>não solicita qualquer permissão
+        sensível</strong>. A app não acede à Internet, não acede à câmara, não acede aos
+        contactos, não acede à localização e não recolhe identificadores do
+        dispositivo.</p>
+        <p>A versão distribuída pelo GitHub Releases solicita duas permissões
+        adicionais, exclusivamente para o mecanismo de atualização:</p>
+        <ul>
+          <li><strong>Internet</strong> — para consultar o ficheiro público de
+              metadados de versão no GitHub.</li>
+          <li><strong>Instalar pacotes</strong> — para instalar, por ação explícita do
+              utilizador, o APK da versão mais recente.</li>
+        </ul>
+        <p>Estas duas permissões não existem na versão publicada na Play Store.</p>
+      </section>
 
-<h2>9. Contacto</h2>
-<p>Para questões relacionadas com privacidade, contactar:
-<strong>haconnect@outlook.pt</strong>.</p>
+      <section class="sec">
+        <h2>5. Backups</h2>
+        <p>O Predit permite ao utilizador exportar e importar backups da sua base de dados.
+        Esses ficheiros são criados no armazenamento local do dispositivo, sob controlo
+        exclusivo do utilizador. Não são enviados para nenhum servidor.</p>
+      </section>
+
+      <section class="sec">
+        <h2>6. Crianças</h2>
+        <p>O Predit é uma aplicação profissional destinada a maiores de 18 anos. Não
+        recolhe intencionalmente dados de menores.</p>
+      </section>
+
+      <section class="sec">
+        <h2>7. Direitos do utilizador (RGPD)</h2>
+        <p>Como o Predit não recolhe nem processa dados pessoais em servidores próprios,
+        não existe tratamento de dados sujeito ao RGPD por parte do desenvolvedor. Toda
+        a informação está sob controlo exclusivo do utilizador no seu dispositivo.</p>
+        <p>O utilizador pode, em qualquer momento:</p>
+        <ul>
+          <li>Apagar todos os dados desinstalando a app;</li>
+          <li>Fazer backup dos seus dados para um ficheiro local;</li>
+          <li>Restaurar um backup anterior.</li>
+        </ul>
+      </section>
+
+      <section class="sec">
+        <h2>8. Alterações a esta política</h2>
+        <p>Esta política pode ser atualizada em caso de alteração de funcionalidades.
+        A data no topo indica a versão em vigor.</p>
+      </section>
+
+      <section class="sec">
+        <h2>9. Contacto</h2>
+        <p>Para questões relacionadas com privacidade, contactar:
+        <strong><a href="mailto:haconnect@outlook.pt">haconnect@outlook.pt</a></strong>.</p>
+      </section>
+
+      <section class="cta-final">
+        <p class="cta-titulo">Entre no teste interno</p>
+        <p class="lead">A versão Beta do Predit está a ser distribuída pelo teste interno
+        do Google Play. É preciso que a conta Google já tenha sido adicionada à lista de
+        testadores.</p>
+        <div class="acoes">
+          <a class="btn btn-cta" href="https://play.google.com/apps/internaltest/4701732301253740013" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"/></svg>
+            Aceitar o convite no Google Play
+          </a>
+          <a class="btn btn-ghost" href="index.html">Ver a página inicial</a>
+        </div>
+        <p class="nota">O APK do GitHub Releases pede que autorize «Instalar de fontes desconhecidas». Nenhuma das versões recolhe dados pessoais.</p>
+      </section>
+
+    </article>
+  </div>
+</main>
+
+<footer class="rodape">
+  <div class="wrap rodape-linha">
+    <p>© 2026 Predit · Hugo Alexandre Henriques Correia</p>
+    <nav aria-label="Ligações do rodapé">
+      <a href="index.html">Início</a>
+      <a href="https://github.com/halexys-dotcom/Predit" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://github.com/halexys-dotcom/Predit/releases" target="_blank" rel="noopener noreferrer">Releases</a>
+      <a href="#topo">Voltar ao topo</a>
+    </nav>
+  </div>
+</footer>
 
 </body>
 </html>
