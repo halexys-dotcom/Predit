@@ -3,29 +3,638 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Predit</title>
+<title>Predit — Escalas, turnos e salário para segurança aeroportuária</title>
+<meta name="description" content="O Predit projeta a sua escala a partir do ciclo de rotação, importa o planeamento mensal da empresa, regista as horas reais de cada dia e confere o recibo de vencimento. Offline, no seu telemóvel.">
+<meta name="theme-color" content="#0b0f19">
+<meta name="color-scheme" content="dark">
+<meta name="author" content="Hugo Alexandre Henriques Correia">
+
+<!-- Preview em partilhas (WhatsApp, Telegram, X, LinkedIn). A imagem vive em
+     docs/img/og.png e o URL tem de ser absoluto: os crawlers nao resolvem
+     caminhos relativos. Se o site mudar de dominio, atualizar os tres URLs. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Predit">
+<meta property="og:locale" content="pt_PT">
+<meta property="og:url" content="https://halexys-dotcom.github.io/Predit/">
+<meta property="og:title" content="Predit — escalas, turnos e salário para segurança aeroportuária">
+<meta property="og:description" content="Projeta a rotação, importa o planeamento da empresa, regista as horas reais e confere o recibo de vencimento. Offline, no seu telemóvel.">
+<meta property="og:image" content="https://halexys-dotcom.github.io/Predit/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+
+<!-- Inter vem do Google Fonts. O font-family abaixo ja traz a pilha de sistema
+     (Segoe UI, Roboto) como fallback, por isso a pagina continua correta sem
+     este <link> (offline ou com o CDN bloqueado). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-         max-width: 720px; margin: 3rem auto; padding: 0 1rem; line-height: 1.6;
-         color: #222; }
-  h1 { border-bottom: 2px solid #444; padding-bottom: .3rem; }
-  a { color: #0066cc; }
+/* ------------------------------------------------------------------
+   Predit — landing page. Dark Theme Premium Aeroportuario.
+   Tudo num ficheiro so, sem JavaScript: o site e servido pelo GitHub
+   Pages a partir de /docs e so tem de abrir.
+   ------------------------------------------------------------------ */
+:root {
+  /* Fundo e superficies */
+  --bg-0: #0b0f19;
+  --bg-1: #111827;
+  --bg-2: #0d1527;
+  --cartao: rgba(22, 27, 38, 0.75);
+  --linha: rgba(255, 255, 255, 0.08);
+  --linha-forte: rgba(255, 255, 255, 0.16);
+
+  /* Texto */
+  --txt: #e9eefb;
+  --txt-2: #9fb0cc;
+  --txt-3: #7c8ba6;
+
+  /* Acentos aeroportuarios */
+  --azul: #0080ff;
+  --azul-claro: #38bdf8;
+  --grad-cta: linear-gradient(135deg, #0080ff, #38bdf8);
+  --grad-titulo: linear-gradient(to right, #ffffff, #93c5fd);
+
+  /* Badges dos turnos. Estes sao os tons de trabalho definidos para a landing
+     page. A app semeia outros (0xFFC0392B trabalho, 0xFF1ABC9C folga,
+     0xFF2980B9 ferias, 0xFF8E44AD baixa), mas as cores dos tipos de turno sao
+     editaveis pelo utilizador. Para trocar, basta mexer aqui. */
+  --tag-turno: #b91c1c;
+  --tag-folga: #15803d;
+  --tag-ferias: #ca8a04;
+  --tag-baixa: #1d4ed8;
+
+  --raio: 16px;        /* rounded-2xl dos cartoes */
+  --raio-btn: 12px;    /* botoes de CTA */
+  --largura: 1140px;
+  --sombra-cta: 0 0 20px rgba(0, 128, 255, 0.35);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(135deg, #0b0f19 0%, #111827 50%, #0d1527 100%);
+  background-color: var(--bg-0);
+  background-attachment: fixed;
+  color: var(--txt);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Brilho ambiente por cima do gradiente: da profundidade sem competir com o
+   conteudo (fica atras de tudo, nao capta cliques). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(58rem 38rem at 82% -12%, rgba(0, 128, 255, 0.16), transparent 62%),
+    radial-gradient(42rem 30rem at -4% 104%, rgba(56, 189, 248, 0.10), transparent 60%);
+}
+
+img { max-width: 100%; height: auto; }
+
+a { color: var(--azul-claro); }
+
+:focus-visible { outline: 2px solid var(--azul-claro); outline-offset: 3px; border-radius: 6px; }
+
+.wrap { width: min(var(--largura), 100% - 2.5rem); margin-inline: auto; }
+
+section { padding: clamp(3.2rem, 7vw, 5.5rem) 0; }
+
+/* --- Cabecalho ----------------------------------------------------- */
+.topo {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(11, 15, 25, 0.72);
+  border-bottom: 1px solid var(--linha);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.topo-linha { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; }
+.marca { display: flex; align-items: center; gap: 0.7rem; color: var(--txt); text-decoration: none; }
+.marca img {
+  width: 42px; height: 42px; border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--linha-forte), 0 8px 20px -8px rgba(0, 128, 255, 0.55);
+}
+.marca strong { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+.menu { display: flex; gap: 1.6rem; margin: 0; padding: 0; list-style: none; font-size: 0.94rem; }
+.menu a { color: var(--txt-2); text-decoration: none; transition: color 0.2s ease; }
+.menu a:hover { color: var(--azul-claro); }
+
+/* --- Botoes -------------------------------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  padding: 0.72rem 1.15rem;
+  border: 1px solid transparent;
+  border-radius: var(--raio-btn);
+  font-size: 0.95rem; font-weight: 600; text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.2s ease;
+}
+.btn svg { width: 20px; height: 20px; flex: none; }
+.btn-cta { background: var(--grad-cta); color: #06192b; box-shadow: var(--sombra-cta); }
+.btn-cta svg { color: #06192b; }
+.btn-cta:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(0, 128, 255, 0.55), 0 12px 30px -14px rgba(56, 189, 248, 0.75); }
+.btn-ghost { background: rgba(255, 255, 255, 0.04); border-color: var(--linha-forte); color: var(--txt); }
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.09); transform: translateY(-2px); }
+.acoes { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 1.7rem; }
+
+/* --- Hero ---------------------------------------------------------- */
+.hero { display: grid; grid-template-columns: 1.05fr 0.95fr; align-items: center; gap: clamp(2rem, 5vw, 4rem); padding-top: clamp(2.4rem, 6vw, 4rem); }
+.olho {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 999px;
+  background: rgba(0, 128, 255, 0.12);
+  color: var(--azul-claro);
+  font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+}
+h1 {
+  margin: 1.1rem 0 0;
+  font-size: clamp(2.1rem, 5.2vw, 3.5rem);
+  font-weight: 800; line-height: 1.07; letter-spacing: -0.03em;
+  background: var(--grad-titulo);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+}
+.sub { margin: 1rem 0 0; font-size: clamp(1.02rem, 2vw, 1.22rem); font-weight: 500; }
+.texto { margin: 1rem 0 0; max-width: 56ch; color: var(--txt-2); }
+.nota { margin: 1rem 0 0; font-size: 0.84rem; color: var(--txt-3); }
+
+.estado { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.6rem; }
+.selo {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  background: var(--cartao);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  font-size: 0.82rem; font-weight: 600;
+}
+.ponto { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.9); }
+.selo.beta .ponto { background: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.9); }
+
+.hero-visual { display: flex; justify-content: center; }
+
+/* --- Telemoveis simulados ----------------------------------------- */
+.telefone {
+  position: relative;
+  width: min(290px, 100%);
+  padding: 10px;
+  border: 1px solid var(--linha-forte);
+  border-radius: 2.6rem;
+  background: linear-gradient(160deg, #1b2230, #0a0e16);
+  box-shadow: 0 40px 70px -30px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: flutuar 7s ease-in-out infinite;
+}
+/* Camara frontal na moldura (nao tapa o conteudo: vive na area do bezel). */
+.telefone::before {
+  content: "";
+  position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #05080e; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.ecra { display: block; width: 100%; border-radius: 2rem; background: var(--bg-0); }
+.chip-stat {
+  position: absolute; left: -2.6rem; bottom: -2.7rem;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--linha-forte);
+  border-radius: 14px;
+  background: rgba(13, 21, 39, 0.94);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.95);
+  font-size: 0.76rem; color: var(--txt-2); white-space: nowrap;
+}
+.chip-stat b { display: block; font-size: 0.92rem; color: var(--txt); font-weight: 700; }
+
+@keyframes flutuar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+
+/* --- Cartoes e seccoes -------------------------------------------- */
+.titulo-seccao { margin: 0; font-size: clamp(1.5rem, 3.4vw, 2.15rem); font-weight: 800; letter-spacing: -0.02em; }
+.lead { margin: 0.7rem 0 0; max-width: 64ch; color: var(--txt-2); }
+
+.cartao {
+  padding: 1.5rem;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  background: var(--cartao);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.cartao:hover { transform: translateY(-3px); border-color: rgba(56, 189, 248, 0.35); box-shadow: 0 20px 44px -24px rgba(0, 128, 255, 0.6); }
+.cartao h3 { margin: 0 0 0.4rem; font-size: 1.05rem; font-weight: 700; }
+.cartao p { margin: 0; font-size: 0.92rem; color: var(--txt-2); }
+
+.grelha { display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: 1.15rem; margin-top: 2.4rem; }
+.icone {
+  display: grid; place-items: center;
+  width: 44px; height: 44px; margin-bottom: 0.9rem;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 12px;
+  background: rgba(0, 128, 255, 0.14);
+  color: var(--azul-claro);
+}
+.icone svg {
+  width: 22px; height: 22px;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* --- Badges dos turnos (iguais aos da app) ------------------------ */
+.tags { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 1.2rem; }
+.tag {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.4rem; padding: 0.34rem 0.55rem;
+  border-radius: 9px;
+  color: #fff; font-size: 0.72rem; font-weight: 700; line-height: 1.35;
+}
+.tag-turno { background: var(--tag-turno); }
+.tag-folga { background: var(--tag-folga); }
+.tag-ferias { background: var(--tag-ferias); }
+.tag-baixa { background: var(--tag-baixa); }
+/* Versao grande, para a legenda em destaque (as do calendario ficam pequenas,
+   como na app). */
+.tag.grande { min-width: auto; padding: 0.5rem 0.9rem; border-radius: 11px; font-size: 0.86rem; box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.95); }
+
+/* Pre-visualizacao interativa: passar o rato (ou focar com o teclado) explica
+   o tipo de dia. Sem JavaScript — o texto vem do atributo data-info. */
+.tag[data-info] { position: relative; cursor: help; }
+.tag[data-info]:hover::after,
+.tag[data-info]:focus-visible::after {
+  content: attr(data-info);
+  position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%);
+  z-index: 6;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--linha-forte);
+  border-radius: 8px;
+  background: #0a0f1c;
+  color: var(--txt);
+  font-size: 0.7rem; font-weight: 500; white-space: nowrap;
+  box-shadow: 0 14px 30px -14px #000;
+}
+
+.bloco-turnos { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 1.6rem; margin-top: 2.4rem; align-items: start; }
+.mini-escala { padding: 1.25rem; }
+.mini-topo { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.mini-topo b { font-size: 1rem; font-weight: 700; }
+.mini-topo span { font-size: 0.78rem; color: var(--txt-3); }
+.mini-grelha { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; }
+.mini-cab { padding-bottom: 0.2rem; text-align: center; font-size: 0.72rem; font-weight: 600; color: var(--txt-3); }
+.mini-dia { display: flex; flex-direction: column; align-items: center; gap: 0.28rem; padding: 0.35rem 0.05rem; border-radius: 10px; }
+.mini-dia .num { font-size: 0.74rem; color: var(--txt-3); }
+.mini-dia.hoje { background: rgba(56, 189, 248, 0.12); box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35); }
+.mini-dia.hoje .num { color: var(--txt); font-weight: 700; }
+.mini-dia.fora .num { opacity: 0.35; }
+.mini-rodape { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--linha); text-align: center; }
+.mini-rodape span { font-size: 0.72rem; color: var(--txt-3); }
+.mini-rodape b { display: block; font-size: 1.1rem; font-weight: 800; color: var(--txt); }
+
+.passos { display: grid; gap: 0.9rem; margin: 0; padding: 0; list-style: none; }
+.passos li { display: flex; gap: 0.7rem; font-size: 0.92rem; color: var(--txt-2); }
+.visto { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-top: 0.15rem; border-radius: 50%; background: rgba(0, 128, 255, 0.16); color: var(--azul-claro); font-size: 0.72rem; font-weight: 800; }
+.passos strong { color: var(--txt); }
+
+/* --- Galeria de ecras -------------------------------------------- */
+.galeria { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: clamp(1.4rem, 4vw, 2.8rem); margin-top: 2.6rem; }
+.galeria figure { display: flex; flex-direction: column; align-items: center; gap: 0.9rem; margin: 0; }
+.galeria figcaption { max-width: 24ch; text-align: center; font-size: 0.85rem; color: var(--txt-2); }
+.galeria .telefone { animation: none; }
+
+/* --- Faixa do teste interno -------------------------------------- */
+.faixa {
+  position: relative; overflow: hidden;
+  padding: clamp(1.9rem, 4vw, 3rem);
+  border: 1px solid rgba(56, 189, 248, 0.26);
+  border-radius: calc(var(--raio) + 8px);
+  background: linear-gradient(135deg, rgba(0, 128, 255, 0.18), rgba(56, 189, 248, 0.06)), var(--cartao);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  text-align: center;
+}
+/* Brilho azul difuso no fundo da faixa. */
+.faixa::after {
+  content: "";
+  position: absolute; left: -20%; right: -20%; bottom: -60%; height: 70%;
+  background: radial-gradient(closest-side, rgba(0, 128, 255, 0.35), transparent);
+  pointer-events: none;
+}
+.faixa > * { position: relative; z-index: 1; }
+.faixa-marca {
+  display: block;
+  width: 110px; height: 110px;
+  margin: 0 auto 1.1rem;
+  border-radius: 24px;
+  box-shadow: 0 0 0 1px var(--linha-forte), 0 20px 44px -22px rgba(0, 128, 255, 0.7);
+}
+.faixa .acoes, .faixa .estado { justify-content: center; }
+.faixa .lead { margin-inline: auto; }
+
+/* --- Rodape ------------------------------------------------------- */
+.rodape { padding: 2.4rem 0 3rem; border-top: 1px solid var(--linha); font-size: 0.86rem; color: var(--txt-3); }
+.rodape-linha { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 1.6rem; }
+.rodape p { margin: 0; }
+.rodape nav { display: flex; flex-wrap: wrap; gap: 1.2rem; }
+.rodape a { color: var(--txt-2); text-decoration: none; }
+.rodape a:hover { color: var(--azul-claro); }
+
+/* --- Responsivo --------------------------------------------------- */
+@media (max-width: 1000px) {
+  .hero { grid-template-columns: 1fr; text-align: center; }
+  .hero .texto { margin-inline: auto; }
+  .hero .estado, .hero .acoes { justify-content: center; }
+  .hero-visual { order: 2; }
+  .bloco-turnos { grid-template-columns: 1fr; }
+}
+@media (max-width: 860px) {
+  .menu { display: none; }
+}
+@media (max-width: 620px) {
+  .wrap { width: min(var(--largura), 100% - 1.8rem); }
+  .marca img { width: 36px; height: 36px; }
+  .marca strong { font-size: 1.02rem; }
+  .btn { padding: 0.62rem 0.95rem; font-size: 0.88rem; }
+  .topo-linha { padding: 0.55rem 0; }
+  .telefone { width: min(250px, 78vw); }
+  .chip-stat { left: -0.4rem; bottom: -2.2rem; padding: 0.55rem 0.75rem; }
+  /* Chips do mini-calendario mais compactos: a 7 colunas num ecra estreito,
+     "Staff" e "T08H" precisam de caber dentro da celula. */
+  .mini-grelha { gap: 0.2rem; }
+  .tag:not(.grande) { min-width: 1.9rem; padding: 0.28rem 0.3rem; font-size: 0.62rem; }
+  .mini-dia .num { font-size: 0.7rem; }
+  .mini-rodape b { font-size: 0.98rem; }
+  .mini-rodape span { font-size: 0.66rem; }
+}
+@media (max-width: 380px) {
+  .topo .btn-cta { padding: 0.55rem 0.8rem; font-size: 0.82rem; }
+  .mini-grelha { gap: 0.22rem; }
+  .tag { font-size: 0.66rem; }
+}
+
+/* Acessibilidade: sem animacao para quem pediu menos movimento. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Alto contraste (Windows): sem gradiente no titulo e sem texto transparente. */
+@media (forced-colors: active) {
+  h1 { background: none; color: CanvasText; -webkit-text-fill-color: CanvasText; }
+  .cartao, .selo, .faixa { border: 1px solid CanvasText; }
+}
+
 </style>
 </head>
 <body>
 
-<h1>Predit</h1>
+<header class="topo" id="topo">
+  <div class="wrap topo-linha">
+    <a class="marca" href="#topo" aria-label="Predit — início">
+      <img src="img/logo.png" width="42" height="42" alt="">
+      <strong>Predit</strong>
+    </a>
+    <nav aria-label="Navegação principal">
+      <ul class="menu">
+        <li><a href="#funcionalidades">Funcionalidades</a></li>
+        <li><a href="#turnos">Turnos</a></li>
+        <li><a href="#ecras">Ecrãs</a></li>
+        <li><a href="privacy.html">Privacidade</a></li>
+      </ul>
+    </nav>
+    <a class="btn btn-cta" href="#teste">Testar a versão Beta</a>
+  </div>
+</header>
 
-<p>Diário de orientação pessoal para vigilantes em regime de turnos.</p>
+<main>
+  <section class="wrap hero">
+    <div>
+      <p class="olho">Versão Beta · Teste interno</p>
+      <h1>Domine a sua escala, turno a turno</h1>
+      <p class="sub">Gestão inteligente de escalas, turnos e cálculo salarial para profissionais de segurança aeroportuária.</p>
+      <p class="texto">O Predit projeta a sua rotação a partir do ciclo de serviço, importa o planeamento mensal da empresa em PDF, regista as horas reais de cada dia e confere o recibo de vencimento contra os cálculos da app. Tudo no seu telemóvel, sem contas e sem servidores.</p>
+      <div class="estado">
+        <span class="selo beta"><span class="ponto"></span>Versão Beta</span>
+        <span class="selo"><span class="ponto"></span>Teste interno ativo</span>
+        <span class="selo"><span class="ponto"></span>100% offline</span>
+      </div>
+      <div class="acoes">
+        <!-- CTA do teste interno. O URL abaixo e o formato do link de opt-in do
+             teste interno do Google Play (play.google.com/apps/testing/<app-id>).
+             CONFIRMAR no Play Console antes de publicar: Play Console >
+             Testar e lancar > Teste interno > Testadores > "Copiar link". Se o
+             link for outro, substituir aqui (e no botao da seccao "Teste interno"). -->
+        <a class="btn btn-cta" href="https://play.google.com/apps/testing/pt.haconnect.predit" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"/></svg>
+          Instalar no Google Play
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/halexys-dotcom/Predit/releases/latest" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          Ver releases no GitHub
+        </a>
+      </div>
+      <p class="nota">Android 8.0 ou superior · Grátis · Sem publicidade e sem recolha de dados pessoais.</p>
+    </div>
 
-<p>O Predit projeta a sua escala a partir do ciclo de rotação, importa o
-planeamento mensal da empresa em PDF, permite registar as horas reais de cada
-dia e confere o recibo de vencimento contra os cálculos da app.</p>
+    <div class="hero-visual">
+      <div class="telefone">
+        <img class="ecra" src="screens/escala.png" width="640" height="1380"
+             alt="Ecrã de escala mensal do Predit: calendário do mês com os postos de cada dia (CC, Staff, T08H) e as folgas, e o resumo de turnos e horas."
+             fetchpriority="high" decoding="async">
+        <p class="chip-stat"><b>22 turnos · 8 folgas</b>174 h previstas no mês</p>
+      </div>
+    </div>
+  </section>
 
-<h2>Documentação</h2>
-<ul>
-  <li><a href="privacy.html">Política de Privacidade</a></li>
-</ul>
+  <section class="wrap" id="funcionalidades">
+    <h2 class="titulo-seccao">Feito para quem faz turnos</h2>
+    <p class="lead">Não é um calendário genérico: o Predit fala a linguagem da segurança privada aeroportuária — postos, rotações, CCT e recibos.</p>
+
+    <div class="grelha">
+      <article class="cartao">
+        <span class="icone" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+        <h3>Escala projetada</h3>
+        <p>Projeta a rotação a partir da âncora do ciclo, cruza-a com o planeamento mensal importado do PDF da empresa e mostra feriados nacionais e municipais.</p>
+      </article>
+
+      <article class="cartao">
+        <span class="icone" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <h3>Horas reais vs. previstas</h3>
+        <p>Registe as horas reais de cada dia e compare-as com o que a escala previa: total do mês, diferença e ciclo semestral de jornada.</p>
+      </article>
+
+      <article class="cartao">
+        <span class="icone" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A4.6 4.6 0 0 0 22 10.7C22 5.9 17.5 2 12 2z"/></svg></span>
+        <h3>Turnos personalizáveis</h3>
+        <p>Nome, abreviatura, cor e horário por tipo de turno, com 24 cores disponíveis, rotações de 17 dias e o posto guardado em cada dia.</p>
+      </article>
+
+      <article class="cartao">
+        <span class="icone" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg></span>
+        <h3>Recibo conferido</h3>
+        <p>Motor CCT com valor/hora e multiplicadores, IRS regional (Continente, Açores e Madeira) e sinalização automática das divergências face ao recibo real.</p>
+      </article>
+
+      <article class="cartao">
+        <span class="icone" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 15h6"/></svg></span>
+        <h3>Ausências contadas</h3>
+        <p>Férias, baixa médica e feriados registados por período e contabilizados ao dia, sem sair do calendário da escala.</p>
+      </article>
+
+      <article class="cartao">
+        <span class="icone" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+        <h3>Privado por design</h3>
+        <p>Todos os dados ficam no telemóvel, numa base de dados local. Backups manuais e auto-backup no arranque, sem qualquer pedido a servidores.</p>
+      </article>
+    </div>
+  </section>
+
+
+
+  <section class="wrap" id="turnos">
+    <h2 class="titulo-seccao">As mesmas etiquetas que vê na app</h2>
+    <p class="lead">Cada tipo de dia tem uma cor própria, e é essa cor que aparece no calendário, no horário e na conferência do recibo. Estas são as quatro categorias base:</p>
+
+    <div class="tags">
+      <span class="tag tag-turno grande" tabindex="0" data-info="Turno servido num posto (CC, Staff, T08H…)">Turno / CC</span>
+      <span class="tag tag-folga grande" tabindex="0" data-info="Dia de descanso — folga">Folga</span>
+      <span class="tag tag-ferias grande" tabindex="0" data-info="Período de férias, contado ao dia">Férias</span>
+      <span class="tag tag-baixa grande" tabindex="0" data-info="Baixa médica, contada ao dia">Baixa</span>
+    </div>
+
+    <div class="bloco-turnos">
+      <div class="cartao mini-escala">
+        <div class="mini-topo">
+          <b>Outubro 2026</b>
+          <span>pré-visualização</span>
+        </div>
+        <div class="mini-grelha">
+          <span class="mini-cab">S</span><span class="mini-cab">T</span><span class="mini-cab">Q</span><span class="mini-cab">Q</span><span class="mini-cab">S</span><span class="mini-cab">S</span><span class="mini-cab">D</span>
+
+          <span class="mini-dia fora"><span class="num">28</span></span>
+          <span class="mini-dia fora"><span class="num">29</span></span>
+          <span class="mini-dia fora"><span class="num">30</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">1</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">2</span></span>
+          <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">3</span></span>
+          <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">4</span></span>
+
+          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">5</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">6</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">7</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">Staff</span><span class="num">8</span></span>
+          <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">9</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T08H</span><span class="num">10</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">T08H</span><span class="num">11</span></span>
+
+          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">12</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">13</span></span>
+          <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">14</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">15</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">16</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">17</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">18</span></span>
+
+          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">19</span></span>
+          <span class="mini-dia"><span class="tag tag-ferias">FER</span><span class="num">20</span></span>
+          <span class="mini-dia hoje"><span class="tag tag-baixa">BM</span><span class="num">21</span></span>
+          <span class="mini-dia"><span class="tag tag-baixa">BM</span><span class="num">22</span></span>
+          <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">23</span></span>
+          <span class="mini-dia"><span class="tag tag-turno">CC</span><span class="num">24</span></span>
+          <span class="mini-dia"><span class="tag tag-folga">F</span><span class="num">25</span></span>
+        </div>
+        <div class="mini-rodape">
+          <span>Turnos<b>11</b></span>
+          <span>Folgas<b>6</b></span>
+          <span>Ausências<b>8</b></span>
+          <span>Total horas<b>88h</b></span>
+        </div>
+      </div>
+
+      <ul class="passos">
+        <li><span class="visto" aria-hidden="true">✓</span><span><strong>Rotação projetada.</strong> Defina a âncora do ciclo e a app desenha os meses seguintes sozinha, antes de a empresa publicar a escala.</span></li>
+        <li><span class="visto" aria-hidden="true">✓</span><span><strong>Planeamento importado.</strong> O PDF mensal da empresa é lido e sobrepõe-se à projeção, incluindo o posto de cada dia.</span></li>
+        <li><span class="visto" aria-hidden="true">✓</span><span><strong>Cor e abreviatura suas.</strong> As cores acima são as recomendadas; na app pode escolher entre 24 cores e mudar o nome e a abreviatura de cada tipo de turno.</span></li>
+        <li><span class="visto" aria-hidden="true">✓</span><span><strong>Feriados incluídos.</strong> Feriados nacionais e municipais marcados automaticamente, com base no município do seu contrato.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="wrap" id="ecras">
+    <h2 class="titulo-seccao">Veja como fica no telemóvel</h2>
+    <p class="lead">Ecrãs reais da versão em teste — escala, registo de horas e conferência do recibo, tudo em modo escuro.</p>
+
+    <div class="galeria">
+      <figure>
+        <div class="telefone">
+          <img class="ecra" src="screens/horario.png" width="640" height="1380" loading="lazy" decoding="async"
+               alt="Ecrã de horário do Predit: lista de dias com o posto, o intervalo de horas e o total do dia, e por baixo o resumo de horas reais contra as previstas.">
+        </div>
+        <figcaption>Horas reais contra as previstas, dia a dia, com o total do mês e a diferença.</figcaption>
+      </figure>
+
+      <figure>
+        <div class="telefone">
+          <img class="ecra" src="screens/recibo.png" width="640" height="1380" loading="lazy" decoding="async"
+               alt="Ecrã de recibo do Predit: rubricas do recibo de vencimento (vencimento, horas noturnas, subsídios) com o valor estimado pela app ao lado do valor real.">
+        </div>
+        <figcaption>Cada rubrica do recibo com o valor estimado ao lado do real — divergências assinaladas.</figcaption>
+      </figure>
+
+      <figure>
+        <div class="telefone">
+          <img class="ecra" src="screens/rotacao.png" width="640" height="1380" loading="lazy" decoding="async"
+               alt="Ecrã de escala do Predit em junho de 2026, com dias de férias, folgas e a faixa da rotação em vigor sobreposta ao calendário.">
+        </div>
+        <figcaption>Férias, folgas e vigência da rotação sobrepostas no mesmo calendário.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="teste">
+    <div class="faixa">
+      <img class="faixa-marca" src="img/brand.jpg" width="110" height="110" loading="lazy" decoding="async"
+           alt="Ilustração do Predit: a letra P com um avião, a silhueta de um vigilante aeroportuário, um calendário e um relógio.">
+      <h2 class="titulo-seccao">Entre no teste interno</h2>
+      <p class="lead">A versão Beta está a ser distribuída por duas vias: pelo teste interno do Google Play — é preciso estar na lista de testadores — e por APK assinado nos releases do GitHub.</p>
+      <div class="estado">
+        <span class="selo beta"><span class="ponto"></span>Versão Beta</span>
+        <span class="selo"><span class="ponto"></span>Teste interno ativo</span>
+      </div>
+      <div class="acoes">
+        <!-- Mesmo URL do botao do hero: ver o comentario acima da primeira ocorrencia. -->
+        <a class="btn btn-cta" href="https://play.google.com/apps/testing/pt.haconnect.predit" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"/></svg>
+          Aceitar o convite no Google Play
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/halexys-dotcom/Predit/releases/latest" target="_blank" rel="noopener noreferrer">Baixar o APK no GitHub</a>
+      </div>
+      <p class="nota">O APK do GitHub pede que autorize «Instalar de fontes desconhecidas». O teste interno no Play exige que a conta Google já tenha sido adicionada à lista de testadores.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <div class="wrap rodape-linha">
+    <p>© 2026 Predit · Hugo Alexandre Henriques Correia</p>
+    <nav aria-label="Ligações do rodapé">
+      <a href="privacy.html">Política de Privacidade</a>
+      <a href="https://github.com/halexys-dotcom/Predit" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://github.com/halexys-dotcom/Predit/releases" target="_blank" rel="noopener noreferrer">Releases</a>
+      <a href="#topo">Voltar ao topo</a>
+    </nav>
+  </div>
+</footer>
 
 </body>
 </html>
