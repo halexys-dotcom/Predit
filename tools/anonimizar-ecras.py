@@ -13,10 +13,13 @@ Nao ha OCR nem reconstrucao da interface: cada chip e cada linha de texto e
 localizada pela cor e o texto antigo e apagado e redesenhado por cima. Assim a
 captura continua a ser a da app verdadeira; muda so o rotulo.
 
-Correr outra vez sobre um ecra ja tratado nao volta a escrever os rotulos que
-reconhece (compara a forma da tinta com o que ia desenhar), mas a fonte de
-verdade e sempre screenshots/, por isso o caminho normal e correr o
-Temp/build-web-assets.ps1 (que regenera os recortes) seguido deste script.
+A passagem foi feita para correr uma so vez sobre as capturas originais. A
+guarda em redesenhar tenta reconhecer o rotulo ja escrito e nao mexer, mas so
+dispara quando a tinta observada coincide quase toda com a que ia desenhar;
+como isso nem sempre acontece, correr outra vez sobre um ecra ja tratado pode
+voltar a pinta-lo. A fonte de verdade e sempre screenshots/: o caminho normal e
+correr o Temp/build-web-assets.ps1 (que regenera os recortes) seguido deste
+script.
 
 Uso:
     python tools/anonimizar-ecras.py               # aplica
@@ -45,7 +48,6 @@ FONTES_NORMAL = (
     Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
 )
 
-SATURACAO_MIN = 26  # abaixo disto o pixel e neutro (fundo, cartoes, texto claro)
 DIF_MIN = 12        # diferenca minima para separar os glifos do fundo do chip
 INSET = 3           # margem interior de cada chip ignorada na analise
 GLIFOS_MIN = 12     # pixels minimos para se considerar que ha texto
@@ -157,13 +159,6 @@ def cor_dominante(regiao):
     """Cor mais comum de uma regiao (o fundo do chip, do cartao ou do ecra)."""
     cores, contagens = np.unique(regiao.reshape(-1, 3), axis=0, return_counts=True)
     return cores[contagens.argmax()]
-
-
-def mascara_saturada(a, limiar=SATURACAO_MIN):
-    """Pixels com cor: os chips. O fundo e os cinzentos da UI ficam de fora."""
-    mx = a.max(axis=2).astype(np.int16)
-    mn = a.min(axis=2).astype(np.int16)
-    return (mx - mn) >= limiar
 
 
 def bandas(mask, altura_min, altura_max, minimo=2):
