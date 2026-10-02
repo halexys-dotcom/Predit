@@ -22,5 +22,9 @@ app/release/
 # Session artifacts (Cline)
 Temp/
 
+# Cache do Python (ferramentas em tools/)
+__pycache__/
+*.pyc
+
 # Corpo do GitHub Release (artefacto de build/release, nao vai para o repositorio)
 release-notes.md
