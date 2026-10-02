@@ -109,7 +109,9 @@ fun parsePdfPlanner(
 
         val subAposData = linha.substring(diaMatch.range.last + 1)
 
-        val todosMatches = pairRegex.findAll(subAposData).toList()
+        // A coluna HHorario aparece sempre antes do texto da Tarefa; cortar na
+        // primeira letra evita apanhar o eco de horarios da coluna Tarefa.
+        val todosMatches = pairRegex.findAll(subAposData.takeWhile { !it.isLetter() }).toList()
         if (todosMatches.isEmpty()) continue
 
         val todosPares = todosMatches.map { m ->
@@ -124,6 +126,11 @@ fun parsePdfPlanner(
         var currentChainEnd = -1
 
         for (par in todosPares) {
+            // A coluna Tarefa repete o horario da coluna HHorario — ignorar
+            // duplicados consecutivos (senao a duracao e somada duas vezes).
+            if (hhorarioPares.isNotEmpty() && par == hhorarioPares.last()) {
+                continue
+            }
             if (hhorarioPares.isEmpty()) {
                 hhorarioPares.add(par)
                 currentChainEnd = par.second
@@ -137,8 +144,12 @@ fun parsePdfPlanner(
 
         val iniMinFinal = hhorarioPares.first().first
         val fimMinFinal = hhorarioPares.last().second
-        val duracaoMinFinal = hhorarioPares.sumOf { it.second - it.first }
-        val pausaMinFinal = (fimMinFinal - iniMinFinal) - duracaoMinFinal
+        // Aritmetica modular: um turno nocturno atravessa a meia-noite.
+        val duracaoBrutaMin = Math.floorMod(fimMinFinal - iniMinFinal, 1440)
+        val duracaoMinFinal = hhorarioPares.sumOf {
+            Math.floorMod(it.second - it.first, 1440)
+        }
+        val pausaMinFinal = duracaoBrutaMin - duracaoMinFinal
 
         if (pausaMinFinal < 0) {
             avisos.add("Dia ${diaMatch.value}: turnos sobrepostos, ignorado")

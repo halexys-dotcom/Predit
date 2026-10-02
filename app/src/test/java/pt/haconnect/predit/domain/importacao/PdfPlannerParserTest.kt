@@ -265,4 +265,30 @@ class PdfPlannerParserTest {
         assertNull(dia.posto)
         assertTrue(plano.avisos.isEmpty())
     }
+
+    @Test
+    fun `16 - Turno nocturno 23h-07h - pausa 0 e duracao 480`() {
+        val texto = "Qui13-Outubro23:00 07:00P1 CE 23:00 07:0008:00"
+        val plano = parsePdfPlanner(texto, "Planning-Octobre-2026.pdf")
+
+        assertEquals(1, plano.dias.size)
+        val dia = plano.dias.first()
+        assertEquals(23 * 60, dia.inicioMin)
+        assertEquals(7 * 60, dia.fimMin)
+        assertEquals(0, dia.pausaMin)
+        assertEquals(8 * 60, dia.duracaoMin)
+        assertTrue(plano.avisos.isEmpty())
+    }
+
+    @Test
+    fun `17 - Turno nocturno com pausa real 22h-02h + 02h30-06h`() {
+        val texto = "Seg05-Outubro22:00 02:00 02:30 06:00P1 CE 22:00 06:0007:30"
+        val plano = parsePdfPlanner(texto, "Planning-Octobre-2026.pdf")
+
+        assertEquals(1, plano.dias.size)
+        val dia = plano.dias.first()
+        assertEquals(30, dia.pausaMin)
+        assertEquals(7 * 60 + 30, dia.duracaoMin)
+        assertTrue(plano.avisos.isEmpty())
+    }
 }
