@@ -1,7 +1,7 @@
 {
-  "versionCode": 21,
-  "versionName": "2.0.1",
+  "versionCode": 23,
+  "versionName": "2.0.3",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.0.1/app-release.apk",
-  "changelog": "Ícone do ecrã Mais atualizado. Manutenção menor."
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.0.3/app-github-release.apk",
+  "changelog": "Correção da importação de turnos noturnos no PDF da escala. Turnos como 23:00-07:00 passam a ser importados corretamente (antes apareciam com duração negativa e pausa absurda)."
 }
