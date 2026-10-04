@@ -162,10 +162,15 @@ class EscalaViewModel(
             val diaReal = estado?.diaReal
             // Fase 19: no modo PDF o dia_real guarda só horas e posto (o tipo é null), por isso o
             // chip deriva-se das horas do PDF; o texto continua a ser o posto (EscalaScreen).
-            val tipoChip = if (tipoEscala == TIPO_ESCALA_PDF_MENSAL && diaReal?.origem == ORIGEM_PDF) {
-                tipoDerivadoDoPdf(diaReal, tipos)
-            } else {
-                estado?.tipoTurnoChipId?.let { mapaTipos[it] }
+            // FOLGA efetiva manda sobre tudo: mesmo em modo PDF com diaReal, o chip mostra Folga
+            // (regra do utilizador). Os outros tipos de ausência mantêm o comportamento atual.
+            val categoriaAus = ausenciaEfetiva?.tipoTurnoId?.let { categoriasPorTipo[it] }
+            val tipoChip = when {
+                categoriaAus == CategoriaTurno.FOLGA ->
+                    ausenciaEfetiva?.tipoTurnoId?.let { mapaTipos[it] }
+                tipoEscala == TIPO_ESCALA_PDF_MENSAL && diaReal?.origem == ORIGEM_PDF ->
+                    tipoDerivadoDoPdf(diaReal, tipos)
+                else -> estado?.tipoTurnoChipId?.let { mapaTipos[it] }
             }
 
             listaDiasGrelha.add(
@@ -187,8 +192,21 @@ class EscalaViewModel(
 
         val diasDoMesAtual = listaDiasGrelha.filter { it.pertenceAoMesAtual }
 
+        // Folga marcada sobre um dia com diaReal (importado do PDF): o dia deixa de contar como
+        // turno e passa a contar como folga. Devolve os minutos reais do dia a descontar do
+        // planejamento (0 quando não é folga sobre um dia real com horas).
+        fun minutosFolgaSobreTurno(dia: DiaMesEscala): Int {
+            val efetiva = dia.ausenciaEfetiva ?: return 0
+            if (categoriasPorTipo[efetiva.tipoTurnoId] != CategoriaTurno.FOLGA) return 0
+            val real = dia.diaReal ?: return 0
+            return duracaoMinutos(real.inicioMin, real.fimMin, real.pausaMin)
+        }
+
+        val desconto = diasDoMesAtual.sumOf { minutosFolgaSobreTurno(it) }
+        val folgasSobreTurno = diasDoMesAtual.count { minutosFolgaSobreTurno(it) > 0 }
+
         val totalMinutos = if (planejamento != null) {
-            planejamento.totalMinutos
+            planejamento.totalMinutos - desconto
         } else {
             diasDoMesAtual.sumOf { dia ->
                 val efetivo = dia.tipoTurnoEfetivo
@@ -202,13 +220,13 @@ class EscalaViewModel(
         }
 
         val numTurnos = if (planejamento != null) {
-            planejamento.numTurnos
+            planejamento.numTurnos - folgasSobreTurno
         } else {
             diasDoMesAtual.count { it.ausenciaEfetiva == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.TRABALHO }
         }
 
         val numFolgas = if (planejamento != null) {
-            planejamento.numFolgas
+            planejamento.numFolgas + folgasSobreTurno
         } else {
             diasDoMesAtual.count { it.tipoTurnoEfetivo?.categoria == CategoriaTurno.FOLGA }
         }

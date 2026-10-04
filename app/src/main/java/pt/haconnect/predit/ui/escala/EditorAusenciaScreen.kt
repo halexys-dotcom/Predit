@@ -66,6 +66,7 @@ fun EditorAusenciaScreen(
         tiposTurno.filter {
             it.ativo && (it.categoria == CategoriaTurno.FERIAS ||
                     it.categoria == CategoriaTurno.BAIXA ||
+                    it.categoria == CategoriaTurno.FOLGA ||
                     it.categoria == CategoriaTurno.FERIADO)
         }
     }

@@ -29,6 +29,7 @@ import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.abreviarPosto
 import pt.haconnect.predit.domain.calc.duracaoMinutos
 import pt.haconnect.predit.domain.calc.formatarHoraMin
+import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.ui.turnos.CelulaPosto
 import pt.haconnect.predit.ui.turnos.CelulaTipoTurno
 import pt.haconnect.predit.ui.turnos.FormatoCelula
@@ -170,6 +171,7 @@ fun HorarioScreen(
                     ) {
                         items(uiState.linhas, key = { it.data.toEpochDay() }) { linha ->
                             val diaReal = linha.diaReal
+                            val eFolga = linha.tipoTurno?.categoria == CategoriaTurno.FOLGA
                             if (diaReal != null) {
                                 ElevatedCard(
                                     modifier = Modifier
@@ -219,13 +221,13 @@ fun HorarioScreen(
                                                     Spacer(modifier = Modifier.size(28.dp))
                                                 }
                                                 Text(
-                                                    text = "${formatarHoraMin(diaReal.inicioMin)}–${formatarHoraMin(diaReal.fimMin)}",
+                                                    text = if (eFolga) "—" else "${formatarHoraMin(diaReal.inicioMin)}–${formatarHoraMin(diaReal.fimMin)}",
                                                     maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                                     style = MaterialTheme.typography.bodySmall
                                                 )
                                             }
 
-                                            val dur = duracaoMinutos(diaReal.inicioMin, diaReal.fimMin, diaReal.pausaMin)
+                                            val dur = if (eFolga) 0 else duracaoMinutos(diaReal.inicioMin, diaReal.fimMin, diaReal.pausaMin)
                                             Box(
                                                 modifier = Modifier.widthIn(min = 56.dp),
                                                 contentAlignment = Alignment.CenterEnd
@@ -239,7 +241,7 @@ fun HorarioScreen(
                                             }
                                         }
 
-                                        if (!diaReal.posto.isNullOrBlank()) {
+                                        if (!eFolga && !diaReal.posto.isNullOrBlank()) {
                                             Text(
                                                 text = diaReal.posto,
                                                 maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,

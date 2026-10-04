@@ -30,9 +30,11 @@ data class LinhaHorario(
     val tipoProjetado: TipoTurno?,
     val diaReal: DiaReal?,
     val tipoReal: TipoTurno?,
-    val ausenciaEfetiva: Ausencia?
+    val ausenciaEfetiva: Ausencia?,
+    val tipoAusencia: TipoTurno? = null
 ) {
-    val tipoTurno: TipoTurno? get() = tipoReal ?: tipoProjetado
+    val tipoTurno: TipoTurno? get() =
+        if (tipoAusencia?.categoria == CategoriaTurno.FOLGA) tipoAusencia else (tipoReal ?: tipoProjetado)
     val posto: String? get() = diaReal?.posto
 }
 
@@ -97,6 +99,12 @@ class HorarioViewModel(
         val inicioMes = mes.atDay(1)
         val fimMes = mes.atEndOfMonth()
 
+        // NOTA: o HorarioViewModel projeta sempre pela rotacao, ignorando o
+        // modo do contrato (ROTACAO vs PDF_MENSAL). Consequencia: o
+        // ausenciaEfetiva so e calculada se houver rotacao aplicada. Com
+        // contrato PDF_MENSAL sem rotacao, os DIFFs C-F do fix da Folga
+        // ficam inertes. Fica registado — a resolver numa proxima iteracao,
+        // quando o HorarioViewModel passar a usar diasProjetadosPara.
         val diasProjetados = if (aplicacoes.isNotEmpty()) {
             projetarIntervalo(
                 deEpochDay = inicioMes.toEpochDay(),
@@ -119,6 +127,7 @@ class HorarioViewModel(
             val tipoProjetado = estado?.tipoTurnoProjetadoId?.let { mapaTipos[it] }
             val tipoReal = real?.tipoTurnoId?.let { mapaTipos[it] } ?: tipoProjetado
             val ausenciaEfetiva = estado?.ausenciaEfetiva
+            val tipoAusencia = ausenciaEfetiva?.tipoTurnoId?.let { mapaTipos[it] }
 
             if (real != null) {
                 listaLinhas.add(
@@ -127,16 +136,21 @@ class HorarioViewModel(
                         tipoProjetado = tipoProjetado,
                         diaReal = real,
                         tipoReal = tipoReal,
-                        ausenciaEfetiva = ausenciaEfetiva
+                        ausenciaEfetiva = ausenciaEfetiva,
+                        tipoAusencia = tipoAusencia
                     )
                 )
             }
             curr = curr.plusDays(1)
         }
 
-        // Horas reais registadas — soma das durações de todos os DiaReal do mês
+        // Horas reais registadas — soma das durações de todos os DiaReal do mês, exceto os dias
+        // com folga efetiva marcada por cima (Folga = 0h).
         val minutosReais = listaDiasReais
             .filter { LocalDate.ofEpochDay(it.data).year == mes.year && LocalDate.ofEpochDay(it.data).month == mes.month }
+            .filter { real ->
+                mapaComEstado[real.data]?.ausenciaEfetiva?.tipoTurnoId?.let { categoriasPorTipo[it] } != CategoriaTurno.FOLGA
+            }
             .sumOf { duracaoMinutos(it.inicioMin, it.fimMin, it.pausaMin) }
 
         val minutosPrevistos: Int
@@ -144,7 +158,13 @@ class HorarioViewModel(
         val subtituloPrevisto: String?
 
         if (planejamento != null) {
-            minutosPrevistos = planejamento.totalMinutos
+            val descontoFolga = listaDiasReais
+                .filter { LocalDate.ofEpochDay(it.data).year == mes.year && LocalDate.ofEpochDay(it.data).month == mes.month }
+                .filter { real ->
+                    mapaComEstado[real.data]?.ausenciaEfetiva?.tipoTurnoId?.let { categoriasPorTipo[it] } == CategoriaTurno.FOLGA
+                }
+                .sumOf { duracaoMinutos(it.inicioMin, it.fimMin, it.pausaMin) }
+            minutosPrevistos = planejamento.totalMinutos - descontoFolga
             rotuloPrevisto = "Horas previstas pela escala"
             val formatterDate = DateTimeFormatter.ofPattern("dd/MM")
             val dataImpStr = Instant.ofEpochMilli(planejamento.dataImportacao)

@@ -565,21 +565,34 @@ fun EscalaScreen(
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                 }
-                                val dur = duracaoMinutos(dia.diaReal.inicioMin, dia.diaReal.fimMin, dia.diaReal.pausaMin)
-                                Text(
-                                    text = "Horário: ${formatarHoraMin(dia.diaReal.inicioMin)} - ${formatarHoraMin(dia.diaReal.fimMin)}",
-                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Text(
-                                    text = "Duração: ${formatarHoraMin(dur)}",
-                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                if (!dia.diaReal.posto.isNullOrBlank()) {
+                                if (dia.ausencia != null) {
+                                    // Há ausência marcada: o horário/duração originais
+                                    // foram substituídos. Mostrar "Sem horário" tal como
+                                    // no bloco "Turno projetado substituído" acima.
+                                    Text(
+                                        text = "Sem horário",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                } else {
+                                    val dur = duracaoMinutos(dia.diaReal.inicioMin, dia.diaReal.fimMin, dia.diaReal.pausaMin)
+                                    Text(
+                                        text = "Horário: ${formatarHoraMin(dia.diaReal.inicioMin)} - ${formatarHoraMin(dia.diaReal.fimMin)}",
+                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "Duração: ${formatarHoraMin(dur)}",
+                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                                // Se há ausência marcada, não mostrar o posto — a ausência
+                                // substituiu o turno, o posto original deixa de se aplicar.
+                                if (dia.ausencia == null && !dia.diaReal.posto.isNullOrBlank()) {
                                     Text(
                                         text = "Posto: ${dia.diaReal.posto}",
                                         maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
@@ -789,7 +802,9 @@ private fun CelulaDiaCalendario(
                 )
 
                 if (tipoChip != null) {
-                    val textoPosto = abreviarPosto(dia.diaReal?.posto)
+                    // Se há ausência marcada, o posto do PDF é irrelevante — a ausência
+                    // substitui o turno projetado e o chip deve mostrar o tipo da ausência.
+                    val textoPosto = if (dia.ausencia == null) abreviarPosto(dia.diaReal?.posto) else null
                     val textoChip = textoPosto ?: tipoChip.abreviatura
                     val corChip = if (tipoChip.ativo) Color(tipoChip.cor) else Color(0xFF546E7A)  // 12e D - tipos desativados em cinza
                     Spacer(modifier = Modifier.height(2.dp))
