@@ -641,6 +641,47 @@ class EstimadorReciboTest {
         assertEquals(11_379_800L, estimativa.valor("VENC"))
     }
 
+    @Test
+    fun `21 - sindicalizado true - D04 incide 1 por cento do VENC`() {
+        // O default do contrato é sindicalizado = true, por isso o D04 não muda para quem já
+        // usava a app: continua a 1 % do VENC.
+        val estimativa = estimarRecibo(
+            ContextoEstimativa(
+                anoMes = YearMonth.of(2026, 8),
+                contrato = contrato,
+                parametrosCCT = parametros2026,
+                rubricas = catalogo,
+                diasReais = diasReaisDeAgosto2026(),
+                projecao = emptyList(),
+                escaloesIRS = tabelaI
+            )
+        )
+
+        // 1 % de 1 137,98 EUR = 11,38 EUR = 113 798
+        assertEquals(113_798L, estimativa.valor("D04"))
+    }
+
+    @Test
+    fun `22 - sindicalizado false - D04 fica a 0`() {
+        val contratoSemSindicato = contrato.copy(sindicalizado = false)
+
+        val estimativa = estimarRecibo(
+            ContextoEstimativa(
+                anoMes = YearMonth.of(2026, 8),
+                contrato = contratoSemSindicato,
+                parametrosCCT = parametros2026,
+                rubricas = catalogo,
+                diasReais = diasReaisDeAgosto2026(),
+                projecao = emptyList(),
+                escaloesIRS = tabelaI
+            )
+        )
+
+        // Sem sindicato não há desconto: a rubrica fica a 0, e o VENC não se mexe.
+        assertEquals(0L, estimativa.valor("D04"))
+        assertEquals(11_379_800L, estimativa.valor("VENC"))
+    }
+
 
     /**
      * Dias reais com horas do PDF de agosto de 2026, como estão na BD: 21 dos 24 dias

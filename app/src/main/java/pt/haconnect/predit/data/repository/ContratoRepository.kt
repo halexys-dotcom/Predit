@@ -41,7 +41,8 @@ class ContratoRepository(private val dao: ContratoUtilizadorDao) {
             anoNascimento = anoNascimento,
             anoPrimeiroRendimento = anoPrimeiroRendimento,
             aplicarIrsJovem = aplicarIrsJovem,
-            desfasamentoPagamentoVariaveis = desfasamentoPagamentoVariaveis
+            desfasamentoPagamentoVariaveis = desfasamentoPagamentoVariaveis,
+            sindicalizado = sindicalizado
         )
     }
 
@@ -63,7 +64,8 @@ class ContratoRepository(private val dao: ContratoUtilizadorDao) {
             anoNascimento = anoNascimento,
             anoPrimeiroRendimento = anoPrimeiroRendimento,
             aplicarIrsJovem = aplicarIrsJovem,
-            desfasamentoPagamentoVariaveis = desfasamentoPagamentoVariaveis
+            desfasamentoPagamentoVariaveis = desfasamentoPagamentoVariaveis,
+            sindicalizado = sindicalizado
         )
     }
 }

@@ -158,4 +158,16 @@ class MigracaoTest {
         helper.createDatabase("teste-migracao-19-20", 19).apply { close() }
         helper.runMigrationsAndValidate("teste-migracao-19-20", 20, true, PreditDatabase.MIGRATION_19_20)
     }
+
+    /**
+     * Fase 25: o contrato ganha o flag de sindicalizado (default true). O esquema é validado
+     * contra o 21.json: a coluna fica INTEGER NOT NULL DEFAULT 1 — é isso que o ALTER TABLE tem
+     * de reproduzir. Uma BD que já existia mantém o D04 aplicado, porque o DEFAULT 1 preserva o
+     * comportamento atual; só quem desligar o switch é que passa a ter D04 = 0.
+     */
+    @Test
+    fun migrar20Para21() {
+        helper.createDatabase("teste-migracao-20-21", 20).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-20-21", 21, true, PreditDatabase.MIGRATION_20_21)
+    }
 }

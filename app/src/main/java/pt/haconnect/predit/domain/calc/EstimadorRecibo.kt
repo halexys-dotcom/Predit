@@ -321,7 +321,14 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // sobre as horas suplementares nem sobre o subsídio de transporte. Por isso esta conta
     // não passa pelas bases de incidência: o flag incideSindicato do catálogo fica por usar
     // aqui, ao contrário de incideSS e incideIRS acima. Não "corrigir" isto para baseSS.
-    valores["D04"] = dividirArredondando(venc * TAXA_SINDICATO_BPS, 10_000L)
+    // Fase 25: o desconto sindical só incide nos contratos sindicalizados (campo do contrato,
+    // ligado pelo switch no ecrã). Desligado, a rubrica fica a 0 — a base não muda (o D04 sempre
+    // incidiu só sobre o VENC); o que muda é haver ou não desconto.
+    valores["D04"] = if (ctx.contrato.sindicalizado) {
+        dividirArredondando(venc * TAXA_SINDICATO_BPS, 10_000L)
+    } else {
+        0L
+    }
 
     val estimadas = catalogo.map { r ->
         RubricaEstimada(

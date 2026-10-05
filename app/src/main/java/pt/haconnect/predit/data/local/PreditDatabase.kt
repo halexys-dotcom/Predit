@@ -24,7 +24,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ReciboLinhaEntity::class,
         MunicipioEntity::class
     ],
-    version = 20,
+    version = 21,
     exportSchema = true
 )
 @TypeConverters(Conversores::class)
@@ -51,7 +51,7 @@ abstract class PreditDatabase : RoomDatabase() {
          * o valor vive duplicado lá em cima — o T1 do BackupManagerTest guarda a sincronia:
          * se um subir e o outro não, o teste falha.
          */
-        const val VERSAO_BD = 20
+        const val VERSAO_BD = 21
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -289,6 +289,19 @@ abstract class PreditDatabase : RoomDatabase() {
         val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE contrato_utilizador ADD COLUMN desfasamentoPagamentoVariaveis INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /**
+         * Fase 25: o contrato ganha o flag de sindicalizado. A coluna entra com DEFAULT 1 — quem
+         * já usava a app mantém o D04 a incidir, porque a app sempre o aplicou a todos. Só quem
+         * desligar explicitamente passa a ter D04 = 0.
+         */
+        val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE contrato_utilizador ADD COLUMN sindicalizado INTEGER NOT NULL DEFAULT 1"
+                )
             }
         }
     }

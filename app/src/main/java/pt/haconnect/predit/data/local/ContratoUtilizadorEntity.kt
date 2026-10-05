@@ -47,5 +47,11 @@ data class ContratoUtilizadorEntity(
     // Coluna INTEGER NOT NULL DEFAULT 0 (acrescentada por ALTER TABLE na migração 19→20),
     // por isso o defaultValue é obrigatório — ver o comentário em regiao.
     @ColumnInfo(defaultValue = "0")
-    val desfasamentoPagamentoVariaveis: Int = 0
+    val desfasamentoPagamentoVariaveis: Int = 0,
+    // Fase 25: sindicato (1 % do VENC, rubrica D04). true = sindicalizado — o default preserva o
+    // comportamento atual; false = não sindicalizado, e o D04 fica a 0. Coluna INTEGER NOT NULL
+    // DEFAULT 1 (acrescentada por ALTER TABLE na migração 20→21), por isso o defaultValue é
+    // obrigatório — ver o comentário em regiao.
+    @ColumnInfo(defaultValue = "1")
+    val sindicalizado: Boolean = true
 )

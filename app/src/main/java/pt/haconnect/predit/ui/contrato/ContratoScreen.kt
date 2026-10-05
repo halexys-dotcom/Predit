@@ -91,6 +91,9 @@ fun ContratoScreen(
     // Fase 24: quando são pagas as rubricas variáveis (SAC, R14, feriados,
     // suplementares, HNOT). 0 = mesmo mês, 1 = mês seguinte. O VENC não muda.
     var desfasamentoPagamentoVariaveis by rememberSaveable { mutableStateOf(0) }
+    // Fase 25: sindicato (1 % do VENC, rubrica D04). Ligado, o D04 entra no recibo; desligado
+    // fica a 0. O default é ligado: quem nunca mexer nisto mantém o recibo de sempre.
+    var sindicalizado by rememberSaveable { mutableStateOf(true) }
     // Fase 20: IRS Jovem. O switch liga o regime no recibo; os dois anos são o que o motor
     // precisa para descobrir a percentagem (domain/calc/IrsJovem.kt). Guardam-se como Int?.
     var aplicarIrsJovem by rememberSaveable { mutableStateOf(false) }
@@ -121,6 +124,7 @@ fun ContratoScreen(
             categoriaNivel = c.categoriaNivel
             tipoEscala = c.tipoEscala
             desfasamentoPagamentoVariaveis = c.desfasamentoPagamentoVariaveis
+            sindicalizado = c.sindicalizado
             aplicarIrsJovem = c.aplicarIrsJovem
             anoNascimentoTexto = c.anoNascimento?.toString() ?: ""
             anoPrimeiroRendimentoTexto = c.anoPrimeiroRendimento?.toString() ?: ""
@@ -176,6 +180,7 @@ fun ContratoScreen(
                                     municipioId = municipioId,
                                     tipoEscala = tipoEscala,
                                     desfasamentoPagamentoVariaveis = desfasamentoPagamentoVariaveis,
+                                    sindicalizado = sindicalizado,
                                     // Um ano inválido (ou vazio) entra como null: o motor só
                                     // aplica o IRS Jovem com os dois preenchidos.
                                     anoNascimento = anoNascimentoTexto.trim().toIntOrNull()
@@ -410,6 +415,31 @@ fun ContratoScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            // Fase 25: o desconto sindical (1 % do VENC, rubrica D04) só entra no recibo com o
+            // contrato sindicalizado. Desligado, a rubrica fica a 0.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Sindicalizado",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Aplicar desconto sindical (1 %) no recibo",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = sindicalizado,
+                    onCheckedChange = { sindicalizado = it }
+                )
+            }
 
             Text("Município", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             // Surface clicável em vez de OutlinedTextField readOnly: o campo de texto engolia o

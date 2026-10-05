@@ -59,5 +59,12 @@ data class ContratoUtilizador(
      * trabalho suplementar) e o mês a que dizem respeito. 0 = pagas no próprio mês.
      * Coluna INTEGER NOT NULL DEFAULT 0: quem já usava a app fica com 0, sem alterar o recibo.
      */
-    val desfasamentoPagamentoVariaveis: Int = 0
+    val desfasamentoPagamentoVariaveis: Int = 0,
+    /**
+     * Sindicato (Fase 25). Quando true (default), o D04 incide a 1 % do VENC; quando false, a
+     * rubrica D04 fica a 0. A maioria dos contratos do setor é sindicalizada, por isso o default
+     * é true — quem não for desliga explicitamente no Contrato. Coluna INTEGER NOT NULL DEFAULT 1:
+     * quem já usava a app mantém o desconto, sem alterar o recibo.
+     */
+    val sindicalizado: Boolean = true
 )
