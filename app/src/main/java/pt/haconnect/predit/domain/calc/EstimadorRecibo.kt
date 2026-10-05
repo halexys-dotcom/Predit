@@ -63,7 +63,13 @@ data class ContextoEstimativa(
      * ausências o comportamento é o de antes desta fase. Para além de retirarem os dias
      * reais de origem PDF, cortam os subsídios pelos dias úteis que cobrem (8.3).
      */
-    val ausencias: List<Ausencia> = emptyList()
+    val ausencias: List<Ausencia> = emptyList(),
+    /**
+     * Desfasamento entre o mês trabalhado e o mês pago para as rubricas variáveis.
+     * 0 = mesmo mês (padrão). 1 = mês anterior (ex.: ICTS — SAC, R14, feriados e
+     * suplementares refletem o mês anterior). O VENC não depende disto.
+     */
+    val desfasamentoPagamentoVariaveis: Int = 0
 )
 
 /** Códigos que o estimador calcula. Tudo o resto sai com 0 (introduzido à mão). */
@@ -96,17 +102,22 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     val catalogo = ctx.rubricas.sortedBy { it.ordem }
     val porCodigo = ctx.rubricas.associateBy { it.codigo }
 
-    // Feriados do mês estimado (Fase 10): nacionais (fixos + móveis, calculados do ano) e o
-    // municipal do contrato, mais os que o chamador marcar em ctx.feriados. É este conjunto
-    // que decide se as horas suplementares de um dia caem em HSUP_*_FER.
+    // Mês de origem das rubricas variáveis. Com desfasamento 0, é o próprio mês; com
+    // desfasamento 1, é o mês anterior (o VENC fica sempre no mês corrente).
+    val anoMesVariaveis = ctx.anoMes.minusMonths(ctx.desfasamentoPagamentoVariaveis.toLong())
+
+    // Feriados do mês das variáveis (Fase 10 + desfasamento): nacionais (fixos + móveis,
+    // calculados do ano) e o municipal do contrato, mais os que o chamador marcar em
+    // ctx.feriados. É este conjunto que decide se as horas suplementares de um dia caem
+    // em HSUP_*_FER.
     val feriados = buildSet {
-        addAll(feriadosNacionais(ctx.anoMes.year))
-        feriadoMunicipal(ctx.anoMes.year, ctx.municipioFeriadoDia, ctx.municipioFeriadoMes)?.let { add(it) }
+        addAll(feriadosNacionais(anoMesVariaveis.year))
+        feriadoMunicipal(anoMesVariaveis.year, ctx.municipioFeriadoDia, ctx.municipioFeriadoMes)?.let { add(it) }
         addAll(ctx.feriados)
     }
 
-    val reaisDoMes = ctx.diasReais.filter { pertenceAoMes(it.data, ctx.anoMes) }
-    val projecaoDoMes = ctx.projecao.filter { pertenceAoMes(it.epochDay, ctx.anoMes) }
+    val reaisDoMes = ctx.diasReais.filter { pertenceAoMes(it.data, anoMesVariaveis) }
+    val projecaoDoMes = ctx.projecao.filter { pertenceAoMes(it.epochDay, anoMesVariaveis) }
 
     // Um DiaReal de origem PDF dentro de uma ausência (férias, baixa, feriado) representa
     // o horário planeado que a empresa imprime no PDF, não trabalho efetivo. Só conta
@@ -219,7 +230,7 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // Os "dias úteis do mês" são os do cabeçalho do recibo (N.º Dias Úteis): a projeção,
     // que é o mesmo número que o ViewModel grava em ReciboMes.numDiasUteis. Quantos dias
     // se trabalhou não entra nesta conta (num mês sem ausências o subsídio é o do mês).
-    val diasUteisAusencia = diasUteisDeAusencia(ctx.ausencias, ctx.anoMes)
+    val diasUteisAusencia = diasUteisDeAusencia(ctx.ausencias, anoMesVariaveis)
     val subAlim = (diasUteisMes - diasUteisAusencia).coerceAtLeast(0).toLong() *
         ctx.parametrosCCT.subAlimentacaoDiaMil
     val subTran = dividirArredondando(

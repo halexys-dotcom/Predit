@@ -267,7 +267,8 @@ class ReciboViewModel(
                     municipioFeriadoMes = municipio?.feriadoMes ?: 0,
                     escaloesIRS = escaloes,
                     tiposTurno = fontes.agendas.tiposTurno,
-                    ausencias = fontes.agendas.ausencias
+                    ausencias = fontes.agendas.ausencias,
+                    desfasamentoPagamentoVariaveis = contrato.desfasamentoPagamentoVariaveis
                 )
             )
         }.getOrElse {

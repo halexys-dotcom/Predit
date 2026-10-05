@@ -531,6 +531,54 @@ class EstimadorReciboTest {
     }
 
 
+    @Test
+    fun `18 - desfasamento 0 - recibo de setembro nao consome dados de agosto`() {
+        // Regressão: sem desfasamento, o recibo de setembro não olha para os dias
+        // de agosto. Como não há dias em setembro, a estimativa fica a zero.
+        val estimativa = estimarRecibo(
+            ContextoEstimativa(
+                anoMes = YearMonth.of(2026, 9),
+                contrato = contrato,
+                parametrosCCT = parametros2026,
+                rubricas = catalogo,
+                diasReais = diasReaisDeAgosto2026(),
+                projecao = emptyList(),
+                escaloesIRS = tabelaI
+            )
+        )
+
+        assertEquals(0L, estimativa.valor("VENC"))
+        assertEquals(0L, estimativa.valor("SUP_ALIM"))
+        assertEquals(0L, estimativa.valor("SUP_TRAN"))
+    }
+
+    @Test
+    fun `19 - desfasamento 1 - recibo de setembro consome dados de agosto`() {
+        val contratoDesfasado = contrato.copy(desfasamentoPagamentoVariaveis = 1)
+
+        val estimativa = estimarRecibo(
+            ContextoEstimativa(
+                anoMes = YearMonth.of(2026, 9),
+                contrato = contratoDesfasado,
+                // O contexto recebe o desfasamento do contrato, como faz o ReciboViewModel.
+                desfasamentoPagamentoVariaveis = contratoDesfasado.desfasamentoPagamentoVariaveis,
+                parametrosCCT = parametros2026,
+                rubricas = catalogo,
+                diasReais = diasReaisDeAgosto2026(),
+                projecao = emptyList(),
+                escaloesIRS = tabelaI
+            )
+        )
+
+        // SUP_ALIM calculado com os 21 dias de agosto × 7,85 EUR = 164,85 EUR
+        assertEquals(1_648_500L, estimativa.valor("SUP_ALIM"))
+        // SUP_TRAN = 52,09 EUR (mês completo, sem ausências)
+        assertEquals(520_900L, estimativa.valor("SUP_TRAN"))
+        // VENC continua 1 137,98 EUR (o VENC não depende do desfasamento)
+        assertEquals(11_379_800L, estimativa.valor("VENC"))
+    }
+
+
     /**
      * Dias reais com horas do PDF de agosto de 2026, como estão na BD: 21 dos 24 dias
      * registados (14, 15 e 20 são folgas de 0 min), todos de origem PDF e sem tipo de
