@@ -227,9 +227,10 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // os dias úteis — segunda a sexta — cobertos por ausências registadas, e só esses:
     //     SUP_ALIM = (dias úteis do mês − dias úteis de ausência) × valor/dia
     //     SUP_TRAN = valor/mês × (30 − dias úteis de ausência) ÷ 30
-    // Os "dias úteis do mês" são os do cabeçalho do recibo (N.º Dias Úteis): a projeção,
-    // que é o mesmo número que o ViewModel grava em ReciboMes.numDiasUteis. Quantos dias
-    // se trabalhou não entra nesta conta (num mês sem ausências o subsídio é o do mês).
+    // "Dias úteis do mês" aqui é o mês das variáveis (M com desfasamento 0, M-1 com 1),
+    // contados a partir da projeção. NÃO é o mesmo número que o ViewModel grava em
+    // ReciboMes.numDiasUteis (esse é do mês do recibo, M). Quantos dias se trabalhou
+    // não entra nesta conta (num mês sem ausências o subsídio é o do mês).
     val diasUteisAusencia = diasUteisDeAusencia(ctx.ausencias, anoMesVariaveis)
     val subAlim = (diasUteisMes - diasUteisAusencia).coerceAtLeast(0).toLong() *
         ctx.parametrosCCT.subAlimentacaoDiaMil
