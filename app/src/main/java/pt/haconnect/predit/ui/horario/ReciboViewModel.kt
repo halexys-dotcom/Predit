@@ -246,6 +246,13 @@ class ReciboViewModel(
         // Se a semente ainda não chegou (tabelas de IRS vazias), o motor atira — e um fluxo
         // que morre deixava o ecrã vazio para sempre. Fica uma mensagem e o fluxo sobrevive,
         // que assim recupera sozinho quando as tabelas entram.
+        val desfasamento = contrato.desfasamentoPagamentoVariaveis
+        // O motor lê a projeção do mês das variáveis (M com desfasamento 0, M-1 com 1).
+        // Constrói-se o intervalo que cobre os dois meses: com desfasamento 0 cobre só M;
+        // com 1 cobre M-1 e M. O motor filtra pelo mês certo.
+        val inicioVariaveis = fontes.cabecalho.anoMes.minusMonths(desfasamento.toLong()).atDay(1).toEpochDay()
+        val inicioProjecao = minOf(inicio, inicioVariaveis)
+        val fimProjecao = fontes.cabecalho.anoMes.atEndOfMonth().toEpochDay()
         val estimativa = runCatching {
             estimarRecibo(
                 ContextoEstimativa(
@@ -255,8 +262,8 @@ class ReciboViewModel(
                     rubricas = fontes.catalogo.rubricas,
                     diasReais = fontes.agendas.diasReais,
                     projecao = projetarIntervalo(
-                        inicio,
-                        fontes.cabecalho.anoMes.atEndOfMonth().toEpochDay(),
+                        inicioProjecao,
+                        fimProjecao,
                         fontes.agendas.aplicacoes
                     ),
                     // Feriados: o motor calcula sozinho os nacionais do ano (fixos e móveis) e
@@ -268,7 +275,7 @@ class ReciboViewModel(
                     escaloesIRS = escaloes,
                     tiposTurno = fontes.agendas.tiposTurno,
                     ausencias = fontes.agendas.ausencias,
-                    desfasamentoPagamentoVariaveis = contrato.desfasamentoPagamentoVariaveis
+                    desfasamentoPagamentoVariaveis = desfasamento
                 )
             )
         }.getOrElse {

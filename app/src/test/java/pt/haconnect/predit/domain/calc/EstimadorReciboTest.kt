@@ -579,6 +579,69 @@ class EstimadorReciboTest {
     }
 
 
+    @Test
+    fun `20 - desfasamento 1 com projecao do mes anterior - folga detetada`() {
+        // Cenário real: recibo de setembro, mas com desfasamento 1 e a projeção de
+        // agosto (que tem folgas). Verifica que o motor deteta DESC_DESC e não cai no
+        // fallback de diasTrabalhados.size.
+        val contratoDesfasado = contrato.copy(desfasamentoPagamentoVariaveis = 1)
+
+        val agosto = YearMonth.of(2026, 8)
+        val folgaTipo = TipoTurno(
+            id = 99L,
+            nome = "Folga",
+            abreviatura = "F",
+            cor = 0xFF1ABC9CL,
+            emoji = "",
+            inicioMin = 0,
+            fimMin = 0,
+            pausaMin = 0,
+            categoria = CategoriaTurno.FOLGA,
+            ativo = true
+        )
+        // Projeção de agosto: os sábados e domingos ficam marcados como folga.
+        val diasProjecao = (1..31).mapNotNull { dia ->
+            val local = agosto.atDay(dia)
+            val ehFolga = local.dayOfWeek.value >= 6
+            DiaProjetado(
+                epochDay = local.toEpochDay(),
+                tipoTurnoId = if (ehFolga) folgaTipo.id else null
+            )
+        }
+        // 1 de agosto de 2026 é um sábado: a projeção diz folga e o DiaReal diz que se
+        // trabalhou — é isto que o motor tem de ver através do desfasamento.
+        val diaRealSabado = DiaReal(
+            data = agosto.atDay(1).toEpochDay(),
+            tipoTurnoId = null,
+            inicioMin = 13 * 60,
+            fimMin = 21 * 60,
+            pausaMin = 0,
+            origem = "MANUAL"
+        )
+
+        val estimativa = estimarRecibo(
+            ContextoEstimativa(
+                anoMes = YearMonth.of(2026, 9),
+                contrato = contratoDesfasado,
+                parametrosCCT = parametros2026,
+                rubricas = catalogo,
+                diasReais = listOf(diaRealSabado),
+                projecao = diasProjecao,
+                escaloesIRS = tabelaI,
+                tiposTurno = listOf(folgaTipo),
+                // O contexto recebe o desfasamento do contrato, como faz o ReciboViewModel.
+                desfasamentoPagamentoVariaveis = contratoDesfasado.desfasamentoPagamentoVariaveis
+            )
+        )
+
+        // O sábado trabalhado com folga projetada é DESC_DESC (2x o valor/hora)
+        // 8h × 65 653 × 2 = 525 224 × 2 = 1 050 448
+        assertEquals(1_050_448L, estimativa.valor("DESC_DESC"))
+        // VENC continua 1 137,98 EUR
+        assertEquals(11_379_800L, estimativa.valor("VENC"))
+    }
+
+
     /**
      * Dias reais com horas do PDF de agosto de 2026, como estão na BD: 21 dos 24 dias
      * registados (14, 15 e 20 são folgas de 0 min), todos de origem PDF e sem tipo de
