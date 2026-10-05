@@ -53,5 +53,11 @@ data class ContratoUtilizador(
      */
     val anoNascimento: Int? = null,
     val anoPrimeiroRendimento: Int? = null,
-    val aplicarIrsJovem: Boolean = false
+    val aplicarIrsJovem: Boolean = false,
+    /**
+     * Desfasamento (Fase 24), em meses, entre o pagamento das variáveis (subsídios, prémios,
+     * trabalho suplementar) e o mês a que dizem respeito. 0 = pagas no próprio mês.
+     * Coluna INTEGER NOT NULL DEFAULT 0: quem já usava a app fica com 0, sem alterar o recibo.
+     */
+    val desfasamentoPagamentoVariaveis: Int = 0
 )

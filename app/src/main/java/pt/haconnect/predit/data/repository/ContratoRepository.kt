@@ -40,7 +40,8 @@ class ContratoRepository(private val dao: ContratoUtilizadorDao) {
             tipoEscala = tipoEscala,
             anoNascimento = anoNascimento,
             anoPrimeiroRendimento = anoPrimeiroRendimento,
-            aplicarIrsJovem = aplicarIrsJovem
+            aplicarIrsJovem = aplicarIrsJovem,
+            desfasamentoPagamentoVariaveis = desfasamentoPagamentoVariaveis
         )
     }
 
@@ -61,7 +62,8 @@ class ContratoRepository(private val dao: ContratoUtilizadorDao) {
             tipoEscala = tipoEscala,
             anoNascimento = anoNascimento,
             anoPrimeiroRendimento = anoPrimeiroRendimento,
-            aplicarIrsJovem = aplicarIrsJovem
+            aplicarIrsJovem = aplicarIrsJovem,
+            desfasamentoPagamentoVariaveis = desfasamentoPagamentoVariaveis
         )
     }
 }

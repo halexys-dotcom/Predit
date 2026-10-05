@@ -147,4 +147,15 @@ class MigracaoTest {
         helper.createDatabase("teste-migracao-18-19", 18).apply { close() }
         helper.runMigrationsAndValidate("teste-migracao-18-19", 19, true, PreditDatabase.MIGRATION_18_19)
     }
+
+    /**
+     * Fase 24: o contrato ganha o desfasamento de pagamento das variáveis. O esquema é validado
+     * contra o 20.json: a coluna fica INTEGER NOT NULL DEFAULT 0 — é isso que o ALTER TABLE
+     * tem de reproduzir. Quem já tinha BD fica com 0 (sem desfasamento), logo o recibo não muda.
+     */
+    @Test
+    fun migrar19Para20() {
+        helper.createDatabase("teste-migracao-19-20", 19).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-19-20", 20, true, PreditDatabase.MIGRATION_19_20)
+    }
 }

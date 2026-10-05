@@ -24,7 +24,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ReciboLinhaEntity::class,
         MunicipioEntity::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = true
 )
 @TypeConverters(Conversores::class)
@@ -51,7 +51,7 @@ abstract class PreditDatabase : RoomDatabase() {
          * o valor vive duplicado lá em cima — o T1 do BackupManagerTest guarda a sincronia:
          * se um subir e o outro não, o teste falha.
          */
-        const val VERSAO_BD = 19
+        const val VERSAO_BD = 20
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -278,6 +278,17 @@ abstract class PreditDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE contrato_utilizador ADD COLUMN anoNascimento INTEGER")
                 db.execSQL("ALTER TABLE contrato_utilizador ADD COLUMN anoPrimeiroRendimento INTEGER")
                 db.execSQL("ALTER TABLE contrato_utilizador ADD COLUMN aplicarIrsJovem INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /**
+         * Fase 24: o pagamento das variáveis pode chegar desfasado do mês a que diz respeito.
+         * A coluna nova entra a 0 — sem desfasamento, ou seja, o recibo de quem já usava a app
+         * não muda: só passa a haver atraso para quem o configurar no Contrato.
+         */
+        val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE contrato_utilizador ADD COLUMN desfasamentoPagamentoVariaveis INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

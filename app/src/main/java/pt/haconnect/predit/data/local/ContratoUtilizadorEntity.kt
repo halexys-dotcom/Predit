@@ -41,5 +41,11 @@ data class ContratoUtilizadorEntity(
     // Coluna INTEGER NOT NULL DEFAULT 0 (acrescentada por ALTER TABLE na migração 18→19),
     // por isso o defaultValue é obrigatório — ver o comentário em regiao.
     @ColumnInfo(defaultValue = "0")
-    val aplicarIrsJovem: Boolean = false
+    val aplicarIrsJovem: Boolean = false,
+    // Fase 24: desfasamento (em meses) entre o pagamento das variáveis (subsídios, prémios,
+    // trabalho suplementar) e o mês a que dizem respeito. 0 = pagas no próprio mês.
+    // Coluna INTEGER NOT NULL DEFAULT 0 (acrescentada por ALTER TABLE na migração 19→20),
+    // por isso o defaultValue é obrigatório — ver o comentário em regiao.
+    @ColumnInfo(defaultValue = "0")
+    val desfasamentoPagamentoVariaveis: Int = 0
 )
