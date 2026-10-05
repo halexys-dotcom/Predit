@@ -1,7 +1,7 @@
 {
-  "versionCode": 23,
-  "versionName": "2.0.3",
+  "versionCode": 24,
+  "versionName": "2.0.4",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.0.3/app-github-release.apk",
-  "changelog": "Correção da importação de turnos noturnos no PDF da escala. Turnos como 23:00-07:00 passam a ser importados corretamente (antes apareciam com duração negativa e pausa absurda)."
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.0.4/app-github-release.apk",
+  "changelog": "Folga passa a substituir o turno em todas as vistas. Desfasamento de pagamento de rubricas variáveis selecionável no Contrato. Desconto sindical opcional no Contrato."
 }
