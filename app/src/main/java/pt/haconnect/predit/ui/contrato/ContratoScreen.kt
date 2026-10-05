@@ -88,6 +88,9 @@ fun ContratoScreen(
     // Fase 19: modo de escala — ROTACAO (o ciclo projeta os meses) ou PDF_MENSAL (o calendário
     // mostra o PDF importado). Por omissão ROTACAO, como a coluna na BD.
     var tipoEscala by rememberSaveable { mutableStateOf(TIPO_ESCALA_ROTACAO) }
+    // Fase 24: quando são pagas as rubricas variáveis (SAC, R14, feriados,
+    // suplementares, HNOT). 0 = mesmo mês, 1 = mês seguinte. O VENC não muda.
+    var desfasamentoPagamentoVariaveis by rememberSaveable { mutableStateOf(0) }
     // Fase 20: IRS Jovem. O switch liga o regime no recibo; os dois anos são o que o motor
     // precisa para descobrir a percentagem (domain/calc/IrsJovem.kt). Guardam-se como Int?.
     var aplicarIrsJovem by rememberSaveable { mutableStateOf(false) }
@@ -117,6 +120,7 @@ fun ContratoScreen(
             categoriaCodigo = c.categoriaCodigo
             categoriaNivel = c.categoriaNivel
             tipoEscala = c.tipoEscala
+            desfasamentoPagamentoVariaveis = c.desfasamentoPagamentoVariaveis
             aplicarIrsJovem = c.aplicarIrsJovem
             anoNascimentoTexto = c.anoNascimento?.toString() ?: ""
             anoPrimeiroRendimentoTexto = c.anoPrimeiroRendimento?.toString() ?: ""
@@ -171,6 +175,7 @@ fun ContratoScreen(
                                     regiao = regiao,
                                     municipioId = municipioId,
                                     tipoEscala = tipoEscala,
+                                    desfasamentoPagamentoVariaveis = desfasamentoPagamentoVariaveis,
                                     // Um ano inválido (ou vazio) entra como null: o motor só
                                     // aplica o IRS Jovem com os dois preenchidos.
                                     anoNascimento = anoNascimentoTexto.trim().toIntOrNull()
@@ -382,6 +387,26 @@ fun ContratoScreen(
             Text(
                 text = "Rotação fixa: o ciclo projeta os meses automaticamente.\n" +
                     "PDF mensal: importas o PDF do mês em Mais → Importar Horário.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text("Pagamento de Variáveis", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = desfasamentoPagamentoVariaveis == 0,
+                    onClick = { desfasamentoPagamentoVariaveis = 0 },
+                    label = { Text("Mesmo mês") }
+                )
+                FilterChip(
+                    selected = desfasamentoPagamentoVariaveis == 1,
+                    onClick = { desfasamentoPagamentoVariaveis = 1 },
+                    label = { Text("Mês seguinte") }
+                )
+            }
+            Text(
+                text = "Algumas empresas pagam as rubricas variáveis no mês seguinte " +
+                    "(ex.: subsídios, feriados, horas extra). Confirma com o teu recibo.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
