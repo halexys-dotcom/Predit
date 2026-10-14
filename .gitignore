@@ -22,6 +22,10 @@ app/release/
 # Session artifacts (Cline)
 Temp/
 
+# PDFs de origem dos recibos (dados pessoais do utilizador): so para o teste
+# instrumentado de extracao de fixtures, nunca vao para o repositorio.
+app/src/androidTest/assets/recibos-origem/
+
 # Cache do Python (ferramentas em tools/)
 __pycache__/
 *.pyc

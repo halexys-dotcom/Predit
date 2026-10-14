@@ -86,7 +86,14 @@ android {
         buildConfig = true
     }
     sourceSets {
-        getByName("androidTest").assets.srcDirs(files("$projectDir/schemas"))
+        // Assets do androidTest, em dois sítios:
+        //  - schemas/: os JSON do Room, para os testes de migração;
+        //  - src/androidTest/assets/: os PDFs de origem dos recibos, que só existem na
+        //    máquina de quem corre o teste de extração de fixtures (pasta no .gitignore).
+        getByName("androidTest").assets.srcDirs(
+            files("$projectDir/schemas"),
+            files("$projectDir/src/androidTest/assets")
+        )
     }
 }
 
