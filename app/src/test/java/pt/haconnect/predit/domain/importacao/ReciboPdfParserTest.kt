@@ -127,18 +127,20 @@ class ReciboPdfParserTest {
     }
 
     @Test
-    fun `Setembro 2026 - ferias e ausencia parcial caem em Outros, com aviso`() {
+    fun `Setembro 2026 - ferias e ausencia parcial sao informativas, com aviso`() {
         val recibo = ler("recibo-setembro-2026.txt").first()
 
         val ferias = recibo.linhas.filter { it.codigoRecibo == "F50" }
         assertEquals(11, ferias.size)
-        assertTrue(ferias.all { it.codigoInterno == "OUTROS" })
+        assertTrue(ferias.all { it.codigoInterno == null })
+        // O valor é o Preço Unitário (o número mais à direita da linha): as linhas informativas
+        // não têm Importância, portanto este 1,74 € não entra no Total nem na importação.
         assertTrue(ferias.all { it.valor == 17_400L })        // 1,74 € por dia
         assertTrue(ferias.all { it.data != null })            // cada dia traz a sua data
         assertTrue("uma linha de férias tem de trazer aviso", ferias.all { it.aviso != null })
 
         val ausencia = recibo.linha("F74")
-        assertEquals("OUTROS", ausencia.codigoInterno)
+        assertNull(ausencia.codigoInterno)                    // informativa: não escreve valor
         assertEquals(32_900L, ausencia.valor)                 // 3,29 €
         assertEquals(5_000L, ausencia.quantidade)             // 0,50
         assertEquals(dia(2026, 8, 6), ausencia.data)
@@ -171,8 +173,10 @@ class ReciboPdfParserTest {
         assertEquals(18, principal.linhas.count { it.codigoRecibo == "F50" })
 
         val suplemento = recibos.comDataFecho(dia(2026, 7, 21))
-        assertEquals("SUP_ALIM", suplemento.linha("F40").codigoInterno)
-        assertEquals(78_500L, suplemento.valorDe("F40"))      // 7,85 €
+        // F40 é informativo (subsídio durante a baixa): traz Quantidade e Preço Unitário, mas
+        // nenhuma Importância — os 7,85 € não entram no Total nem na importação.
+        assertNull(suplemento.linha("F40").codigoInterno)
+        assertEquals(78_500L, suplemento.valorDe("F40"))      // 7,85 € (preço unitário)
         assertEquals("FERIAS", suplemento.linha("R97").codigoInterno)
         assertEquals(8_276_200L, suplemento.valorDe("R97"))   // 827,62 € subsídio de férias
         assertEquals(910_400L, suplemento.valorDe("D01"))
@@ -199,10 +203,10 @@ class ReciboPdfParserTest {
         assertEquals(2_587_000L, primeira.valorDe("R51"))     // 258,70 €
         assertEquals("SUP_ALIM", primeira.linha("RCR").codigoInterno)
 
-        // F02 (baixas) entra em Outros com aviso, como as férias e a ausência parcial.
+        // F02 (baixas) é informativo, como as férias e a ausência parcial: aviso, sem rubrica.
         val baixas = primeira.linhas.filter { it.codigoRecibo == "F02" }
         assertTrue(baixas.isNotEmpty())
-        assertTrue(baixas.all { it.codigoInterno == "OUTROS" && it.aviso != null })
+        assertTrue(baixas.all { it.codigoInterno == null && it.aviso != null })
         assertEquals(396_700L, baixas.first().valor)          // 39,67 €
     }
 
@@ -244,7 +248,7 @@ class ReciboPdfParserTest {
     // ------------------------------------------------------------------ Mapeamento
 
     @Test
-    fun `Mapeamento - codigos conhecidos, Outros e desconhecidos`() {
+    fun `Mapeamento - conhecidos, informativos, Outros e desconhecidos`() {
         val venc = mapearCodigoRecibo("R01")
         assertEquals("VENC", venc.codigoInterno)
         assertEquals(NaturezaRubrica.ABONO, venc.natureza)
@@ -254,10 +258,24 @@ class ReciboPdfParserTest {
         assertEquals("D02", irs.codigoInterno)
         assertEquals(NaturezaRubrica.DESCONTO, irs.natureza)
 
-        val ferias = mapearCodigoRecibo("F50")
-        assertEquals("OUTROS", ferias.codigoInterno)
+        val ferias = mapearCodigoRecibo("F50")   // informativa: gozo de férias
+        assertNull(ferias.codigoInterno)
         assertEquals(NaturezaRubrica.ABONO, ferias.natureza)
         assertTrue(ferias.aviso!!.contains("F50"))
+
+        // O F40 (subsídio de alimentação por dia, formato antigo) é, nos recibos reais, a linha
+        // informativa do subsídio durante a baixa e não tem rubrica no mapa. Aqui tranca-se esse
+        // contrato para ninguém o voltar a mapear para SUP_ALIM.
+        val subsidioDaBaixa = mapearCodigoRecibo("F40")
+        assertNull(subsidioDaBaixa.codigoInterno)
+        assertTrue(subsidioDaBaixa.aviso!!.contains("F40"))
+
+        // R51 (complemento de baixa) e R118 (média de horas noturnas) são pagamentos reais:
+        // entram em Outros, com valor.
+        val complemento = mapearCodigoRecibo("R51")
+        assertEquals("OUTROS", complemento.codigoInterno)
+        assertTrue(complemento.aviso!!.contains("R51"))
+        assertEquals("OUTROS", mapearCodigoRecibo("R118").codigoInterno)
 
         val desconhecido = mapearCodigoRecibo("Z99")
         assertNull(desconhecido.codigoInterno)

@@ -28,6 +28,7 @@ import pt.haconnect.predit.domain.calc.estimarRecibo
 import pt.haconnect.predit.domain.calc.janelaNoturna
 import pt.haconnect.predit.domain.calc.projetarIntervalo
 import pt.haconnect.predit.domain.calc.valorHoraMil
+import pt.haconnect.predit.domain.importacao.LinhaReciboImportada
 import pt.haconnect.predit.domain.importacao.ReciboImportado
 import pt.haconnect.predit.domain.importacao.parseReciboPdf
 import pt.haconnect.predit.domain.model.Ausencia
@@ -84,22 +85,6 @@ data class InfoRecibo(
 )
 
 /**
- * 27d+: os valores impressos na linha "Total" do recibo importado. Ficam aqui para o ecrã poder
- * mostrar "o recibo diz X" ao lado da soma das rubricas — e só quando divergem. `null` num campo
- * significa que o valor não era legível no PDF (não é o mesmo que zero).
- *
- * Traz também o mês do recibo, na mesma chave do estado (`2026-09`): a comparação só vale contra o
- * mês a que o recibo se refere. `explicacao` é o motivo provável da divergência, quando o parser o
- * permite inferir das próprias linhas importadas — `null` quando não há explicação clara.
- */
-data class DeclaradoNoRecibo(
-    val anoMes: String,
-    val totalAbonos: Long?,
-    val liquido: Long?,
-    val explicacao: String?
-)
-
-/**
  * Estado do ecrã. Os campos levam valores por omissão (o enunciado só os punha em
  * `mensagemErro`) porque o `stateIn` precisa de um estado inicial antes de haver dados.
  */
@@ -126,9 +111,7 @@ data class ReciboUiState(
     /** 27d: os recibos a escolher, quando o seletor está aberto. */
     val recibosParaEscolher: List<InfoRecibo> = emptyList(),
     /** 27d: aviso curto depois de importar (ex.: rubricas sem correspondência na app). */
-    val mensagemImportacao: String? = null,
-    /** 27d+: valores declarados no recibo importado. Null enquanto não se importou nenhum. */
-    val reciboDeclarado: DeclaradoNoRecibo? = null
+    val mensagemImportacao: String? = null
 ) {
     /** Sem recibo gravado o formulário vem pré-preenchido, portanto Guardar tem de estar ativo. */
     val podeGuardar: Boolean get() = !carregando && (!guardado || temAlteracoes)
@@ -201,9 +184,6 @@ class ReciboViewModel(
     private val _mensagemImportacao = MutableStateFlow<String?>(null)
     private val _recibosImportados = MutableStateFlow<List<ReciboImportado>>(emptyList())
 
-    /** 27d+: o recibo que foi aplicado às edições, para o ecrã poder comparar o que ele diz. */
-    private val _reciboAplicado = MutableStateFlow<ReciboImportado?>(null)
-
     private val contrato = contratoRepository.observar()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -251,46 +231,12 @@ class ReciboViewModel(
         estadoDoEcra,
         _seletorDeReciboAberto,
         _recibosParaEscolher,
-        _mensagemImportacao,
-        _reciboAplicado
-    ) { base, seletorAberto, recibosParaEscolher, mensagemImportacao, reciboAplicado ->
+        _mensagemImportacao
+    ) { base, seletorAberto, recibosParaEscolher, mensagemImportacao ->
         base.copy(
             seletorDeReciboAberto = seletorAberto,
             recibosParaEscolher = recibosParaEscolher,
-            mensagemImportacao = mensagemImportacao,
-            // O que o PDF diz só conta quando o leu: sem o aviso, o número existe; com aviso,
-            // fica `null` para o ecrã não mostrar um "0,00 €" que o recibo nunca declarou. E só
-            // conta no mês a que o recibo se refere: noutro mês a comparação seria um falso aviso.
-            reciboDeclarado = reciboAplicado?.let { r ->
-                val mesRecibo = r.mesReferencia?.let { chaveDe(it) }
-                if (mesRecibo != null && mesRecibo == base.anoMes) {
-                    val totalNaoLegivel = r.avisos.any { it.contains("Linha \"Total\" sem os dois totais") }
-                    val pagoNaoLegivel = r.avisos.any { it.contains("Sem \"Total Pago ( EUR )\" legível") }
-
-                    // Inferir a causa da divergência a partir das linhas importadas: o parser
-                    // manda para OUTROS os códigos sem rubrica própria e esses valores não entram
-                    // nos totais do recibo; as linhas sem código interno são rubricas que a app
-                    // não conhece e que, por isso, só somam do lado de cá.
-                    val linhasOutros = r.linhas.count { it.codigoInterno == "OUTROS" }
-                    val linhasDesconhecidas = r.linhas.count { it.codigoInterno == null }
-                    val explicacao = when {
-                        linhasOutros > 0 && linhasDesconhecidas > 0 ->
-                            "linhas informativas do recibo + $linhasDesconhecidas sem correspondência"
-                        linhasOutros > 0 ->
-                            "o recibo exclui linhas informativas (gozo de férias, baixa, subsídios)"
-                        linhasDesconhecidas > 0 ->
-                            "$linhasDesconhecidas rubrica(s) sem correspondência na app"
-                        else -> null
-                    }
-
-                    DeclaradoNoRecibo(
-                        anoMes = mesRecibo,
-                        totalAbonos = if (totalNaoLegivel) null else r.totalAbonos,
-                        liquido = if (pagoNaoLegivel) null else r.liquido,
-                        explicacao = explicacao
-                    )
-                } else null
-            }
+            mensagemImportacao = mensagemImportacao
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReciboUiState())
 
@@ -461,26 +407,35 @@ class ReciboViewModel(
 
     /**
      * 27d: aplica um recibo importado às edições do mês atual. Cada linha com `codigoInterno`
-     * não-nulo é mapeada para a rubrica correspondente do catálogo; linhas sem código interno
-     * (avisos) e com código desconhecido são ignoradas. A importação substitui o que estava —
-     * foi o utilizador que a pediu.
+     * não-nulo é mapeada para a rubrica correspondente do catálogo; as linhas sem código interno
+     * — as informativas (baixa, férias gozadas, ausência parcial, subsídio durante a baixa) e as
+     * de código desconhecido — não escrevem valor. Duas linhas do recibo que caiam na mesma
+     * rubrica somam-se em vez de se substituírem (ex.: RCR + RCRA → SUP_ALIM), que é o que o
+     * recibo declara. A importação substitui o que estava — foi o utilizador que a pediu.
      */
     private fun aplicarReciboImportado(recibo: ReciboImportado) {
-        _reciboAplicado.value = recibo
+        // Regra de negócio (2026-10-16): a app mostra 2 valores — Estimado (calculado pela app) e
+        // Real (o que a empresa pagou, via manual ou PDF). Se divergem, a app está a sinalizar um
+        // erro. "Recibo declara" não é mostrado separadamente porque coincide com "Real" sempre
+        // que a importação está correta — as informativas não escrevem valor e duas linhas da
+        // mesma rubrica somam-se (RCR + RCRA), que é o que o recibo declara.
+        // Classificação das linhas do recibo (confirmada a 2026-10-16 com 5 recibos reais e os
+        // fixtures): as informativas — baixas (F01/F02), subsídio durante a baixa (F40), férias
+        // gozadas (F50), ausência parcial (F74) — vêm do parser sem código interno e não escrevem
+        // valor; as de "Outros" (R51 complemento de baixa, R118 média de horas noturnas) são
+        // pagamentos reais, trazem Importância no recibo e escrevem.
         val anoMes = chaveDe(_anoMesAtual.value)
         val catalogo = rubricasCatalogo.value.associateBy { it.codigo }
         val naoReconhecidas = mutableListOf<String>()
 
         _edicoes.update { atual ->
             val doMes = atual[anoMes].orEmpty().toMutableMap()
-            for (linha in recibo.linhas) {
-                val codigoInterno = linha.codigoInterno ?: continue
-                val rubrica = catalogo[codigoInterno]
-                if (rubrica == null) {
-                    naoReconhecidas.add(codigoInterno)
-                    continue
-                }
-                doMes[rubrica.id] = Edicao(textoDe(linha.valor), linha.valor)
+            // A soma é local a esta importação: o que estava no mês antes (edição à mão ou
+            // importação anterior) é substituído, para reimportar o mesmo PDF dar o mesmo e não
+            // o dobro. Ver somarLinhasPorRubrica para a soma das linhas repetidas (RCR + RCRA).
+            val somados = somarLinhasPorRubrica(recibo.linhas, catalogo, naoReconhecidas)
+            for ((rubricaId, valorFinal) in somados) {
+                doMes[rubricaId] = Edicao(textoDe(valorFinal), valorFinal)
             }
             atual + (anoMes to doMes)
         }
@@ -511,8 +466,6 @@ class ReciboViewModel(
      * recibo, aplica-o de imediato; se houver vários, abre o seletor (o parser não adivinha).
      */
     fun importarRecibo(uri: Uri, context: Context) {
-        // 27d+: um recibo novo substitui o anterior — o que estava declarado deixa de valer.
-        _reciboAplicado.value = null
         viewModelScope.launch {
             _mensagemImportacao.value = null
             val blocos = extrairBlocosPdf(uri, context)
@@ -736,6 +689,39 @@ private fun formatarAnoMes(anoMes: YearMonth): String {
         if (it.isLowerCase()) it.titlecase(locale) else it.toString()
     }
     return "$capitalizado ${anoMes.year}"
+}
+
+/**
+ * Soma as linhas de um recibo importado por rubrica do catálogo, pela ordem em que vêm no PDF.
+ *
+ * Dois códigos do recibo podem cair na mesma rubrica, e aí o valor dela é a **soma** das linhas,
+ * nunca a última delas:
+ * - Março 2026: `RCR` +172,70 € logo seguido de `RCRA` −172,70 € (o acerto) — as duas linhas
+ *   estão no PDF e anulam-se; somar dá 0,00, que é o que o recibo declara no subsídio de
+ *   alimentação. Substituir dava −172,70 €.
+ * - Agosto 2025: `RCR` 163,24 € e `RCRA` 7,42 € somam os 170,66 € que entram no total de abonos
+ *   desse recibo.
+ *
+ * As linhas informativas (baixa, férias gozadas, ausência parcial, subsídio durante a baixa) vêm
+ * do parser sem `codigoInterno` e são ignoradas — nunca escrevem valor, é o que já era o destino
+ * delas. Os códigos que não existem no catálogo ficam em [naoReconhecidas] para a app avisar.
+ */
+internal fun somarLinhasPorRubrica(
+    linhas: List<LinhaReciboImportada>,
+    catalogoPorCodigo: Map<String, Rubrica>,
+    naoReconhecidas: MutableList<String>
+): Map<Long, Long> {
+    val somados = mutableMapOf<Long, Long>()
+    for (linha in linhas) {
+        val codigoInterno = linha.codigoInterno ?: continue
+        val rubrica = catalogoPorCodigo[codigoInterno]
+        if (rubrica == null) {
+            naoReconhecidas.add(codigoInterno)
+            continue
+        }
+        somados[rubrica.id] = (somados[rubrica.id] ?: 0L) + linha.valor
+    }
+    return somados
 }
 
 /** Unidades -> texto do campo: "1 137,98" (sem o "€", que o rótulo já diz). */
