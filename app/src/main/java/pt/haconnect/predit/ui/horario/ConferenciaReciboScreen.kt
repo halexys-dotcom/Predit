@@ -484,6 +484,42 @@ private fun TotaisRecibo(uiState: ReciboUiState) {
         LinhaTotal("Abonos", uiState.totalAbonosReal)
         LinhaTotal("Desc.", uiState.totalDescontosReal)
         LinhaTotal("Líquido", uiState.liquidoReal, destaque = true)
+
+        // 27d+: o que o recibo declara, só quando diverge do que a app somou. Se o PDF não
+        // trouxer o número (as páginas de continuação não o imprimem), o campo fica null e
+        // não há comparação — zero e "não legível" são coisas diferentes.
+        uiState.reciboDeclarado?.let { declarado ->
+            val abonosDivergem = declarado.totalAbonos != null &&
+                declarado.totalAbonos != uiState.totalAbonosReal
+            val liquidoDivergem = declarado.liquido != null &&
+                declarado.liquido != uiState.liquidoReal
+            if (abonosDivergem || liquidoDivergem) {
+                val texto = listOfNotNull(
+                    declarado.totalAbonos?.let { "abonos ${it.milParaEuros()}" },
+                    declarado.liquido?.let { "líquido ${it.milParaEuros()}" }
+                ).joinToString(" · ")
+                if (texto.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "📄 Recibo declara: $texto",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                        color = MaterialTheme.colorScheme.outline,
+                        maxLines = 2,
+                        softWrap = true
+                    )
+                    declarado.explicacao?.let { nota ->
+                        Text(
+                            text = nota,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.outline,
+                            maxLines = 3,
+                            softWrap = true,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

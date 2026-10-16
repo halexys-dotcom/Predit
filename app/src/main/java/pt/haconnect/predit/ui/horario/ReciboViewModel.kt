@@ -84,6 +84,22 @@ data class InfoRecibo(
 )
 
 /**
+ * 27d+: os valores impressos na linha "Total" do recibo importado. Ficam aqui para o ecrã poder
+ * mostrar "o recibo diz X" ao lado da soma das rubricas — e só quando divergem. `null` num campo
+ * significa que o valor não era legível no PDF (não é o mesmo que zero).
+ *
+ * Traz também o mês do recibo, na mesma chave do estado (`2026-09`): a comparação só vale contra o
+ * mês a que o recibo se refere. `explicacao` é o motivo provável da divergência, quando o parser o
+ * permite inferir das próprias linhas importadas — `null` quando não há explicação clara.
+ */
+data class DeclaradoNoRecibo(
+    val anoMes: String,
+    val totalAbonos: Long?,
+    val liquido: Long?,
+    val explicacao: String?
+)
+
+/**
  * Estado do ecrã. Os campos levam valores por omissão (o enunciado só os punha em
  * `mensagemErro`) porque o `stateIn` precisa de um estado inicial antes de haver dados.
  */
@@ -110,7 +126,9 @@ data class ReciboUiState(
     /** 27d: os recibos a escolher, quando o seletor está aberto. */
     val recibosParaEscolher: List<InfoRecibo> = emptyList(),
     /** 27d: aviso curto depois de importar (ex.: rubricas sem correspondência na app). */
-    val mensagemImportacao: String? = null
+    val mensagemImportacao: String? = null,
+    /** 27d+: valores declarados no recibo importado. Null enquanto não se importou nenhum. */
+    val reciboDeclarado: DeclaradoNoRecibo? = null
 ) {
     /** Sem recibo gravado o formulário vem pré-preenchido, portanto Guardar tem de estar ativo. */
     val podeGuardar: Boolean get() = !carregando && (!guardado || temAlteracoes)
@@ -183,6 +201,9 @@ class ReciboViewModel(
     private val _mensagemImportacao = MutableStateFlow<String?>(null)
     private val _recibosImportados = MutableStateFlow<List<ReciboImportado>>(emptyList())
 
+    /** 27d+: o recibo que foi aplicado às edições, para o ecrã poder comparar o que ele diz. */
+    private val _reciboAplicado = MutableStateFlow<ReciboImportado?>(null)
+
     private val contrato = contratoRepository.observar()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -230,12 +251,46 @@ class ReciboViewModel(
         estadoDoEcra,
         _seletorDeReciboAberto,
         _recibosParaEscolher,
-        _mensagemImportacao
-    ) { base, seletorAberto, recibosParaEscolher, mensagemImportacao ->
+        _mensagemImportacao,
+        _reciboAplicado
+    ) { base, seletorAberto, recibosParaEscolher, mensagemImportacao, reciboAplicado ->
         base.copy(
             seletorDeReciboAberto = seletorAberto,
             recibosParaEscolher = recibosParaEscolher,
-            mensagemImportacao = mensagemImportacao
+            mensagemImportacao = mensagemImportacao,
+            // O que o PDF diz só conta quando o leu: sem o aviso, o número existe; com aviso,
+            // fica `null` para o ecrã não mostrar um "0,00 €" que o recibo nunca declarou. E só
+            // conta no mês a que o recibo se refere: noutro mês a comparação seria um falso aviso.
+            reciboDeclarado = reciboAplicado?.let { r ->
+                val mesRecibo = r.mesReferencia?.let { chaveDe(it) }
+                if (mesRecibo != null && mesRecibo == base.anoMes) {
+                    val totalNaoLegivel = r.avisos.any { it.contains("Linha \"Total\" sem os dois totais") }
+                    val pagoNaoLegivel = r.avisos.any { it.contains("Sem \"Total Pago ( EUR )\" legível") }
+
+                    // Inferir a causa da divergência a partir das linhas importadas: o parser
+                    // manda para OUTROS os códigos sem rubrica própria e esses valores não entram
+                    // nos totais do recibo; as linhas sem código interno são rubricas que a app
+                    // não conhece e que, por isso, só somam do lado de cá.
+                    val linhasOutros = r.linhas.count { it.codigoInterno == "OUTROS" }
+                    val linhasDesconhecidas = r.linhas.count { it.codigoInterno == null }
+                    val explicacao = when {
+                        linhasOutros > 0 && linhasDesconhecidas > 0 ->
+                            "linhas informativas do recibo + $linhasDesconhecidas sem correspondência"
+                        linhasOutros > 0 ->
+                            "o recibo exclui linhas informativas (gozo de férias, baixa, subsídios)"
+                        linhasDesconhecidas > 0 ->
+                            "$linhasDesconhecidas rubrica(s) sem correspondência na app"
+                        else -> null
+                    }
+
+                    DeclaradoNoRecibo(
+                        anoMes = mesRecibo,
+                        totalAbonos = if (totalNaoLegivel) null else r.totalAbonos,
+                        liquido = if (pagoNaoLegivel) null else r.liquido,
+                        explicacao = explicacao
+                    )
+                } else null
+            }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReciboUiState())
 
@@ -411,6 +466,7 @@ class ReciboViewModel(
      * foi o utilizador que a pediu.
      */
     private fun aplicarReciboImportado(recibo: ReciboImportado) {
+        _reciboAplicado.value = recibo
         val anoMes = chaveDe(_anoMesAtual.value)
         val catalogo = rubricasCatalogo.value.associateBy { it.codigo }
         val naoReconhecidas = mutableListOf<String>()
@@ -455,6 +511,8 @@ class ReciboViewModel(
      * recibo, aplica-o de imediato; se houver vários, abre o seletor (o parser não adivinha).
      */
     fun importarRecibo(uri: Uri, context: Context) {
+        // 27d+: um recibo novo substitui o anterior — o que estava declarado deixa de valer.
+        _reciboAplicado.value = null
         viewModelScope.launch {
             _mensagemImportacao.value = null
             val blocos = extrairBlocosPdf(uri, context)
