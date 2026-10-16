@@ -86,11 +86,15 @@ private class LeitorComPosicoes(
         for (posicao in posicoes) {
             val x = posicao.xDirAdj
             val salto = x - xFim
-            // Um salto para a frente abre bloco novo; um salto para trás também, porque
-            // a grelha do cabeçalho do recibo é desenhada da direita para a esquerda (o
-            // x recua entre valores). Um mudar de linha a meio da chamada idem.
+            // Um salto para a frente abre bloco novo; um recuar para antes do INICIO do
+            // bloco tambem, porque a grelha do cabecalho do recibo e desenhada da direita
+            // para a esquerda (o x recua entre etiquetas/valores). Recuos DENTRO do bloco
+            // nao contam: o pdfbox sobrepoe a largura de um glifo ao x do seguinte quando ha
+            // kerning (T+o, V+e), e tomar isso por um bloco novo partia palavras ao meio
+            // ("Total" -> "T" + "otal", o que fazia o parser de recibos nao ver o "Total").
+            // Um mudar de linha a meio da chamada idem.
             val blocoNovo = acumulado.isNotEmpty() &&
-                (salto > LIMIAR_ESPACO_PT || salto < -0.1f ||
+                (salto > LIMIAR_ESPACO_PT || x < xInicio ||
                     kotlin.math.abs(posicao.yDirAdj - y) > LIMIAR_LINHA_PT)
 
             if (blocoNovo) {
