@@ -1,5 +1,7 @@
 package pt.haconnect.predit.ui.horario
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -8,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.MoreVert
@@ -42,6 +45,8 @@ import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.NaturezaRubrica
 import pt.haconnect.predit.domain.model.milParaEuros
 import pt.haconnect.predit.ui.turnos.TextoSemQuebra
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 import kotlin.math.abs
 
@@ -77,6 +82,17 @@ fun ConferenciaReciboScreen(
     var pedirConfirmacao by remember { mutableStateOf(false) }
     var menuAberto by remember { mutableStateOf(false) }
 
+    // Fase 27d: o mesmo ActivityResultContracts.OpenDocument do ImportacaoScreen, agora com
+    // filtro de MIME só para este botão (o launcher do planeamento fica como está).
+    val pdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importarRecibo(uri, context)
+        }
+    }
+    val formatoDataFecho = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -107,6 +123,14 @@ fun ConferenciaReciboScreen(
                     // do separador Escala (Navegacao.CALENDARIO) e do botao "Hoje" do calendario.
                     IconButton(onClick = { viewModel.irParaHoje() }) {
                         Icon(Icons.Default.DateRange, contentDescription = "Ir para hoje")
+                    }
+                    // Fase 27d: importar o recibo em PDF. Fica entre o "Hoje" e o "Guardar":
+                    // as acoes de leitura primeiro, a de escrita depois.
+                    IconButton(onClick = { pdfLauncher.launch(arrayOf("application/pdf")) }) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Importar recibo PDF"
+                        )
                     }
                     IconButton(
                         onClick = { viewModel.guardar() },
@@ -235,6 +259,19 @@ fun ConferenciaReciboScreen(
             )
         }
 
+        // Fase 27d: o aviso da importação fica no mesmo sítio do erro, mas em cor neutra —
+        // é informação, não falha.
+        uiState.mensagemImportacao?.let { aviso ->
+            Text(
+                text = aviso,
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .testTag("aviso-importacao")
+            )
+        }
+
         if (uiState.carregando) {
             Text(
                 text = "A carregar catálogo e parâmetros...",
@@ -298,6 +335,42 @@ fun ConferenciaReciboScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pedirConfirmacao = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    // Fase 27d: o PDF trazia mais do que um recibo (a folha principal e o suplemento do
+    // mesmo mês). Quem escolhe é o utilizador; o parser não adivinha. Sem códigos nem
+    // valores: só o mês de referência e a data de fecho, quando o recibo a traz.
+    if (uiState.seletorDeReciboAberto) {
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelarSeletor() },
+            title = { Text("Encontrei vários recibos no PDF") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Escolhe qual queres aplicar:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    uiState.recibosParaEscolher.forEach { info ->
+                        val etiqueta = info.dataFecho?.let { dia ->
+                            "${info.anoMesFormatado} — fecho " +
+                                LocalDate.ofEpochDay(dia).format(formatoDataFecho)
+                        } ?: info.anoMesFormatado
+                        TextButton(
+                            onClick = { viewModel.escolherRecibo(info.indice) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(etiqueta)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.cancelarSeletor() }) {
+                    Text("Cancelar")
+                }
             }
         )
     }

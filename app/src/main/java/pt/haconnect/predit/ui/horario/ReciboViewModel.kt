@@ -1,11 +1,14 @@
 package pt.haconnect.predit.ui.horario
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import pt.haconnect.predit.data.pdf.extrairBlocosPdf
 import pt.haconnect.predit.data.repository.AusenciaRepository
 import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.data.repository.DiaRealRepository
@@ -25,6 +28,8 @@ import pt.haconnect.predit.domain.calc.estimarRecibo
 import pt.haconnect.predit.domain.calc.janelaNoturna
 import pt.haconnect.predit.domain.calc.projetarIntervalo
 import pt.haconnect.predit.domain.calc.valorHoraMil
+import pt.haconnect.predit.domain.importacao.ReciboImportado
+import pt.haconnect.predit.domain.importacao.parseReciboPdf
 import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.domain.model.CATEGORIA_CCT_PADRAO
@@ -69,6 +74,16 @@ data class LinhaConferencia(
 }
 
 /**
+ * Um recibo detetado no PDF, para o seletor (Fase 27d). Sem códigos nem valores — só o mês
+ * de referência e a data de fecho, quando o recibo a traz.
+ */
+data class InfoRecibo(
+    val indice: Int,
+    val anoMesFormatado: String,
+    val dataFecho: Long?
+)
+
+/**
  * Estado do ecrã. Os campos levam valores por omissão (o enunciado só os punha em
  * `mensagemErro`) porque o `stateIn` precisa de um estado inicial antes de haver dados.
  */
@@ -89,7 +104,13 @@ data class ReciboUiState(
     val carregando: Boolean = false,
     val dataFechoTexto: String = "",
     val irsRetidoAnoTexto: String = "",
-    val nota: String = ""
+    val nota: String = "",
+    /** 27d: o seletor de recibos está aberto (o PDF trazia mais do que um recibo). */
+    val seletorDeReciboAberto: Boolean = false,
+    /** 27d: os recibos a escolher, quando o seletor está aberto. */
+    val recibosParaEscolher: List<InfoRecibo> = emptyList(),
+    /** 27d: aviso curto depois de importar (ex.: rubricas sem correspondência na app). */
+    val mensagemImportacao: String? = null
 ) {
     /** Sem recibo gravado o formulário vem pré-preenchido, portanto Guardar tem de estar ativo. */
     val podeGuardar: Boolean get() = !carregando && (!guardado || temAlteracoes)
@@ -155,6 +176,13 @@ class ReciboViewModel(
     private val _mensagemErro = MutableStateFlow<String?>(null)
     private val _cabecalhoEditado = MutableStateFlow<Map<String, CabecalhoEditado>>(emptyMap())
 
+    // Fase 27d: estado só de UI da importação do recibo. Fica fora do `estadoDoMes` porque
+    // não depende do mês nem da base de dados, e assim não há um `_uiState` mutável paralelo.
+    private val _seletorDeReciboAberto = MutableStateFlow(false)
+    private val _recibosParaEscolher = MutableStateFlow<List<InfoRecibo>>(emptyList())
+    private val _mensagemImportacao = MutableStateFlow<String?>(null)
+    private val _recibosImportados = MutableStateFlow<List<ReciboImportado>>(emptyList())
+
     private val contrato = contratoRepository.observar()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -179,7 +207,8 @@ class ReciboViewModel(
     private val municipios = municipioRepository.observarTodos()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val uiState: StateFlow<ReciboUiState> = combine(
+    /** O estado do mês: estimado vs real e totais. É a base de tudo o que a UI mostra. */
+    private val estadoDoEcra: Flow<ReciboUiState> = combine(
         combine(_anoMesAtual, _edicoes, _mensagemErro, _cabecalhoEditado) { anoMes, edicoes, erro, cabecalhos ->
             Cabecalho(anoMes, edicoes, erro, cabecalhos[chaveDe(anoMes)])
         },
@@ -191,7 +220,24 @@ class ReciboViewModel(
         Fontes(cabecalho, catalogo, agendas)
     }
         .flatMapLatest { fontes -> estadoDoMes(fontes) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReciboUiState())
+
+    /**
+     * 27d: o estado calculado com os campos só de UI da importação sobrepostos. Ficam fora do
+     * `calcularEstado` porque não dependem do mês — e assim não há um `_uiState` mutável
+     * paralelo a competir com o fluxo derivado.
+     */
+    val uiState: StateFlow<ReciboUiState> = combine(
+        estadoDoEcra,
+        _seletorDeReciboAberto,
+        _recibosParaEscolher,
+        _mensagemImportacao
+    ) { base, seletorAberto, recibosParaEscolher, mensagemImportacao ->
+        base.copy(
+            seletorDeReciboAberto = seletorAberto,
+            recibosParaEscolher = recibosParaEscolher,
+            mensagemImportacao = mensagemImportacao
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReciboUiState())
 
     /**
      * Os fluxos do mês escolhido: o recibo gravado, as linhas gravadas e os escalões de IRS
@@ -358,6 +404,40 @@ class ReciboViewModel(
         return textoDe(mesGuardado?.irsRetidoAno ?: 0L)
     }
 
+    /**
+     * 27d: aplica um recibo importado às edições do mês atual. Cada linha com `codigoInterno`
+     * não-nulo é mapeada para a rubrica correspondente do catálogo; linhas sem código interno
+     * (avisos) e com código desconhecido são ignoradas. A importação substitui o que estava —
+     * foi o utilizador que a pediu.
+     */
+    private fun aplicarReciboImportado(recibo: ReciboImportado) {
+        val anoMes = chaveDe(_anoMesAtual.value)
+        val catalogo = rubricasCatalogo.value.associateBy { it.codigo }
+        val naoReconhecidas = mutableListOf<String>()
+
+        _edicoes.update { atual ->
+            val doMes = atual[anoMes].orEmpty().toMutableMap()
+            for (linha in recibo.linhas) {
+                val codigoInterno = linha.codigoInterno ?: continue
+                val rubrica = catalogo[codigoInterno]
+                if (rubrica == null) {
+                    naoReconhecidas.add(codigoInterno)
+                    continue
+                }
+                doMes[rubrica.id] = Edicao(textoDe(linha.valor), linha.valor)
+            }
+            atual + (anoMes to doMes)
+        }
+
+        val mes = recibo.mesReferencia?.let { formatarAnoMes(it) } ?: "mês desconhecido"
+        _mensagemImportacao.value = if (naoReconhecidas.isEmpty()) {
+            "Recibo de $mes importado."
+        } else {
+            "Recibo de $mes importado. ${naoReconhecidas.size} rubrica(s) sem correspondência."
+        }
+        _mensagemErro.value = null
+    }
+
     // --- comandos ------------------------------------------------------------
 
     fun moverMes(delta: Int) {
@@ -366,6 +446,58 @@ class ReciboViewModel(
 
     fun irParaHoje() {
         _anoMesAtual.value = YearMonth.now()
+    }
+
+    // --- 27d: importação do recibo em PDF ------------------------------------
+
+    /**
+     * Importa um recibo em PDF. Extrai os blocos com posição, faz o parse e, se houver um só
+     * recibo, aplica-o de imediato; se houver vários, abre o seletor (o parser não adivinha).
+     */
+    fun importarRecibo(uri: Uri, context: Context) {
+        viewModelScope.launch {
+            _mensagemImportacao.value = null
+            val blocos = extrairBlocosPdf(uri, context)
+            if (blocos.isEmpty()) {
+                _mensagemErro.value = "Não foi possível ler o PDF."
+                return@launch
+            }
+            val recibos = parseReciboPdf(blocos)
+            if (recibos.isEmpty()) {
+                _mensagemErro.value = "Não encontrei nenhum recibo no PDF."
+                return@launch
+            }
+            if (recibos.size == 1) {
+                aplicarReciboImportado(recibos.first())
+            } else {
+                _recibosImportados.value = recibos
+                _recibosParaEscolher.value = recibos.mapIndexed { indice, recibo ->
+                    InfoRecibo(
+                        indice = indice,
+                        anoMesFormatado = recibo.mesReferencia?.let { formatarAnoMes(it) }
+                            ?: "Recibo ${indice + 1}",
+                        dataFecho = recibo.dataFecho
+                    )
+                }
+                _seletorDeReciboAberto.value = true
+            }
+        }
+    }
+
+    /** O utilizador escolheu um dos recibos do PDF. */
+    fun escolherRecibo(indice: Int) {
+        val escolhido = _recibosImportados.value.getOrNull(indice) ?: return
+        _recibosImportados.value = emptyList()
+        _recibosParaEscolher.value = emptyList()
+        _seletorDeReciboAberto.value = false
+        aplicarReciboImportado(escolhido)
+    }
+
+    /** O utilizador fechou o seletor sem escolher. */
+    fun cancelarSeletor() {
+        _recibosImportados.value = emptyList()
+        _recibosParaEscolher.value = emptyList()
+        _seletorDeReciboAberto.value = false
     }
 
     /**

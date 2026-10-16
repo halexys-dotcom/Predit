@@ -3,7 +3,8 @@ package pt.haconnect.predit.data.pdf
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import org.junit.Ignore
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import org.junit.Assume
 import org.junit.Test
 import org.junit.runner.RunWith
 import pt.haconnect.predit.domain.importacao.ReciboImportado
@@ -13,17 +14,18 @@ import java.io.File
 /**
  * Extrai os recibos de origem para fixtures do parser (Fase 27, Bloco 0).
  *
- * **Teste de bancada, não corre na CI**: está `@Ignore` porque os PDFs são dados pessoais
- * e não estão no repositório — cada um copia os seus para
- * `app/src/androidTest/assets/recibos-origem/` (pasta no .gitignore) e corre o teste à
- * mão.
+ * **Teste de bancada**: os PDFs são dados pessoais e não estão no repositório — cada um
+ * copia os seus para `app/src/androidTest/assets/recibos-origem/` (pasta no .gitignore).
+ * Sem PDFs o teste **salta** (`Assume.assumeTrue`), em vez de falhar: não parte a CI nem
+ * numa máquina limpa, e não obriga a repor `@Ignore` à mão.
  *
- * Para correr:
+ * Para correr, com os PDFs em `app/src/androidTest/assets/recibos-origem/`:
  * ```
- * adb shell am instrument -w -e class pt.haconnect.predit.data.pdf.ExtrairRecibosTest \
- *     -e notAnnotation org.junit.Ignore pt.haconnect.predit.test/androidx.test.runner.AndroidJUnitRunner
+ * .\gradlew.bat :app:connectedGithubDebugAndroidTest `
+ *     "-Pandroid.testInstrumentationRunnerArguments.class=pt.haconnect.predit.data.pdf.ExtrairRecibosTest"
  * ```
- * (ou retirar o `@Ignore` e correr `connectedGithubDebugAndroidTest`).
+ * (aspas no argumento `-P` para o PowerShell não o manglar. O `--tests` do Gradle só filtra
+ * testes de JVM — para testes instrumentados é esta propriedade.)
  *
  * O teste escreve, para cada PDF, dois ficheiros na pasta da app:
  *  - `<nome>-blocos.tsv` — página, x, y, texto por bloco, no formato que
@@ -31,36 +33,55 @@ import java.io.File
  *    `app/src/test/resources/fixtures/` têm;
  *  - `<nome>-texto.txt`  — o texto corrido, para conferir à vista.
  *
- * Trazê-los para o repositório:
- * ```
- * adb pull /sdcard/Android/data/pt.haconnect.predit.debug/files/recibos-fixtures temp-recibos
- * ```
+ * No Android 11+ esses ficheiros **não** são recuperáveis: `adb pull` e `adb shell ls` são
+ * bloqueados pelo scoped storage de `Android/data/<app>` e o `run-as` não tem o namespace
+ * de storage. O AGP ainda desinstala a app no fim do run (usar
+ * `-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true` para a manter). Por isso
+ * os blocos vão também para o logcat ([TAG_BLOCOS]), que o AGP guarda em
+ * `app/build/outputs/androidTest-results/connected/.../logcat-*.txt` — é o canal fiável.
+ *
  * Depois copiar cada `<nome>-blocos.tsv` para
  * `app/src/test/resources/fixtures/recibo-<mes>-<ano>.txt`.
  */
 @RunWith(AndroidJUnit4::class)
-@Ignore("Teste de bancada: precisa dos PDFs em androidTest/assets/recibos-origem (dados pessoais)")
 class ExtrairRecibosTest {
 
     @Test
     fun extrairRecibosParaFixtures() {
-        val contexto = InstrumentationRegistry.getInstrumentation().targetContext
+        val instrumentacao = InstrumentationRegistry.getInstrumentation()
+        // Os PDFs de origem viajam no APK de TESTE (androidTest/assets), por isso leem-se do
+        // contexto da instrumentacao. O `targetContext` e o da app e nao os tem — so serve
+        // para escrever a saida em /sdcard/Android/data/<app>/files/recibos-fixtures.
+        val contexto = instrumentacao.targetContext
+        val assetsDeOrigem = instrumentacao.context.assets
+        val assets = assetsDeOrigem.list("recibos-origem").orEmpty().sorted()
+        // Sem PDFs (CI, maquina limpa, clone novo) o teste SALTA em vez de falhar — os PDFs
+        // sao dados pessoais e nao estao no repositorio. Antes de mexer em pastas/recursos.
+        Assume.assumeTrue(
+            "sem PDFs em androidTest/assets/recibos-origem — copiar os recibos antes de correr",
+            assets.isNotEmpty()
+        )
+        // O PDFBox so encontra os recursos dele (glyphlist, cmaps...) se estes forem
+        // carregados do APK da app antes da extracao. Em producao isso e feito pelos
+        // involucros `extrairTextoPdf`/`extrairBlocosPdf`; aqui usam-se as funcoes cruas
+        // `extrair*De`, portanto inicializa-se a mao. Tem de ser o contexto da APP.
+        PDFBoxResourceLoader.init(contexto)
         val pasta = File(contexto.getExternalFilesDir(null), "recibos-fixtures")
         pasta.mkdirs()
 
-        val assets = contexto.assets.list("recibos-origem").orEmpty().sorted()
-        check(assets.isNotEmpty()) {
-            "sem PDFs em androidTest/assets/recibos-origem — copiar os recibos antes de correr"
-        }
-
         for (nome in assets) {
-            val blocos = contexto.assets.open("recibos-origem/$nome").use { extrairBlocosDe(it) }
-            val texto = contexto.assets.open("recibos-origem/$nome").use { extrairTextoDe(it) }
+            val blocos = assetsDeOrigem.open("recibos-origem/$nome").use { extrairBlocosDe(it) }
+            val texto = assetsDeOrigem.open("recibos-origem/$nome").use { extrairTextoDe(it) }
             val base = nome.substringBeforeLast('.')
 
             val tsv = blocos.joinToString("\n") { "${it.pagina}\t${it.x}\t${it.y}\t${it.texto}" }
             File(pasta, "$base-blocos.tsv").writeText(tsv, Charsets.UTF_8)
             File(pasta, "$base-texto.txt").writeText(texto, Charsets.UTF_8)
+            // DIAGNOSTICO: e o unico canal para inspecionar os blocos em CI e no aparelho,
+            // ja que os ficheiros de Android/data/<app> nao sao alcancaveis por `adb pull`
+            // nem por `run-as` (Android 11+). Fica no logcat, guardado pelo AGP em
+            // app/build/outputs/androidTest-results/.../logcat-*.txt.
+            Log.i(TAG_BLOCOS, tsv)
 
             val recibos: List<ReciboImportado> = parseReciboPdf(blocos)
             val resumo = resumoDe(nome, texto, recibos)
@@ -99,5 +120,6 @@ class ExtrairRecibosTest {
 
     private companion object {
         const val TAG = "ExtrairRecibos"
+        const val TAG_BLOCOS = "ExtrairRecibosTSV"
     }
 }
