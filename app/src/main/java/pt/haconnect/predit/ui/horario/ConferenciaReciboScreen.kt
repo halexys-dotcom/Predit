@@ -420,6 +420,8 @@ private fun LinhaRubrica(
                 label = { Text("Real", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)) },
                 singleLine = true,
                 isError = linha.textoInvalido,
+                // Não se confere o que não se quer conferir: a flag é do catálogo.
+                enabled = linha.ativaConferencia,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier
                     .width(150.dp)
