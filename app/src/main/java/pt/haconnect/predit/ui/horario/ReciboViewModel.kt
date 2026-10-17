@@ -12,6 +12,7 @@ import pt.haconnect.predit.data.pdf.extrairBlocosPdf
 import pt.haconnect.predit.data.repository.AusenciaRepository
 import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.data.repository.DiaRealRepository
+import pt.haconnect.predit.data.repository.MapeamentoRubricaRepository
 import pt.haconnect.predit.data.repository.MunicipioRepository
 import pt.haconnect.predit.data.repository.ParametrosCCTRepository
 import pt.haconnect.predit.data.repository.ReciboRepository
@@ -129,7 +130,8 @@ class ReciboViewModel(
     private val tipoTurnoRepository: TipoTurnoRepository,
     private val tabelaIRSRepository: TabelaIRSRepository,
     private val ausenciaRepository: AusenciaRepository,
-    private val municipioRepository: MunicipioRepository
+    private val municipioRepository: MunicipioRepository,
+    private val mapeamentoRepository: MapeamentoRubricaRepository
 ) : ViewModel() {
 
     /** O que está escrito num campo: o texto tal como o utilizador o deixou e o último
@@ -441,10 +443,13 @@ class ReciboViewModel(
         }
 
         val mes = recibo.mesReferencia?.let { formatarAnoMes(it) } ?: "mês desconhecido"
+        // Fase 28b: a empresa vem do rodapé e é o que identifica de onde é o recibo quando o
+        // utilizador tem mais do que uma.
+        val empresa = recibo.empresaEmissora?.let { " ($it)" } ?: ""
         _mensagemImportacao.value = if (naoReconhecidas.isEmpty()) {
-            "Recibo de $mes importado."
+            "Recibo de $mes$empresa importado."
         } else {
-            "Recibo de $mes importado. ${naoReconhecidas.size} rubrica(s) sem correspondência."
+            "Recibo de $mes$empresa importado. ${naoReconhecidas.size} rubrica(s) sem correspondência."
         }
         _mensagemErro.value = null
     }
@@ -473,7 +478,10 @@ class ReciboViewModel(
                 _mensagemErro.value = "Não foi possível ler o PDF."
                 return@launch
             }
-            val recibos = parseReciboPdf(blocos)
+            // Fase 28b: o mapa configurável do utilizador (empresa do rodapé -> códigos) vai
+            // para o parser; sem ele só o hardcoded se aplica.
+            val mapeamentos = mapeamentoRepository.obterTodos()
+            val recibos = parseReciboPdf(blocos, mapeamentos)
             if (recibos.isEmpty()) {
                 _mensagemErro.value = "Não encontrei nenhum recibo no PDF."
                 return@launch
@@ -657,7 +665,8 @@ class ReciboViewModel(
         private val tipoTurnoRepository: TipoTurnoRepository,
         private val tabelaIRSRepository: TabelaIRSRepository,
         private val ausenciaRepository: AusenciaRepository,
-        private val municipioRepository: MunicipioRepository
+        private val municipioRepository: MunicipioRepository,
+        private val mapeamentoRepository: MapeamentoRubricaRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -671,7 +680,8 @@ class ReciboViewModel(
                 tipoTurnoRepository,
                 tabelaIRSRepository,
                 ausenciaRepository,
-                municipioRepository
+                municipioRepository,
+                mapeamentoRepository
             ) as T
         }
     }

@@ -35,6 +35,11 @@ data class LinhaReciboImportada(
  */
 data class ReciboImportado(
     val pagina: Int,
+    /**
+     * A empresa que emitiu o recibo, lida do rodapé ("Licença de: ..."); `null` quando a página
+     * não a traz. É a chave do mapeamento configurável do utilizador (Fase 28b).
+     */
+    val empresaEmissora: String?,
     val mesReferencia: YearMonth?,
     val dataFecho: Long?,
     /** Vencimento base do cabeçalho (1/10000 €) — o do contrato, não o da linha R01. */
@@ -47,7 +52,9 @@ data class ReciboImportado(
     val totalDescontos: Long,
     val liquido: Long,
     val linhas: List<LinhaReciboImportada>,
-    val avisos: List<String>
+    val avisos: List<String>,
+    /** Códigos que não estão no mapa do utilizador nem no hardcoded (Fase 28b). */
+    val codigosDesconhecidos: List<String>
 )
 
 /**
@@ -77,17 +84,30 @@ private val RE_DIAS_UTEIS = Regex("""^(\d+)""")
  * Devolve um recibo por página que tenha grelha de rubricas; um PDF de uma só via (o caso
  * normal) devolve uma lista de um elemento. Página sem grelha (por exemplo um verso) é
  * ignorada.
+ *
+ * [mapeamentosPorEmpresa] é o mapa configurável do utilizador — empresa do rodapé ->
+ * (código do recibo -> código interno). Só se aplica à empresa detetada na página: o mesmo
+ * código pode valer coisas diferentes em empresas diferentes.
  */
-fun parseReciboPdf(blocos: List<BlocoTexto>): List<ReciboImportado> =
+fun parseReciboPdf(
+    blocos: List<BlocoTexto>,
+    mapeamentosPorEmpresa: Map<String, Map<String, String>> = emptyMap()
+): List<ReciboImportado> =
     blocos.groupBy { it.pagina }
         .toSortedMap()
-        .mapNotNull { (pagina, daPagina) -> parsePagina(pagina, daPagina) }
+        .mapNotNull { (pagina, daPagina) ->
+            parsePagina(pagina, daPagina, mapeamentosPorEmpresa)
+        }
 
 /**
  * Lê uma página. Devolve `null` se a página não tiver grelha de rubricas (não é um
  * recibo) — nesse caso não produz avisos, porque não há nada para avisar.
  */
-private fun parsePagina(pagina: Int, blocos: List<BlocoTexto>): ReciboImportado? {
+private fun parsePagina(
+    pagina: Int,
+    blocos: List<BlocoTexto>,
+    mapeamentosPorEmpresa: Map<String, Map<String, String>>
+): ReciboImportado? {
     val cabecalhoTabela = blocos.firstOrNull { it.texto.trim() == "Cód." } ?: return null
     val linhaTotal = blocos.firstOrNull { it.texto.trim() == "Total" } ?: return null
     // O sentido do eixo y depende do extractor: o pdfbox devolve y crescente para baixo,
@@ -98,6 +118,12 @@ private fun parsePagina(pagina: Int, blocos: List<BlocoTexto>): ReciboImportado?
     val colunas = medirColunas(etiquetasDaGrelha) ?: return null
 
     val avisos = mutableListOf<String>()
+    // Fase 28b: a empresa sai do rodapé da página e escolhe o mapa do utilizador; sem empresa
+    // detetada só o hardcoded se aplica. Os códigos que nenhum mapa conhece ficam registados
+    // para a UI os poder oferecer para mapeamento.
+    val empresaEmissora = extrairEmpresa(blocos)
+    val mapaDaEmpresa = mapaDoUtilizador(mapeamentosPorEmpresa, empresaEmissora)
+    val codigosDesconhecidos = mutableListOf<String>()
 
     // A linha das etiquetas do cabeçalho: onde está o "Data Fecho" (e o "Vencimento", o
     // "Venc. / Hora", o "N.º Dias Úteis" e o "Período").
@@ -125,7 +151,10 @@ private fun parsePagina(pagina: Int, blocos: List<BlocoTexto>): ReciboImportado?
     val mesReferencia = mesReferenciaDe(periodo, dataFecho)
     if (mesReferencia == null) avisos.add("Cabeçalho sem mês reconhecível")
 
-    val linhas = lerLinhas(blocos, cabecalhoTabela.y, linhaTotal.y, colunas, descendente, avisos)
+    val linhas = lerLinhas(
+        blocos, cabecalhoTabela.y, linhaTotal.y, colunas, descendente,
+        mapaDaEmpresa, avisos, codigosDesconhecidos
+    )
 
     val numerosDoTotal = numerosNaLinhaDe(blocos, linhaTotal)
     val totalAbonos: Long
@@ -146,6 +175,7 @@ private fun parsePagina(pagina: Int, blocos: List<BlocoTexto>): ReciboImportado?
 
     return ReciboImportado(
         pagina = pagina,
+        empresaEmissora = empresaEmissora,
         mesReferencia = mesReferencia,
         dataFecho = dataFecho,
         vencimentoBase = vencimentoBase,
@@ -156,9 +186,76 @@ private fun parsePagina(pagina: Int, blocos: List<BlocoTexto>): ReciboImportado?
         totalDescontos = totalDescontos,
         liquido = liquido ?: 0L,
         linhas = linhas,
-        avisos = avisos
+        avisos = avisos,
+        codigosDesconhecidos = codigosDesconhecidos
     )
 }
+
+/** A etiqueta do rodapé que identifica a empresa emissora do recibo. */
+private const val ETIQUETA_LICENCA = "Licença de:"
+
+/**
+ * A empresa que emitiu o recibo, lida do rodapé.
+ *
+ * Nos recibos PRIMAVERA o nome vem partido em vários blocos na mesma linha visual
+ * (`© PRIMAVERA BSS`, `/ Licença de:`, `ICTS PORTUGAL`, `,`, `SA`): o nome é o que está à
+ * direita da etiqueta, lido por x e com os espaços antes da pontuação limpos — daqui sai
+ * "ICTS PORTUGAL, SA". O nome também pode vir no próprio bloco da etiqueta
+ * ("Licença de: SECURITAS"), e esse caso está coberto.
+ *
+ * Devolve `null` se a página não trouxer a etiqueta (não é um recibo PRIMAVERA, ou o
+ * extractor mudou).
+ */
+private fun extrairEmpresa(blocos: List<BlocoTexto>): String? {
+    val etiqueta = blocos.firstOrNull { it.texto.contains(ETIQUETA_LICENCA) } ?: return null
+
+    val noProprioBloco = etiqueta.texto.substringAfter(ETIQUETA_LICENCA).trim()
+    val aDireita = blocos
+        .filter {
+            it !== etiqueta && abs(it.y - etiqueta.y) <= TOLERANCIA_LINHA_PT && it.x > etiqueta.x
+        }
+        .sortedBy { it.x }
+        .map { it.texto.trim() }
+        .filter { it.isNotEmpty() }
+
+    val texto = (listOf(noProprioBloco) + aDireita)
+        .filter { it.isNotEmpty() }
+        .joinToString(" ")
+        .replace(Regex("""\s+"""), " ")
+        .replace(Regex("""\s+([,.;])"""), "\$1")
+        .trim()
+
+    return texto.ifEmpty { null }
+}
+
+/**
+ * O mapa do utilizador para a empresa detetada na página.
+ *
+ * A chave procura-se tal e qual e, se não houver, pela forma normalizada ([chaveDaEmpresa]).
+ * É deliberado: o nome do rodapé sai de um recibo para o outro com e sem a forma societária
+ * ("ICTS PORTUGAL" no Cegid, "ICTS PORTUGAL, SA" no PRIMAVERA) e a chave gravada na BD pode
+ * ter sido escrita à mão de qualquer das maneiras. Sem isto, o mesmo emissor ficava com dois
+ * mapas — ou com nenhum.
+ */
+private fun mapaDoUtilizador(
+    mapeamentosPorEmpresa: Map<String, Map<String, String>>,
+    empresa: String?
+): Map<String, String> {
+    if (empresa == null) return emptyMap()
+    mapeamentosPorEmpresa[empresa]?.let { return it }
+    val chave = chaveDaEmpresa(empresa)
+    return mapeamentosPorEmpresa.entries
+        .firstOrNull { chaveDaEmpresa(it.key) == chave }
+        ?.value
+        ?: emptyMap()
+}
+
+/**
+ * "ICTS PORTUGAL, SA", "ICTS PORTUGAL" e "icts  portugal" são a mesma empresa: a forma
+ * societária a seguir à vírgula não distingue emissores.
+ */
+private fun chaveDaEmpresa(texto: String): String =
+    texto.substringBefore(',').trim().uppercase().replace(Regex("""\s+"""), " ")
 
 /**
  * As fronteiras das colunas da grelha de rubricas, medidas a partir das próprias
@@ -208,7 +305,9 @@ private fun lerLinhas(
     yTotal: Float,
     colunas: Colunas,
     descendente: Boolean,
-    avisos: MutableList<String>
+    mapaDaEmpresa: Map<String, String>,
+    avisos: MutableList<String>,
+    codigosDesconhecidos: MutableList<String>
 ): List<LinhaReciboImportada> {
     val primeira = if (descendente) yCabecalho else yTotal
     val ultima = if (descendente) yTotal else yCabecalho
@@ -229,7 +328,7 @@ private fun lerLinhas(
 
     fun fechar() {
         val cod = codigo ?: return
-        val mapeamento = mapearCodigoRecibo(cod)
+        val mapeamento = mapearCodigoRecibo(cod, mapaDaEmpresa)
 
         val numeros = grupo
             .filter { it.x >= colunas.numeroMin }
@@ -248,6 +347,13 @@ private fun lerLinhas(
         val data = grupo.firstOrNull { RE_DATA.matches(it.texto.trim()) }?.texto?.let { parseData(it) }
 
         mapeamento.aviso?.let { avisos.add(it) }
+        // Fase 28b: desconhecido é diferente de informativo — só o primeiro é que a UI deve
+        // propor mapear. O código já vem normalizado de mapearCodigoRecibo.
+        if (mapeamento.origem == OrigemMapeamento.DESCONHECIDO &&
+            mapeamento.codigoRecibo !in codigosDesconhecidos
+        ) {
+            codigosDesconhecidos.add(mapeamento.codigoRecibo)
+        }
 
         linhas.add(
             LinhaReciboImportada(

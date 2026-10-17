@@ -15,11 +15,33 @@ import pt.haconnect.predit.domain.calc.NaturezaRubrica
  * A [natureza] das linhas informativas fica ABONO porque `NaturezaRubrica` só tem ABONO e
  * DESCONTO — e não tem consequência: sem `codigoInterno` a linha nunca chega a ser escrita.
  */
+/**
+ * De onde veio a decisão de [MapeamentoRubrica.codigoInterno] — é o que permite ao parser
+ * distinguir "código que a app não conhece" (para pedir o mapeamento ao utilizador, Fase 28c)
+ * de "linha informativa" (que é para ficar de fora, por desenho) e do que já está no mapa do
+ * utilizador (para a UI poder mostrar de onde veio).
+ */
+enum class OrigemMapeamento {
+    /** Uma das entradas fixas em [RUBRICAS]. */
+    HARDCODED,
+    /** Linha informativa (ver [CODIGOS_INFORMATIVOS]): está no PDF mas não é pagamento. */
+    INFORMATIVO,
+    /** Pagamento real sem rubrica própria: vai para "OUTROS". */
+    PARA_OUTROS,
+    /** O próprio código é a rubrica de desconto (D01/D02/D04). */
+    DESCONTO,
+    /** Mapeamento configurado pelo utilizador e guardado na BD (empresa + código). */
+    UTILIZADOR,
+    /** Nenhum mapa o conhece: aguarda mapeamento do utilizador. */
+    DESCONHECIDO
+}
+
 data class MapeamentoRubrica(
     val codigoRecibo: String,
     val codigoInterno: String?,
     val natureza: NaturezaRubrica,
-    val aviso: String?
+    val aviso: String?,
+    val origem: OrigemMapeamento
 )
 
 /**
@@ -85,36 +107,55 @@ private val CODIGOS_DESCONTO = setOf("D01", "D02", "D04")
  * mecanismo (`null` + aviso) de propósito: para quem chama, uma linha informativa e uma linha
  * desconhecida têm o mesmo destino — não escrever valor.
  */
-fun mapearCodigoRecibo(codigo: String): MapeamentoRubrica {
+fun mapearCodigoRecibo(
+    codigo: String,
+    mapeamentosUtilizador: Map<String, String> = emptyMap()
+): MapeamentoRubrica {
     val normalizado = codigo.trim().uppercase()
-    return when {
-        // Informativo em primeiro lugar: a classificação manda sobre tudo o resto, e o teste
-        // tranca-a. Hoje nenhum código informativo tem entrada nas listas abaixo, mas a ordem
-        // deixa o contrato explícito para quem mexer aqui.
-        normalizado in CODIGOS_INFORMATIVOS ->
-            MapeamentoRubrica(
-                normalizado, null, NaturezaRubrica.ABONO,
-                "Código $normalizado: linha informativa, não é pagamento (fica fora do recibo)"
-            )
 
-        normalizado in CODIGOS_DESCONTO ->
-            MapeamentoRubrica(normalizado, normalizado, NaturezaRubrica.DESCONTO, null)
-
-        RUBRICAS.containsKey(normalizado) ->
-            MapeamentoRubrica(
-                normalizado, RUBRICAS.getValue(normalizado), NaturezaRubrica.ABONO, null
-            )
-
-        normalizado in CODIGOS_PARA_OUTROS ->
-            MapeamentoRubrica(
-                normalizado, "OUTROS", NaturezaRubrica.ABONO,
-                "Código $normalizado: pagamento real, lançado em Outros"
-            )
-
-        else ->
-            MapeamentoRubrica(
-                normalizado, null, NaturezaRubrica.ABONO,
-                "Código $normalizado desconhecido: linha ignorada"
-            )
+    // 1. Informativos (prioridade máxima: o utilizador não os pode transformar em pagamento —
+    //    são linhas sem Importância no recibo e escrevê-las punha dinheiro que não existe).
+    if (normalizado in CODIGOS_INFORMATIVOS) {
+        return MapeamentoRubrica(
+            normalizado, null, NaturezaRubrica.ABONO,
+            "Código $normalizado: linha informativa, não é pagamento (fica fora do recibo)",
+            OrigemMapeamento.INFORMATIVO
+        )
     }
+
+    // 2. Mapa do utilizador (BD) — é o que permite a outra empresa sem recompilar a app.
+    val doUtilizador = mapeamentosUtilizador[normalizado]
+    if (doUtilizador != null) {
+        val natureza =
+            if (doUtilizador in CODIGOS_DESCONTO) NaturezaRubrica.DESCONTO else NaturezaRubrica.ABONO
+        return MapeamentoRubrica(
+            normalizado, doUtilizador, natureza, null, OrigemMapeamento.UTILIZADOR
+        )
+    }
+
+    // 3. Hardcoded (recibos PRIMAVERA/Cegid do utilizador).
+    if (normalizado in CODIGOS_DESCONTO) {
+        return MapeamentoRubrica(
+            normalizado, normalizado, NaturezaRubrica.DESCONTO, null, OrigemMapeamento.DESCONTO
+        )
+    }
+    if (RUBRICAS.containsKey(normalizado)) {
+        return MapeamentoRubrica(
+            normalizado, RUBRICAS.getValue(normalizado), NaturezaRubrica.ABONO, null,
+            OrigemMapeamento.HARDCODED
+        )
+    }
+    if (normalizado in CODIGOS_PARA_OUTROS) {
+        return MapeamentoRubrica(
+            normalizado, "OUTROS", NaturezaRubrica.ABONO,
+            "Código $normalizado: pagamento real, lançado em Outros", OrigemMapeamento.PARA_OUTROS
+        )
+    }
+
+    // 4. Desconhecido: a linha é lida mas não escreve valor; o código sobe na lista de
+    //    `codigosDesconhecidos` do recibo para a UI poder pedir o mapeamento (Fase 28c).
+    return MapeamentoRubrica(
+        normalizado, null, NaturezaRubrica.ABONO,
+        "Código $normalizado desconhecido: aguarda mapeamento", OrigemMapeamento.DESCONHECIDO
+    )
 }
