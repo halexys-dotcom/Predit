@@ -170,4 +170,16 @@ class MigracaoTest {
         helper.createDatabase("teste-migracao-20-21", 20).apply { close() }
         helper.runMigrationsAndValidate("teste-migracao-20-21", 21, true, PreditDatabase.MIGRATION_20_21)
     }
+
+    /**
+     * Fase 28a: nasce a tabela do mapeamento configurável de rubricas (empresa + código do
+     * recibo -> código interno). O esquema é validado contra o 22.json: três colunas TEXT NOT
+     * NULL e a chave composta (empresa, codigoOriginal) — sem índices nem FKs. A tabela nasce
+     * vazia, logo quem já tinha BD não perde nada nem muda de comportamento.
+     */
+    @Test
+    fun migrar21Para22() {
+        helper.createDatabase("teste-migracao-21-22", 21).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-21-22", 22, true, PreditDatabase.MIGRATION_21_22)
+    }
 }

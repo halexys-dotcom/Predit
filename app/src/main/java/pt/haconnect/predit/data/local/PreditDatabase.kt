@@ -22,9 +22,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TabelaIRSEntity::class,
         ReciboMesEntity::class,
         ReciboLinhaEntity::class,
-        MunicipioEntity::class
+        MunicipioEntity::class,
+        MapeamentoRubricaEntity::class
     ],
-    version = 21,
+    version = 22,
     exportSchema = true
 )
 @TypeConverters(Conversores::class)
@@ -42,6 +43,7 @@ abstract class PreditDatabase : RoomDatabase() {
     abstract fun reciboMesDao(): ReciboMesDao
     abstract fun reciboLinhaDao(): ReciboLinhaDao
     abstract fun municipioDao(): MunicipioDao
+    abstract fun mapeamentoRubricaDao(): MapeamentoRubricaDao
 
     companion object {
         /**
@@ -51,7 +53,7 @@ abstract class PreditDatabase : RoomDatabase() {
          * o valor vive duplicado lá em cima — o T1 do BackupManagerTest guarda a sincronia:
          * se um subir e o outro não, o teste falha.
          */
-        const val VERSAO_BD = 21
+        const val VERSAO_BD = 22
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -301,6 +303,23 @@ abstract class PreditDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "ALTER TABLE contrato_utilizador ADD COLUMN sindicalizado INTEGER NOT NULL DEFAULT 1"
+                )
+            }
+        }
+
+        /**
+         * Fase 28a: o mapeamento configurável entre o código da rubrica tal como vem no recibo
+         * (por empresa) e o código interno do catálogo. Tabela nova, criada vazia e sem dados
+         * semeados: quem a preenche é o parser (Fase 28b). Nada muda para quem já tinha BD.
+         */
+        val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `mapeamento_rubrica` (" +
+                        "`empresa` TEXT NOT NULL, " +
+                        "`codigoOriginal` TEXT NOT NULL, " +
+                        "`codigoInterno` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`empresa`, `codigoOriginal`))"
                 )
             }
         }

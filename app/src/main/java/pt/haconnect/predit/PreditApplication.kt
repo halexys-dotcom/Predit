@@ -82,7 +82,8 @@ class PreditApplication : Application() {
             PreditDatabase.MIGRATION_17_18,
             PreditDatabase.MIGRATION_18_19,
             PreditDatabase.MIGRATION_19_20,
-            PreditDatabase.MIGRATION_20_21
+            PreditDatabase.MIGRATION_20_21,
+            PreditDatabase.MIGRATION_21_22
         )
         .addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
