@@ -251,13 +251,6 @@ private fun mapaDoUtilizador(
 }
 
 /**
- * "ICTS PORTUGAL, SA", "ICTS PORTUGAL" e "icts  portugal" são a mesma empresa: a forma
- * societária a seguir à vírgula não distingue emissores.
- */
-private fun chaveDaEmpresa(texto: String): String =
-    texto.substringBefore(',').trim().uppercase().replace(Regex("""\s+"""), " ")
-
-/**
  * As fronteiras das colunas da grelha de rubricas, medidas a partir das próprias
  * etiquetas do cabeçalho (`Data`, `Abonos`, `Quantidade`, `Preço Unitário`) em vez de
  * constantes absolutas: assim o parser não depende de o extractor devolver o x na mesma

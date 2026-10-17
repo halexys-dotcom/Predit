@@ -2,6 +2,9 @@ package pt.haconnect.predit.domain.importacao
 
 import pt.haconnect.predit.domain.calc.NaturezaRubrica
 
+/** Espaços seguidos, para colapsar em [chaveDaEmpresa]. Compilada uma vez, não por chamada. */
+private val REGEX_ESPACOS = Regex("\\s+")
+
 /**
  * Como uma linha de recibo (código + descrição + valor) se liga ao catálogo de rubricas
  * da app.
@@ -159,3 +162,23 @@ fun mapearCodigoRecibo(
         "Código $normalizado desconhecido: aguarda mapeamento", OrigemMapeamento.DESCONHECIDO
     )
 }
+
+/**
+ * Chave normalizada para identificar a empresa emissora na tabela
+ * mapeamento_rubrica. Regra unica aplicada na leitura (parser) e na
+ * escrita (modal de mapeamento), senao o save fica assimetrico e o
+ * lookup nunca casa.
+ *
+ * Regras: uppercase, cortar depois da primeira virgula, colapsar
+ * espacos multiplos, trim final.
+ *
+ * Exemplos:
+ *   "ICTS PORTUGAL, SA"     -> "ICTS PORTUGAL"
+ *   "  ICTS PORTUGAL  "     -> "ICTS PORTUGAL"
+ *   "Securitas, Lda."       -> "SECURITAS"
+ */
+internal fun chaveDaEmpresa(empresa: String): String =
+    empresa.uppercase()
+        .substringBefore(",")
+        .trim()
+        .replace(REGEX_ESPACOS, " ")

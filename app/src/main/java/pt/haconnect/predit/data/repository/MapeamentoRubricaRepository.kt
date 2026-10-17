@@ -2,6 +2,7 @@ package pt.haconnect.predit.data.repository
 
 import pt.haconnect.predit.data.local.MapeamentoRubricaDao
 import pt.haconnect.predit.data.local.MapeamentoRubricaEntity
+import pt.haconnect.predit.domain.importacao.chaveDaEmpresa
 
 /**
  * Ponte entre o mapeamento de rubricas (Room) e quem o consome — o parser dos recibos
@@ -19,6 +20,25 @@ class MapeamentoRubricaRepository(private val dao: MapeamentoRubricaDao) {
                 empresa = empresa,
                 codigoOriginal = codigoOriginal,
                 codigoInterno = codigoInterno
+            )
+        )
+    }
+
+    /**
+     * Grava um mapeamento com a chave da empresa ja normalizada.
+     * Usar esta em vez de guardar(MapeamentoRubricaEntity(...)) para
+     * garantir simetria com a leitura feita pelo parser.
+     */
+    suspend fun guardarNormalizado(
+        empresa: String,
+        codigoOriginal: String,
+        codigoInterno: String
+    ) {
+        dao.guardar(
+            MapeamentoRubricaEntity(
+                empresa = chaveDaEmpresa(empresa),
+                codigoOriginal = codigoOriginal.trim().uppercase(),
+                codigoInterno = codigoInterno.trim().uppercase()
             )
         )
     }
