@@ -378,6 +378,22 @@ fun ConferenciaReciboScreen(
             }
         )
     }
+
+    // Fase 28c: o recibo trazia códigos que nenhum mapa conhece. Enquanto o utilizador não
+    // disser o que são, o recibo não é aplicado — só sai daqui com "Confirmar" ou "Cancelar".
+    uiState.mapeamentoPendente?.let { pendente ->
+        MapeamentoModal(
+            pendente = pendente,
+            // A lista mostra nomes; o código só serve para gravar. A ordem é a do catálogo.
+            rubricas = uiState.linhas
+                .sortedBy { it.ordem }
+                .map { it.nome to it.codigo }
+                .distinctBy { it.second },
+            onEscolha = viewModel::atualizarEscolhaMapeamento,
+            onConfirmar = viewModel::confirmarMapeamento,
+            onCancelar = viewModel::cancelarMapeamento
+        )
+    }
 }
 
 /** Uma rubrica: nome, estimado, campo do real e a divergência quando passa 1 cêntimo. */
@@ -526,5 +542,159 @@ private fun LinhaTotal(
             softWrap = false,
             textAlign = TextAlign.End
         )
+    }
+}
+
+/**
+ * Fase 28c: o recibo trazia códigos que nenhum mapa conhece. Por cada linha, o utilizador diz
+ * qual é a rubrica da app; "Confirmar" só fica ativo quando todos os códigos distintos têm
+ * destino escolhido.
+ *
+ * A lista mostra o **nome** da rubrica, nunca o código (regra da fase 18c): o código é o que
+ * fica gravado na BD, o nome é o que se lê.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MapeamentoModal(
+    pendente: MapeamentoPendente,
+    rubricas: List<Pair<String, String>>, // Nome -> Código
+    onEscolha: (String, String) -> Unit,
+    onConfirmar: () -> Unit,
+    onCancelar: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // O mesmo código pode vir em duas linhas do recibo (RCR + RCRA): o destino é um só.
+    val itensUnicos = pendente.itens.distinctBy { it.codigoOriginal }
+    val todosMapeados = itensUnicos.all { it.codigoOriginal in pendente.escolhas }
+
+    ModalBottomSheet(
+        onDismissRequest = onCancelar,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .padding(bottom = 32.dp) // espaço extra no fundo
+                .testTag("modal-mapeamento"),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Rubricas por mapear",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            val empresa = pendente.empresaEmissora
+            if (empresa == null) {
+                Text(
+                    text = "Empresa não detetada — o mapeamento vale só para esta importação, " +
+                        "não fica memorizado.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            } else {
+                Text(
+                    text = "Recibo de $empresa",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "Diz-nos o que são estas rubricas:",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            // Lista scrollável se houver muitos itens
+            Column(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                itensUnicos.forEach { item ->
+                    ItemMapeamentoRow(
+                        item = item,
+                        rubricas = rubricas,
+                        escolhaAtual = pendente.escolhas[item.codigoOriginal],
+                        onEscolha = { codigoInterno -> onEscolha(item.codigoOriginal, codigoInterno) }
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onCancelar) {
+                    Text("Cancelar importação")
+                }
+                Button(
+                    onClick = onConfirmar,
+                    enabled = todosMapeados,
+                    modifier = Modifier.testTag("guardar-mapeamento")
+                ) {
+                    Text("Confirmar mapeamento")
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Uma linha do recibo sem destino. O valor aparece em euros: é o que o utilizador reconhece no
+ * papel. A sugestão da heurística ([ItemMapeamento.sugestao]) vem pré-selecionada, mas não conta
+ * como escolha: só o clique no dropdown é que a regista, e é isso que ativa o "Confirmar".
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ItemMapeamentoRow(
+    item: ItemMapeamento,
+    rubricas: List<Pair<String, String>>,
+    escolhaAtual: String?,
+    onEscolha: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selecionada = rubricas.find { it.second == (escolhaAtual ?: item.sugestao) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Linha ${item.linha} — ${item.descricao} — ${item.valor.milParaEuros()}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
+            modifier = Modifier.padding(top = 4.dp)
+        ) {
+            OutlinedTextField(
+                value = selecionada?.first ?: "Selecionar rubrica...",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth()
+                    .testTag("mapeamento-${item.codigoOriginal}")
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                rubricas.forEach { (nome, codigo) ->
+                    DropdownMenuItem(
+                        text = { Text(nome) },
+                        onClick = {
+                            onEscolha(codigo)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
     }
 }
