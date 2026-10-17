@@ -77,7 +77,7 @@ fun ConferenciaReciboScreen(
             ausenciaRepository = remember { AusenciaRepository(db.ausenciaDao()) },
             municipioRepository = remember { MunicipioRepository(db.municipioDao()) },
             mapeamentoRepository = remember {
-                MapeamentoRubricaRepository(db.mapeamentoRubricaDao())
+                MapeamentoRubricaRepository(db)
             }
         )
     )

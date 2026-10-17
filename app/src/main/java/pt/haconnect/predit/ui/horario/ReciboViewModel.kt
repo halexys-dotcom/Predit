@@ -86,6 +86,34 @@ data class InfoRecibo(
 )
 
 /**
+ * 28c: uma linha do recibo cujo código ainda não está mapeado, tal como o modal a mostra.
+ *
+ * [sugestao] é a heurística por descrição ([ReciboViewModel.sugerirRubrica]) — é uma ajuda,
+ * não uma decisão: o utilizador pode escolher outra rubrica.
+ */
+data class ItemMapeamento(
+    val codigoOriginal: String,
+    val descricao: String,
+    val valor: Long,
+    val linha: Int,
+    val sugestao: String?  // codigo interno sugerido
+)
+
+/**
+ * 28c: o recibo que ficou à espera de mapeamento. Enquanto isto existir, o recibo não foi
+ * aplicado às edições do mês: as escolhas do utilizador têm de entrar antes.
+ *
+ * [reciboOriginal] é guardado inteiro (e não só os códigos) para a re-aplicação ser feita em
+ * memória, sem voltar a ler o PDF.
+ */
+data class MapeamentoPendente(
+    val reciboOriginal: ReciboImportado,
+    val empresaEmissora: String?,
+    val itens: List<ItemMapeamento>,
+    val escolhas: Map<String, String> = emptyMap() // codigoOriginal -> codigoInterno
+)
+
+/**
  * Estado do ecrã. Os campos levam valores por omissão (o enunciado só os punha em
  * `mensagemErro`) porque o `stateIn` precisa de um estado inicial antes de haver dados.
  */
@@ -112,7 +140,12 @@ data class ReciboUiState(
     /** 27d: os recibos a escolher, quando o seletor está aberto. */
     val recibosParaEscolher: List<InfoRecibo> = emptyList(),
     /** 27d: aviso curto depois de importar (ex.: rubricas sem correspondência na app). */
-    val mensagemImportacao: String? = null
+    val mensagemImportacao: String? = null,
+    /**
+     * 28c: códigos do recibo importado que nenhum mapa conhece. Enquanto não for nulo, o
+     * recibo ainda não foi aplicado — está à espera das escolhas do utilizador.
+     */
+    val mapeamentoPendente: MapeamentoPendente? = null
 ) {
     /** Sem recibo gravado o formulário vem pré-preenchido, portanto Guardar tem de estar ativo. */
     val podeGuardar: Boolean get() = !carregando && (!guardado || temAlteracoes)
@@ -186,6 +219,10 @@ class ReciboViewModel(
     private val _mensagemImportacao = MutableStateFlow<String?>(null)
     private val _recibosImportados = MutableStateFlow<List<ReciboImportado>>(emptyList())
 
+    // 28c: enquanto não for nulo, o recibo importado tem códigos por mapear e ainda não foi
+    // aplicado — primeiro escolhem-se os destinos, só depois `aplicarReciboImportado` corre.
+    private val _mapeamentoPendente = MutableStateFlow<MapeamentoPendente?>(null)
+
     private val contrato = contratoRepository.observar()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -233,12 +270,14 @@ class ReciboViewModel(
         estadoDoEcra,
         _seletorDeReciboAberto,
         _recibosParaEscolher,
-        _mensagemImportacao
-    ) { base, seletorAberto, recibosParaEscolher, mensagemImportacao ->
+        _mensagemImportacao,
+        _mapeamentoPendente
+    ) { base, seletorAberto, recibosParaEscolher, mensagemImportacao, mapeamentoPendente ->
         base.copy(
             seletorDeReciboAberto = seletorAberto,
             recibosParaEscolher = recibosParaEscolher,
-            mensagemImportacao = mensagemImportacao
+            mensagemImportacao = mensagemImportacao,
+            mapeamentoPendente = mapeamentoPendente
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReciboUiState())
 
@@ -408,6 +447,56 @@ class ReciboViewModel(
     }
 
     /**
+     * 28c: um recibo com códigos que nenhum mapa conhece não é aplicado já — fica pendente
+     * para o utilizador dizer, no modal, onde cada código vai. Sem desconhecidos, o caminho é
+     * o de sempre.
+     */
+    private fun processarReciboUnico(recibo: ReciboImportado) {
+        if (recibo.codigosDesconhecidos.isEmpty()) {
+            aplicarReciboImportado(recibo)
+            return
+        }
+
+        // Construir a lista de itens para o modal
+        val itens = recibo.linhas
+            .filter { it.codigoRecibo in recibo.codigosDesconhecidos }
+            .map { linha ->
+                ItemMapeamento(
+                    codigoOriginal = linha.codigoRecibo,
+                    descricao = linha.descricao.ifEmpty { "Linha ${linha.ordem}" },
+                    valor = linha.valor,
+                    linha = linha.ordem,
+                    sugestao = sugerirRubrica(linha.descricao)
+                )
+            }
+
+        _mapeamentoPendente.value = MapeamentoPendente(
+            reciboOriginal = recibo,
+            empresaEmissora = recibo.empresaEmissora,
+            itens = itens
+        )
+    }
+
+    /**
+     * Heurística pela descrição da linha ("Subsídio de Alimentação" -> SUP_ALIM). É só uma
+     * sugestão pré-selecionada no modal: quem decide é o utilizador.
+     */
+    private fun sugerirRubrica(descricao: String): String? {
+        val d = descricao.lowercase()
+        return when {
+            "alimenta" in d -> "SUP_ALIM"
+            "transp" in d -> "SUP_TRAN"
+            "vencimento" in d || "salário" in d || "salario" in d -> "VENC"
+            "férias" in d || "ferias" in d -> "FERIAS"
+            "natal" in d -> "NATAL"
+            "irs" in d -> "D02"
+            "segurança social" in d || "seguranca social" in d -> "D01"
+            "sindicato" in d -> "D04"
+            else -> null
+        }
+    }
+
+    /**
      * 27d: aplica um recibo importado às edições do mês atual. Cada linha com `codigoInterno`
      * não-nulo é mapeada para a rubrica correspondente do catálogo; as linhas sem código interno
      * — as informativas (baixa, férias gozadas, ausência parcial, subsídio durante a baixa) e as
@@ -487,7 +576,7 @@ class ReciboViewModel(
                 return@launch
             }
             if (recibos.size == 1) {
-                aplicarReciboImportado(recibos.first())
+                processarReciboUnico(recibos.first())
             } else {
                 _recibosImportados.value = recibos
                 _recibosParaEscolher.value = recibos.mapIndexed { indice, recibo ->
@@ -509,7 +598,7 @@ class ReciboViewModel(
         _recibosImportados.value = emptyList()
         _recibosParaEscolher.value = emptyList()
         _seletorDeReciboAberto.value = false
-        aplicarReciboImportado(escolhido)
+        processarReciboUnico(escolhido)
     }
 
     /** O utilizador fechou o seletor sem escolher. */
@@ -517,6 +606,49 @@ class ReciboViewModel(
         _recibosImportados.value = emptyList()
         _recibosParaEscolher.value = emptyList()
         _seletorDeReciboAberto.value = false
+    }
+
+    /**
+     * 28c: o utilizador escolheu a rubrica de um código do recibo.
+     */
+    fun atualizarEscolhaMapeamento(codigoOriginal: String, codigoInterno: String) {
+        _mapeamentoPendente.update { pendente ->
+            pendente?.copy(escolhas = pendente.escolhas + (codigoOriginal to codigoInterno))
+        }
+    }
+
+    /** 28c: o utilizador desistiu — o recibo pendente não chega a ser aplicado. */
+    fun cancelarMapeamento() {
+        _mapeamentoPendente.value = null
+        _mensagemImportacao.value = "Importação cancelada."
+    }
+
+    /**
+     * 28c: grava as escolhas (com a chave normalizada, para casarem com a leitura do parser) e
+     * re-aplica o recibo em memória com os códigos já traduzidos — sem voltar a ler o PDF.
+     */
+    fun confirmarMapeamento() {
+        val pendente = _mapeamentoPendente.value ?: return
+        viewModelScope.launch {
+            // 1. Gravar na BD
+            val empresa = pendente.empresaEmissora
+            if (empresa != null && pendente.escolhas.isNotEmpty()) {
+                // Uma transacao (ver MapeamentoRubricaRepository.guardarNormalizados): uma
+                // falha a meio nao deixa mapeamentos parciais na BD.
+                mapeamentoRepository.guardarNormalizados(empresa, pendente.escolhas)
+            }
+
+            // 2. Re-aplicar o recibo em memoria
+            val novasLinhas = pendente.reciboOriginal.linhas.map { linha ->
+                val novoCodigo = pendente.escolhas[linha.codigoRecibo] ?: linha.codigoInterno
+                linha.copy(codigoInterno = novoCodigo)
+            }
+            val reciboCorrigido = pendente.reciboOriginal.copy(linhas = novasLinhas)
+
+            // 3. Aplicar e limpar
+            aplicarReciboImportado(reciboCorrigido)
+            _mapeamentoPendente.value = null
+        }
     }
 
     /**
