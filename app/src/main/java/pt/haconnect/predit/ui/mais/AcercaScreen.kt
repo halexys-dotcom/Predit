@@ -120,13 +120,6 @@ fun AcercaScreen(onVoltar: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            Text(
-                text = "Toda a informação fica guardada apenas no telemóvel. A app não envia " +
-                    "dados para nenhum servidor.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.outline
-            )
-
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             Text(
@@ -162,6 +155,16 @@ fun AcercaScreen(onVoltar: () -> Unit) {
                 color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Nota de privacidade: fica como ultimo bloco do ecra, depois dos agradecimentos.
+            Text(
+                text = "Toda a informação fica guardada apenas no telemóvel. A app não envia " +
+                    "dados para nenhum servidor.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.outline
             )
         }
     }
