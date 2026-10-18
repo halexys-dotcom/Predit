@@ -148,6 +148,13 @@ data class ReciboUiState(
     /** 27d: aviso curto depois de importar (ex.: rubricas sem correspondência na app). */
     val mensagemImportacao: String? = null,
     /**
+     * 28j: os avisos que o parser produziu ao ler o PDF (baixa total, cabeçalho ilegível, linha
+     * "Total" partida...). Ficam em lista própria, e não colados à [mensagemImportacao], porque
+     * são vários e a UI mostra-os em bloco; sem eles o utilizador não sabia que um mês de baixa
+     * tinha sido importado com o vencimento posto a zero por regra.
+     */
+    val avisosImportacao: List<String> = emptyList(),
+    /**
      * 28c: códigos do recibo importado que nenhum mapa conhece. Enquanto não for nulo, o
      * recibo ainda não foi aplicado — está à espera das escolhas do utilizador.
      */
@@ -211,6 +218,17 @@ class ReciboViewModel(
         val agendas: Agendas
     )
 
+    /**
+     * 28j: os sinais da importação que não dependem do mês, agrupados. O `combine` só tem
+     * sobrecargas tipadas até 5 fluxos: agrupados, o `uiState` continua a ter uma lambda de
+     * tipos explícitos em vez do `Array<Any?>` da versão vararg.
+     */
+    private data class ImportacaoUi(
+        val recibosParaEscolher: List<InfoRecibo>,
+        val mensagemImportacao: String?,
+        val avisosImportacao: List<String>
+    )
+
     private val _anoMesAtual = MutableStateFlow(YearMonth.now())
     val anoMesAtual: StateFlow<YearMonth> = _anoMesAtual.asStateFlow()
 
@@ -223,6 +241,9 @@ class ReciboViewModel(
     private val _seletorDeReciboAberto = MutableStateFlow(false)
     private val _recibosParaEscolher = MutableStateFlow<List<InfoRecibo>>(emptyList())
     private val _mensagemImportacao = MutableStateFlow<String?>(null)
+    // 28j: avisos do parser sobre o recibo lido (baixa total, cabeçalho ilegível...). Vivem ao
+    // lado da mensagem porque são vários e a UI mostra-os por baixo dela.
+    private val _avisosImportacao = MutableStateFlow<List<String>>(emptyList())
     private val _recibosImportados = MutableStateFlow<List<ReciboImportado>>(emptyList())
 
     // 28c: enquanto não for nulo, o recibo importado tem códigos por mapear e ainda não foi
@@ -275,14 +296,16 @@ class ReciboViewModel(
     val uiState: StateFlow<ReciboUiState> = combine(
         estadoDoEcra,
         _seletorDeReciboAberto,
-        _recibosParaEscolher,
-        _mensagemImportacao,
+        combine(_recibosParaEscolher, _mensagemImportacao, _avisosImportacao) { recibos, mensagem, avisos ->
+            ImportacaoUi(recibos, mensagem, avisos)
+        },
         _mapeamentoPendente
-    ) { base, seletorAberto, recibosParaEscolher, mensagemImportacao, mapeamentoPendente ->
+    ) { base, seletorAberto, importacao, mapeamentoPendente ->
         base.copy(
             seletorDeReciboAberto = seletorAberto,
-            recibosParaEscolher = recibosParaEscolher,
-            mensagemImportacao = mensagemImportacao,
+            recibosParaEscolher = importacao.recibosParaEscolher,
+            mensagemImportacao = importacao.mensagemImportacao,
+            avisosImportacao = importacao.avisosImportacao,
             mapeamentoPendente = mapeamentoPendente
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReciboUiState())
@@ -565,6 +588,9 @@ class ReciboViewModel(
             "Recibo de $mes$empresa importado. ${naoReconhecidas.size} rubrica(s) sem correspondência."
         }
         _mensagemErro.value = null
+        // 28j: os avisos do parser sobem à UI (é por eles que o utilizador percebe porque é que
+        // num mês de baixa total o VENC ficou a 0,00 e o mês fecha pelo complemento R51).
+        _avisosImportacao.value = recibo.avisos.distinct()
     }
 
     // --- comandos ------------------------------------------------------------
@@ -586,6 +612,8 @@ class ReciboViewModel(
     fun importarRecibo(uri: Uri, context: Context) {
         viewModelScope.launch {
             _mensagemImportacao.value = null
+            // 28j: sem isto, um recibo importado a seguir a outro arrastava os avisos do anterior.
+            _avisosImportacao.value = emptyList()
             val blocos = extrairBlocosPdf(uri, context)
             if (blocos.isEmpty()) {
                 _mensagemErro.value = "Não foi possível ler o PDF."
@@ -648,6 +676,8 @@ class ReciboViewModel(
     fun cancelarMapeamento() {
         _mapeamentoPendente.value = null
         _mensagemImportacao.value = "Importação cancelada."
+        // 28j: o recibo não chegou a ser aplicado — os avisos do parser também não ficam no ecrã.
+        _avisosImportacao.value = emptyList()
     }
 
     /**
