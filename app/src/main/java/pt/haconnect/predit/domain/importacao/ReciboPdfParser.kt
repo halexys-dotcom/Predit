@@ -181,7 +181,37 @@ private fun parsePagina(
     // nada do vencimento, portanto o valor do mês pode vir inflacionado. É aviso, não erro: o
     // recibo é importado na mesma.
     val temBaixa = linhas.any { it.codigoRecibo == "F02" || it.codigoRecibo == "F35" }
-    if (temBaixa) {
+
+    // 28i: mês de BAIXA TOTAL — o recibo traz as linhas diárias de baixa (F02) e paga o mês pelo
+    // complemento de baixa (R51). Nesse caso o R01 não é dinheiro recebido: é só a referência de
+    // cálculo do complemento. O recibo real de Março de 2026 fecha com Abonos = 258,70 € — o
+    // valor do R51 — e o vencimento de 1 137,98 € do R01 serve apenas de base àquele cálculo.
+    // Escrever o R01 punha no mês 1 137,98 € que ninguém recebeu (e, por arrasto, D01/D02/D04
+    // sobre dinheiro que não foi pago); por isso a linha passa a informativa, como as F02/F40/F50:
+    // fica sem código interno, mantém o valor (para se ver a referência) e leva um aviso.
+    // A Fundação escreve F35 e não tem R51: sem complemento, a regra não se aplica — e um mês de
+    // baixa parcial nem chega aqui (aí o R01 é mesmo pago, com o complemento a somar-lhe o resto).
+    val mesDeBaixaTotal = temBaixa && linhas.any { it.codigoRecibo == "R51" }
+    val linhasAjustadas = if (mesDeBaixaTotal) {
+        linhas.map { linha ->
+            if (linha.codigoRecibo == "R01") {
+                linha.copy(
+                    codigoInterno = null,
+                    aviso = "Vencimento informativo: mês de baixa total, pago pelo complemento R51"
+                )
+            } else {
+                linha
+            }
+        }
+    } else {
+        linhas
+    }
+    if (mesDeBaixaTotal) {
+        avisos.add(
+            "Mês de baixa total: o vencimento base não é pago, o mês fecha pelo complemento " +
+                "de baixa (R51)."
+        )
+    } else if (temBaixa) {
         avisos.add("Atenção: este recibo tem dias de baixa. O vencimento pode estar inflacionado.")
     }
 
@@ -214,7 +244,7 @@ private fun parsePagina(
         totalAbonos = totalAbonos,
         totalDescontos = totalDescontos,
         liquido = liquido ?: 0L,
-        linhas = linhas,
+        linhas = linhasAjustadas,
         avisos = avisos,
         codigosDesconhecidos = codigosDesconhecidos
     )

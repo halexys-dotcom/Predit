@@ -11,8 +11,8 @@ import pt.haconnect.predit.domain.model.Rubrica
 /**
  * A aplicação de um recibo importado às edições do mês: dois códigos do PDF podem cair na mesma
  * rubrica do catálogo — `RCR` e `RCRA` são ambos o subsídio de alimentação em cartão (o segundo
- * é o acerto), `R51` e `R118` são ambos "Outros" — e o valor da rubrica tem de ser a **soma**
- * das linhas, não a última delas.
+ * é o acerto) — e o valor da rubrica tem de ser a **soma** das linhas, não a última delas. O `R51`
+ * deixou de partilhar "Outros" com o `R118` na 28i: tem rubrica própria (`COMP_BAIXA`, isenta).
  *
  * Os valores são os dos recibos reais (ver ReciboPdfParserTest e os fixtures): Março 2026 e
  * Agosto 2025. Este caminho — importar para as edições — não é exercitado pelo parser nem pelo
@@ -24,6 +24,7 @@ class ReciboImportacaoTest {
         rubrica(1L, "VENC"),
         rubrica(9L, "SUP_ALIM"),
         rubrica(10L, "SUP_TRAN"),
+        rubrica(24L, "COMP_BAIXA"),
         rubrica(99L, "OUTROS")
     ).associateBy { it.codigo }
 
@@ -66,19 +67,25 @@ class ReciboImportacaoTest {
         assertEquals(1_706_600L, somados[9L])
     }
 
-    /** `R51` (Março 2026) e `R118` (Julho 2026) são pagamentos reais e caem os dois em Outros. */
+    /**
+     * `R51` (Março 2026) saiu de "Outros" na 28i: vai para `COMP_BAIXA`, que é isenta de SS e IRS.
+     * O `R118` (Julho 2026, média de horas noturnas) é tributado e continua em "Outros" — cada
+     * linha escreve só na sua rubrica.
+     */
     @Test
-    fun `R51 e R118 caem ambos em Outros e somam`() {
+    fun `R51 vai para COMP_BAIXA e R118 fica em Outros`() {
+        val naoReconhecidas = mutableListOf<String>()
         val somados = somarLinhasPorRubrica(
             listOf(
                 linha("R51", 2_587_000L),
                 linha("R118", 1_300L)
             ),
             catalogo,
-            mutableListOf()
+            naoReconhecidas
         )
 
-        assertEquals(2_588_300L, somados[99L])
+        assertEquals(mapOf(24L to 2_587_000L, 99L to 1_300L), somados)
+        assertTrue(naoReconhecidas.isEmpty())
     }
 
     /** As informativas vêm do parser sem código interno (ver CODIGOS_INFORMATIVOS). */
@@ -95,6 +102,35 @@ class ReciboImportacaoTest {
         )
 
         assertEquals(mapOf(1L to 11_379_800L), somados)
+        assertTrue(naoReconhecidas.isEmpty())
+    }
+
+    /**
+     * 28i: num mês de baixa total o parser marca o `R01` como informativo — o pagamento do mês é
+     * o complemento (`R51`). A rubrica é declarada pelo recibo e não paga, portanto escreve-se 0
+     * (o que também limpa o VENC que tivesse ficado de uma importação anterior). É esta a conta
+     * que faz os Totais Reais de Março fecharem nos 258,70 € que o recibo declara em Abonos.
+     */
+    @Test
+    fun `Marco 2026 - R01 informativo escreve 0 no VENC e o mes fecha no R51`() {
+        val naoReconhecidas = mutableListOf<String>()
+        val somados = somarLinhasPorRubrica(
+            listOf(
+                linha("R01", 11_379_800L, codigoInterno = null),   // informativo: mês de baixa total
+                linha("R14", 0L),
+                linha("R51", 2_587_000L),
+                linha("RCR", 1_727_000L),
+                linha("RCRA", -1_727_000L)
+            ),
+            catalogo,
+            naoReconhecidas
+        )
+
+        assertEquals(0L, somados[1L])                          // VENC: não é pago
+        assertEquals(2_587_000L, somados[24L])                 // COMP_BAIXA: o pagamento do mês
+        assertEquals(0L, somados[9L])                          // SUP_ALIM: cartão anulado
+        assertEquals(0L, somados[10L])                         // SUP_TRAN: R14 = 0,00
+        assertEquals(2_587_000L, somados.values.sum())         // Abonos = 258,70 €
         assertTrue(naoReconhecidas.isEmpty())
     }
 

@@ -32,6 +32,7 @@ import pt.haconnect.predit.domain.calc.valorHoraMil
 import pt.haconnect.predit.domain.importacao.LinhaReciboImportada
 import pt.haconnect.predit.domain.importacao.ReciboImportado
 import pt.haconnect.predit.domain.importacao.fundirRecibos
+import pt.haconnect.predit.domain.importacao.mapearCodigoRecibo
 import pt.haconnect.predit.domain.importacao.parseReciboPdf
 import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
@@ -535,8 +536,9 @@ class ReciboViewModel(
         // Classificação das linhas do recibo (confirmada a 2026-10-16 com 5 recibos reais e os
         // fixtures): as informativas — baixas (F01/F02), subsídio durante a baixa (F40), férias
         // gozadas (F50), ausência parcial (F74) — vêm do parser sem código interno e não escrevem
-        // valor; as de "Outros" (R51 complemento de baixa, R118 média de horas noturnas) são
-        // pagamentos reais, trazem Importância no recibo e escrevem.
+        // valor; as de "Outros" (R118 média de horas noturnas) são pagamentos reais, trazem
+        // Importância no recibo e escrevem. O R51 (complemento de baixa) saiu de "Outros" na 28i:
+        // tem rubrica própria (COMP_BAIXA), isenta, e escreve lá.
         val anoMes = chaveDe(_anoMesAtual.value)
         val catalogo = rubricasCatalogo.value.associateBy { it.codigo }
         val naoReconhecidas = mutableListOf<String>()
@@ -872,13 +874,27 @@ private fun formatarAnoMes(anoMes: YearMonth): String {
  * As linhas informativas (baixa, férias gozadas, ausência parcial, subsídio durante a baixa) vêm
  * do parser sem `codigoInterno` e são ignoradas — nunca escrevem valor, é o que já era o destino
  * delas. Os códigos que não existem no catálogo ficam em [naoReconhecidas] para a app avisar.
+ *
+ * A excepção é a linha que o **mapeamento** manda para uma rubrica mas o parser marcou de
+ * informativa: aí a rubrica é declarada pelo recibo e não paga (28i: o `R01` num mês de baixa
+ * total, que só serve de referência ao cálculo do complemento `R51`). Escreve-se 0, para também
+ * limpar o que tivesse ficado de uma importação anterior — sem isso, reimportar Março depois da
+ * 28i deixava lá os 1 137,98 € que ninguém recebeu e os Totais Reais não fechavam nos 258,70 €
+ * que o recibo declara.
  */
 internal fun somarLinhasPorRubrica(
     linhas: List<LinhaReciboImportada>,
     catalogoPorCodigo: Map<String, Rubrica>,
     naoReconhecidas: MutableList<String>
 ): Map<Long, Long> {
+    // Primeiro as rubricas declaradas e não pagas, para uma linha com valor escrita depois somar
+    // por cima de 0 em vez de ser apagada.
     val somados = mutableMapOf<Long, Long>()
+    for (linha in linhas) {
+        if (linha.codigoInterno != null) continue
+        val codigoMapeado = mapearCodigoRecibo(linha.codigoRecibo).codigoInterno ?: continue
+        catalogoPorCodigo[codigoMapeado]?.let { somados[it.id] = 0L }
+    }
     for (linha in linhas) {
         val codigoInterno = linha.codigoInterno ?: continue
         val rubrica = catalogoPorCodigo[codigoInterno]

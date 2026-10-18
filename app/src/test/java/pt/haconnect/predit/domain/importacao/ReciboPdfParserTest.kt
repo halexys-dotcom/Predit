@@ -200,7 +200,7 @@ class ReciboPdfParserTest {
         val primeira = recibos.first()
         assertEquals(11_379_800L, primeira.valorDe("R01"))    // 1 137,98 €
         assertEquals(0L, primeira.valorDe("R14"))             // 0,00 € (mês de baixa)
-        assertEquals("OUTROS", primeira.linha("R51").codigoInterno)   // complemento de baixa
+        assertEquals("COMP_BAIXA", primeira.linha("R51").codigoInterno)   // complemento de baixa (isento)
         assertEquals(2_587_000L, primeira.valorDe("R51"))     // 258,70 €
         assertEquals("SUP_ALIM", primeira.linha("RCR").codigoInterno)
 
@@ -209,6 +209,29 @@ class ReciboPdfParserTest {
         assertTrue(baixas.isNotEmpty())
         assertTrue(baixas.all { it.codigoInterno == null && it.aviso != null })
         assertEquals(396_700L, baixas.first().valor)          // 39,67 €
+    }
+
+    @Test
+    fun `Marco 2026 - R01 e informativo quando o mes e de baixa`() {
+        val recibos = ler("recibo-marco-2026.txt")
+        // O ficheiro de Março tem 3 folhas. A que tem o R01 e a R51 e a 1.a.
+        val recibo = recibos.first { it.linhas.any { l -> l.codigoRecibo == "R01" } }
+
+        // 28i: mês de baixa total (F02) pago pelo complemento (R51) — o R01 é só a referência de
+        // cálculo do complemento, não entra nos totais. O valor fica, para se ver a referência.
+        val r01 = recibo.linhas.first { it.codigoRecibo == "R01" }
+        assertNull(r01.codigoInterno)
+        assertNotEquals(null, r01.aviso)
+        assertEquals(11_379_800L, r01.valor)                  // 1 137,98 € (referência)
+
+        val r51 = recibo.linhas.first { it.codigoRecibo == "R51" }
+        assertEquals("COMP_BAIXA", r51.codigoInterno)         // o pagamento do mês é este
+
+        // O aviso de "vencimento inflacionado" sai de cena: já não há vencimento a escrever.
+        assertTrue(
+            "Devia avisar da baixa total: ${recibo.avisos}",
+            recibo.avisos.any { it.contains("baixa total") }
+        )
     }
 
     // ----------------------------------------------------- Agosto 2025 (Cegid)
@@ -232,7 +255,7 @@ class ReciboPdfParserTest {
 
         assertEquals(10_760_000L, recibo.valorDe("R01"))
         assertEquals(492_500L, recibo.valorDe("R14"))      // 49,25 €
-        assertEquals("OUTROS", recibo.linha("R51").codigoInterno)
+        assertEquals("COMP_BAIXA", recibo.linha("R51").codigoInterno)
         assertEquals(2_126_600L, recibo.valorDe("R51"))    // 212,66 €
         // A Cegid usa RCR/RCRA para o subsídio de alimentação; a PRIMAVERA usa SAC.
         assertEquals("SUP_ALIM", recibo.linha("RCR").codigoInterno)
@@ -271,10 +294,11 @@ class ReciboPdfParserTest {
         assertNull(subsidioDaBaixa.codigoInterno)
         assertTrue(subsidioDaBaixa.aviso!!.contains("F40"))
 
-        // R51 (complemento de baixa) e R118 (média de horas noturnas) são pagamentos reais:
-        // entram em Outros, com valor.
+        // R51 saiu de "Outros" na 28i: tem rubrica própria (COMP_BAIXA, isenta de SS e IRS) porque
+        // "Outros" incide e os descontos não podem cair sobre o complemento de baixa. O R118 (média
+        // de horas noturnas) é tributado e fica em Outros.
         val complemento = mapearCodigoRecibo("R51")
-        assertEquals("OUTROS", complemento.codigoInterno)
+        assertEquals("COMP_BAIXA", complemento.codigoInterno)
         assertTrue(complemento.aviso!!.contains("R51"))
         assertEquals("OUTROS", mapearCodigoRecibo("R118").codigoInterno)
 

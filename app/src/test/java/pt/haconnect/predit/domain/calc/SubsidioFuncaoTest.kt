@@ -121,7 +121,10 @@ class SubsidioFuncaoTest {
 
         // 430 000 × 17 ÷ 22 = 332 272,72… → 332 273 (43,00 € → 33,23 €)
         assertEquals(332_273L, est.valor("SUP_FUNCAO"))
-        // O sindicato continua a incidir só sobre o VENC: o subsídio de função não mexe no D04.
-        assertEquals(113_798L, est.valor("D04"))
+        // O sindicato continua a incidir só sobre o VENC — e desde a 28i o VENC é proporcional aos
+        // dias trabalhados: 1 137,98 € × 17 ÷ 22 = 879,35 € (os 5 dias úteis de férias saem, e a
+        // projeção de setembro deste teste tem 22 dias de trabalho).
+        assertEquals(8_793_482L, est.valor("VENC"))
+        assertEquals(87_935L, est.valor("D04"))   // 1% de 879,35 €
     }
 }

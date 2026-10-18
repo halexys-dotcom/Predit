@@ -23,9 +23,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -402,6 +404,27 @@ private fun LinhaRubrica(
     linha: LinhaConferencia,
     onTextoAlterado: (String) -> Unit
 ) {
+    // O campo guarda o `TextFieldValue`, e não só o texto: ligado a uma String que volta do
+    // ViewModel, cada tecla regressava com a seleção a zero e o cursor saltava para a esquerda
+    // (o clássico "escreve ao contrário" dos campos controlados por texto puro). O estado é do
+    // campo — chaveado pela rubrica, para não vazar de uma linha para outra — e só se reescreve
+    // quando o texto muda por fora: importação do recibo, limpeza ou mudança de mês.
+    var textFieldValue by remember(linha.rubricaId) {
+        mutableStateOf(
+            TextFieldValue(
+                linha.textoRealEditavel,
+                selection = TextRange(linha.textoRealEditavel.length)
+            )
+        )
+    }
+    LaunchedEffect(linha.textoRealEditavel) {
+        if (textFieldValue.text != linha.textoRealEditavel) {
+            textFieldValue = textFieldValue.copy(
+                text = linha.textoRealEditavel,
+                selection = TextRange(linha.textoRealEditavel.length)
+            )
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -435,8 +458,11 @@ private fun LinhaRubrica(
                 maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis
             )
             OutlinedTextField(
-                value = linha.textoRealEditavel,
-                onValueChange = onTextoAlterado,
+                value = textFieldValue,
+                onValueChange = { novoValor ->
+                    textFieldValue = novoValor
+                    onTextoAlterado(novoValor.text)
+                },
                 label = { Text("Real", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)) },
                 singleLine = true,
                 isError = linha.textoInvalido,

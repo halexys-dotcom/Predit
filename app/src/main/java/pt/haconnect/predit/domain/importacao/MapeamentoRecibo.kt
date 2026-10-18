@@ -94,12 +94,19 @@ private val CODIGOS_INFORMATIVOS = setOf(
 /**
  * Códigos que correspondem a OUTRA rubrica interna sem ser o código natural. Mapeados para
  * "OUTROS", mas com valor: ao contrário das linhas informativas, estes são pagamentos reais e
- * contam para o Total (trazem Importância no recibo).
+ * contam para o Total (trazem Importância no recibo). O R51 saiu daqui na 28i: tem rubrica
+ * própria (COMP_BAIXA) porque é isento.
  */
 private val CODIGOS_PARA_OUTROS = setOf(
-    "R51",   // Complemento de baixa
     "R118"   // Média de horas noturnas
 )
+
+/**
+ * 28i: rubricas próprias que saíram de "Outros". O complemento de baixa (R51) é isento de SS e
+ * IRS, e "Outros" incide — lançá-lo lá levava os descontos por cima de um valor que não os paga.
+ * Fica fora de [CODIGOS_PARA_OUTROS] de propósito: se um dia voltar para lá, os descontos voltam.
+ */
+private const val RUBRICA_COMPLEMENTO_BAIXA = "COMP_BAIXA"
 
 /** Códigos cujo valor sai do recibo: a natureza deles é DESCONTO, não ABONO. */
 private val CODIGOS_DESCONTO = setOf("D01", "D02", "D04")
@@ -143,6 +150,14 @@ fun mapearCodigoRecibo(
     if (normalizado in CODIGOS_DESCONTO) {
         return MapeamentoRubrica(
             normalizado, normalizado, NaturezaRubrica.DESCONTO, null, OrigemMapeamento.DESCONTO
+        )
+    }
+    // 28i: o complemento de baixa (R51) tem rubrica própria e é isento. Tem de vir antes do mapa
+    // genérico porque a isenção não se lê do código — só o catálogo sabe que COMP_BAIXA não incide.
+    if (normalizado == "R51") {
+        return MapeamentoRubrica(
+            normalizado, RUBRICA_COMPLEMENTO_BAIXA, NaturezaRubrica.ABONO,
+            "Código R51: complemento de baixa, isento de SS e IRS", OrigemMapeamento.HARDCODED
         )
     }
     if (RUBRICAS.containsKey(normalizado)) {

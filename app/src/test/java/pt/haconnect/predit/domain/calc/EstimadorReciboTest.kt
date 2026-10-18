@@ -337,10 +337,16 @@ class EstimadorReciboTest {
         assertEquals(0L, est.valor("HNOT"))
         assertEquals(0L, est.valor("HSUP_NT"))
 
-        // Base de incidência: 1 137,98 + 32,99 = 1 170,97 € (o cartão de refeição não incide).
-        assertEquals(1_288_067L, est.valor("D01"))      // 11% → 128,81 €
-        assertEquals(472_057L, est.valor("D02"))        // escalão 4 → 47,21 €
-        assertEquals(113_798L, est.valor("D04"))        // 1% do VENC → 11,38 €
+        // Vencimento proporcional (28i): a projeção deste teste conta como dias de trabalho os
+        // dias 1 a 22 de agosto, e 13 deles caem dentro das férias (10 a 22) → 9 trabalhados.
+        // 1 137,98 € × 9 ÷ 22 = 465,54 €
+        assertEquals(4_655_373L, est.valor("VENC"))
+
+        // Base de incidência: 465,54 + 32,99 = 498,53 € (o cartão de refeição não incide).
+        assertEquals(548_380L, est.valor("D01"))        // 11% → 54,84 €
+        // 498,53 € fica no escalão de 0% da tabela I (até 920 €): sem retenção.
+        assertEquals(0L, est.valor("D02"))
+        assertEquals(46_554L, est.valor("D04"))         // 1% do VENC → 4,66 €
     }
 
     @Test
@@ -421,12 +427,57 @@ class EstimadorReciboTest {
             ).copy(tiposTurno = listOf(tipoTrabalho))
         )
 
-        // O motor não distingue tipos de ausência — só datas. Valores iguais aos do T8.
+        // O motor não distingue tipos de ausência — só datas. Valores iguais aos do T8: 22 dias de
+        // trabalho projetados, 13 dentro da baixa → 9 trabalhados (1 137,98 € × 9 ÷ 22).
+        assertEquals(4_655_373L, est.valor("VENC"))
         assertEquals(863_500L, est.valor("SUP_ALIM"))     // (22 − 11) × 7,85 € = 86,35 €
         assertEquals(329_903L, est.valor("SUP_TRAN"))     // 32,99 €
         assertEquals(0L, est.valor("HNOT"))
         assertEquals(0L, est.valor("HSUP_NT"))
-        assertEquals(472_057L, est.valor("D02"))          // 47,21 €
+        // Base de IRS 498,53 € → escalão de 0% da tabela I (até 920 €): sem retenção.
+        assertEquals(0L, est.valor("D02"))
+    }
+
+    /**
+     * 28i: baixa o mês inteiro. Antes, o VENC saía por inteiro e o D01/D02/D04 incidiam sobre um
+     * valor que não foi pago. A projeção aqui tem os 31 dias ao serviço (escala com fins de semana)
+     * — é o caso em que cortar a ausência só aos dias úteis deixava um resíduo de vencimento.
+     * Os subsídios mantêm a regra 8.3 (corte só aos dias úteis) e não são afirmados aqui.
+     */
+    @Test
+    fun `23 - baixa o mes inteiro - vencimento e descontos a zero`() {
+        val agosto = YearMonth.of(2026, 8)
+        val baixaOMes = Ausencia(
+            id = 23,
+            tipoTurnoId = TIPO_BAIXA,
+            dataInicio = agosto.atDay(1).toEpochDay(),
+            dataFim = agosto.atEndOfMonth().toEpochDay()
+        )
+        // Todos os dias de agosto ao serviço na projeção: 31 dias de trabalho projetados.
+        val projecaoAgosto = (1..31).map {
+            DiaProjetado(agosto.atDay(it).toEpochDay(), tipoTurnoId = 1L)
+        }
+
+        val est = estimarRecibo(
+            contexto(
+                agosto,
+                diasReaisDeAgosto2026(),
+                projecao = projecaoAgosto,
+                ausencias = listOf(baixaOMes)
+            ).copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        // 31 dias de trabalho, 31 dentro da baixa → nenhum dia trabalhado.
+        assertEquals(0L, est.valor("VENC"))
+        assertEquals(0L, est.valor("D01"))   // 11% de 0
+        assertEquals(0L, est.valor("D02"))   // IRS de 0
+        assertEquals(0L, est.valor("D04"))   // 1% de 0
+        // É o que o recibo real de Março de 2026 paga: R14 = 0,00 e o cartão anula-se.
+        assertEquals(0L, est.valor("SUP_ALIM"))
+        assertEquals(0L, est.valor("SUP_TRAN"))
+        // O que o PDF imprime dentro da baixa é horário planeado: não gera horas.
+        assertEquals(0L, est.valor("HNOT"))
+        assertEquals(0L, est.valor("HSUP_NT"))
     }
 
     @Test

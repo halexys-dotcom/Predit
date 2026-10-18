@@ -123,9 +123,7 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // o horário planeado que a empresa imprime no PDF, não trabalho efetivo. Só conta
     // se a origem for MANUAL — nesse caso o utilizador disse explicitamente "trabalhei".
     val reaisEfetivos = reaisDoMes.filter { dia ->
-        dia.origem == "MANUAL" || ctx.ausencias.none { a ->
-            dia.data >= a.dataInicio && dia.data <= a.dataFim
-        }
+        dia.origem == "MANUAL" || !dentroDeAusencia(dia.data, ctx.ausencias)
     }
 
     // Fronteira: mês sem dias reais e sem projeção não se estima.
@@ -221,7 +219,57 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         }
     }
 
-    val venc = ctx.parametrosCCT.vencimentoBaseMil.toLong()
+    // Dias úteis — segunda a sexta — do mês das variáveis cobertos por ausências: é o corte dos
+    // subsídios (8.3). Serve também de recurso ao corte do vencimento quando não há projeção.
+    val diasUteisAusencia = diasUteisDeAusencia(ctx.ausencias, anoMesVariaveis)
+
+    // Mês inteiro coberto por ausência (todos os dias do calendário). Nesse caso não sobra dia
+    // nenhum de trabalho nem de subsídio: a conta de 8.3 corta dias úteis de um mês comercial de
+    // 30, e num mês de 31 dias isso deixava 9 dias de transporte por cortar. Os recibos reais de
+    // Março de 2026 (mês inteiro de baixa) pagam R14 = 0,00 e anulam o cartão de refeição, e o
+    // vencimento não tem dia a que se agarrar. Nenhuma ausência parcial entra neste ramo.
+    val mesInteiroAusente = diasCobertosDeAusencia(
+        ctx.ausencias,
+        anoMesVariaveis,
+        apenasDiasUteis = false
+    ).size >= anoMesVariaveis.lengthOfMonth()
+    val diasAusenciaSubsidios = if (mesInteiroAusente) {
+        maxOf(DIAS_MES_COMERCIAL.toInt(), diasUteisMes)
+    } else {
+        diasUteisAusencia
+    }
+
+    // 28i: o vencimento base é proporcional aos dias efetivamente trabalhados. Sem isto, um mês
+    // inteiro de baixa pagava o base por inteiro e o D01/D02/D04 incidiam sobre dinheiro que não
+    // foi pago.
+    //     VENC = base × (dias de trabalho − dias de trabalho dentro de ausências) ÷ dias de trabalho
+    // O numerador e o denominador contam-se na mesma base — dias de trabalho da projeção — e não
+    // em segunda-a-sexta: numa escala com fins de semana ao serviço esses dias também se pagam e
+    // também se perdem com a baixa. Contar a ausência só aos dias úteis deixava um resíduo de
+    // vencimento precisamente nos meses em que a escala tem fim de semana (o caso do utilizador).
+    // Sem projeção cai nos dias úteis de ausência: não há escala com que comparar.
+    // O valor/hora não muda (continua base mensal ÷ 2080), para as horas suplementares de um mês
+    // com ausências não passarem a valer menos.
+    val diasUteisTotais = diasUteisMes
+    val diasAusenciaNoTrabalho = when {
+        mesInteiroAusente -> diasUteisTotais
+        projecaoDoMes.isNotEmpty() -> projecaoDoMes.count { dia ->
+            ehTrabalhoProjetado(dia, tipos) && dentroDeAusencia(dia.epochDay, ctx.ausencias)
+        }
+        else -> diasUteisAusencia
+    }
+    val diasEfetivos = (diasUteisTotais - diasAusenciaNoTrabalho).coerceAtLeast(0)
+    val venc = when {
+        // Mês inteiro de ausência: não há dia de trabalho a pagar, mesmo que a projeção venha sem
+        // dias de serviço (aí `diasUteisTotais` é 0 e o fallback abaixo pagaria o mês todo).
+        mesInteiroAusente -> 0L
+        diasUteisTotais > 0 -> dividirArredondando(
+            ctx.parametrosCCT.vencimentoBaseMil.toLong() * diasEfetivos,
+            diasUteisTotais.toLong()
+        )
+        // Projeção sem dias de serviço (só folgas): não há escala para prorratear, mês por inteiro.
+        else -> ctx.parametrosCCT.vencimentoBaseMil.toLong()
+    }
 
     // Subsídios (8.3): regra fixa do recibo, que não olha aos DiaReal. O que os corta são
     // os dias úteis — segunda a sexta — cobertos por ausências registadas, e só esses:
@@ -231,12 +279,12 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // contados a partir da projeção. NÃO é o mesmo número que o ViewModel grava em
     // ReciboMes.numDiasUteis (esse é do mês do recibo, M). Quantos dias se trabalhou
     // não entra nesta conta (num mês sem ausências o subsídio é o do mês).
-    val diasUteisAusencia = diasUteisDeAusencia(ctx.ausencias, anoMesVariaveis)
-    val subAlim = (diasUteisMes - diasUteisAusencia).coerceAtLeast(0).toLong() *
+    // `diasAusenciaSubsidios` só difere de `diasUteisAusencia` no mês inteiro coberto (ver acima).
+    val subAlim = (diasUteisMes - diasAusenciaSubsidios).coerceAtLeast(0).toLong() *
         ctx.parametrosCCT.subAlimentacaoDiaMil
     val subTran = dividirArredondando(
         ctx.parametrosCCT.subTransporteMesMil.toLong() *
-            (DIAS_MES_COMERCIAL - diasUteisAusencia).coerceAtLeast(0L),
+            (DIAS_MES_COMERCIAL - diasAusenciaSubsidios).coerceAtLeast(0L),
         DIAS_MES_COMERCIAL
     )
     // Subsídio de função (13a): só as categorias que o têm (hoje o Team Leader, 43,00 €/mês).
@@ -244,7 +292,7 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // Zero para as restantes categorias — e nesse caso nem se faz a conta.
     val supFuncaoMil = if (ctx.parametrosCCT.subsidioFuncaoMil > 0L) {
         dividirArredondando(
-            ctx.parametrosCCT.subsidioFuncaoMil * (DIAS_BASE_SUBFUNCAO - diasUteisAusencia).coerceAtLeast(0L),
+            ctx.parametrosCCT.subsidioFuncaoMil * (DIAS_BASE_SUBFUNCAO - diasAusenciaSubsidios).coerceAtLeast(0L),
             DIAS_BASE_SUBFUNCAO
         )
     } else {
@@ -352,11 +400,18 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
 }
 
 /**
- * Quantos dias úteis — segunda a sexta — do mês estão cobertos por ausências. É a união
- * de todas as ausências (períodos sobrepostos contam uma vez só) e só os dias deste mês
- * entram: uma ausência que atravessa o mês corta apenas a parte que lhe pertence.
+ * Dias do mês cobertos por ausências registadas — a união de todas as ausências (períodos
+ * sobrepostos contam uma vez só), recortada ao mês: uma ausência que atravessa o mês conta apenas
+ * a parte que lhe pertence.
+ *
+ * [apenasDiasUteis] limita a segunda a sexta (é o corte dos subsídios, 8.3); sem ele conta também
+ * fins de semana, que é o que permite detetar um mês inteiro coberto por baixa.
  */
-private fun diasUteisDeAusencia(ausencias: List<Ausencia>, anoMes: YearMonth): Int {
+private fun diasCobertosDeAusencia(
+    ausencias: List<Ausencia>,
+    anoMes: YearMonth,
+    apenasDiasUteis: Boolean = true
+): Set<Long> {
     val dias = mutableSetOf<Long>()
     val primeiroDoMes = anoMes.atDay(1).toEpochDay()
     val ultimoDoMes = anoMes.atEndOfMonth().toEpochDay()
@@ -364,15 +419,26 @@ private fun diasUteisDeAusencia(ausencias: List<Ausencia>, anoMes: YearMonth): I
         val fim = minOf(ausencia.dataFim, ultimoDoMes)
         var dia = maxOf(ausencia.dataInicio, primeiroDoMes)
         while (dia <= fim) {
-            if (LocalDate.ofEpochDay(dia).dayOfWeek.value <= 5) dias.add(dia)
+            if (!apenasDiasUteis || LocalDate.ofEpochDay(dia).dayOfWeek.value <= 5) dias.add(dia)
             dia++
         }
     }
-    return dias.size
+    return dias
 }
+
+/**
+ * Quantos dias úteis — segunda a sexta — do mês estão cobertos por ausências. É o corte dos
+ * subsídios (8.3).
+ */
+private fun diasUteisDeAusencia(ausencias: List<Ausencia>, anoMes: YearMonth): Int =
+    diasCobertosDeAusencia(ausencias, anoMes).size
 
 private fun pertenceAoMes(epochDay: Long, anoMes: YearMonth): Boolean =
     YearMonth.from(LocalDate.ofEpochDay(epochDay)) == anoMes
+
+/** O dia cai dentro de alguma ausência registada? Datas inclusivas nas duas pontas. */
+private fun dentroDeAusencia(epochDay: Long, ausencias: List<Ausencia>): Boolean =
+    ausencias.any { epochDay >= it.dataInicio && epochDay <= it.dataFim }
 
 private fun naturezaDe(codigo: String): NaturezaRubrica =
     if (codigo in CODIGOS_DESCONTO) NaturezaRubrica.DESCONTO else NaturezaRubrica.ABONO
