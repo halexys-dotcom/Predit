@@ -1,6 +1,7 @@
 package pt.haconnect.predit.domain.importacao
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -349,6 +350,40 @@ class ReciboPdfParserTest {
         assertEquals(18_376_700L, segunda.totalAbonos)    // 1837,67 €
         assertEquals(4_830_200L, segunda.totalDescontos)  // 483,02 €
         assertEquals(13_546_500L, segunda.liquido)        // 1354,65 €
+    }
+
+    // ------------------------------------------------------------------ Fusao (28f)
+
+    @Test
+    fun `fusao - Fundacao funde folhas duplicadas`() {
+        val recibos = ler("recibo-setembro-2026-fundacao.txt")
+        val fundidos = fundirRecibos(recibos)
+
+        assertEquals(1, fundidos.size)
+        val recibo = fundidos.first()
+
+        // Deve ter as linhas da 1.a e os totais da 2.a
+        assertTrue(recibo.linhas.isNotEmpty())
+        assertEquals(18_376_700L, recibo.totalAbonos)
+        assertEquals(13_546_500L, recibo.liquido)
+    }
+
+    @Test
+    fun `fusao - ICTS Julho nao funde recibos com fechos diferentes`() {
+        val recibos = ler("recibo-julho-2026.txt")
+        val fundidos = fundirRecibos(recibos)
+
+        assertEquals(2, fundidos.size)
+        // Ambos devem manter-se separados
+        assertNotEquals(fundidos[0].dataFecho, fundidos[1].dataFecho)
+    }
+
+    @Test
+    fun `fusao - ICTS Marco nao funde 3 vias`() {
+        val recibos = ler("recibo-marco-2026.txt")
+        val fundidos = fundirRecibos(recibos)
+
+        assertEquals(3, fundidos.size)
     }
 }
 

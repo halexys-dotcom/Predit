@@ -31,6 +31,7 @@ import pt.haconnect.predit.domain.calc.projetarIntervalo
 import pt.haconnect.predit.domain.calc.valorHoraMil
 import pt.haconnect.predit.domain.importacao.LinhaReciboImportada
 import pt.haconnect.predit.domain.importacao.ReciboImportado
+import pt.haconnect.predit.domain.importacao.fundirRecibos
 import pt.haconnect.predit.domain.importacao.parseReciboPdf
 import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
@@ -575,11 +576,14 @@ class ReciboViewModel(
                 _mensagemErro.value = "Não encontrei nenhum recibo no PDF."
                 return@launch
             }
-            if (recibos.size == 1) {
-                processarReciboUnico(recibos.first())
+            // 28f: fundir as folhas duplicadas do mesmo recibo (ex: Original + Duplicado)
+            val recibosFundidos = fundirRecibos(recibos)
+
+            if (recibosFundidos.size == 1) {
+                processarReciboUnico(recibosFundidos.first())
             } else {
-                _recibosImportados.value = recibos
-                _recibosParaEscolher.value = recibos.mapIndexed { indice, recibo ->
+                _recibosImportados.value = recibosFundidos
+                _recibosParaEscolher.value = recibosFundidos.mapIndexed { indice, recibo ->
                     InfoRecibo(
                         indice = indice,
                         anoMesFormatado = recibo.mesReferencia?.let { formatarAnoMes(it) }
