@@ -623,20 +623,30 @@ private fun MapeamentoModal(
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // 28c: botoes empilhados e a largura toda. Lado a lado, "Cancelar importacao" e
+            // "Confirmar mapeamento" nao cabiam na mesma linha em ecra pequeno (o texto era
+            // cortado a meio da palavra).
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                TextButton(onClick = onCancelar) {
-                    Text("Cancelar importação")
-                }
                 Button(
                     onClick = onConfirmar,
                     enabled = todosMapeados,
-                    modifier = Modifier.testTag("guardar-mapeamento")
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("guardar-mapeamento")
                 ) {
-                    Text("Confirmar mapeamento")
+                    Text("Confirmar mapeamento", maxLines = 1)
+                }
+                TextButton(
+                    onClick = onCancelar,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancelar importação", maxLines = 1)
                 }
             }
         }

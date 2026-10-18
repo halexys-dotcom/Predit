@@ -72,8 +72,13 @@ private val FORMATO_DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 /** "R01", "SAC", "RCR", "RCRA", "F50", "D02", "F106I" (sufixo alfabético na Fundação)... */
 private val RE_CODIGO = Regex("""^[A-Z]{1,4}\d{0,3}[A-Z]?$""")
 
-/** "31/08/2026" */
-private val RE_DATA = Regex("""^\d{2}/\d{2}/\d{4}$""")
+/**
+ * "31/08/2026" · "30-04-2016" — a PRIMAVERA escreve a data de fecho com barras na ICTS e com
+ * hífenes na PSG. O separador entra na regex (e o [parseData] normaliza-o) para as datas
+ * continuarem a ser reconhecidas como data: sem isto, "30-04-2016" caía na coluna da
+ * descrição e a data da linha perdia-se.
+ */
+private val RE_DATA = Regex("""^\d{2}[/-]\d{2}[/-]\d{4}$""")
 
 /** "22.00" · "22" — o número de dias úteis vem com ponto e duas casas decimais. */
 private val RE_DIAS_UTEIS = Regex("""^(\d+)""")
@@ -161,13 +166,24 @@ private fun parsePagina(
     // de fecho directamente: nas páginas de continuação de um recibo com várias folhas, a
     // data de fecho é a da última linha (a 2.ª página do recibo de Março traz
     // 11/02/2026), mas o "Período" continua a dizer o mês do recibo.
+    // O `?:` é rede de segurança: `mesReferenciaDe` já cai na data de fecho quando o
+    // "Período" não é um mês conhecido, e só devolve `null` sem nenhum dos dois.
     val mesReferencia = mesReferenciaDe(periodo, dataFecho)
+        ?: dataFecho?.let { YearMonth.from(LocalDate.ofEpochDay(it)) }
     if (mesReferencia == null) avisos.add("Cabeçalho sem mês reconhecível")
 
     val linhas = lerLinhas(
         blocos, cabecalhoTabela.y, linhaTotal.y, colunas, descendente,
         mapaDaEmpresa, avisos, codigosDesconhecidos
     )
+
+    // As linhas de baixa (F02 na ICTS/PSG, F35 na Fundação) são informativas e não descontam
+    // nada do vencimento, portanto o valor do mês pode vir inflacionado. É aviso, não erro: o
+    // recibo é importado na mesma.
+    val temBaixa = linhas.any { it.codigoRecibo == "F02" || it.codigoRecibo == "F35" }
+    if (temBaixa) {
+        avisos.add("Atenção: este recibo tem dias de baixa. O vencimento pode estar inflacionado.")
+    }
 
     val numerosDoTotal = numerosNaLinhaDe(blocos, linhaTotal)
     val totalAbonos: Long
@@ -483,9 +499,20 @@ private fun dinheiroDe(texto: String): Long? =
 private fun diasDe(texto: String): Int? =
     RE_DIAS_UTEIS.find(texto.trim())?.groupValues?.get(1)?.toIntOrNull()
 
-/** "31/08/2026" -> epochDay. `null` se não for data válida. */
+/**
+ * "31/08/2026" -> epochDay. `null` se não for data válida.
+ *
+ * O hífen é normalizado para barra antes do parse: a PSG escreve "30-04-2016" e o formato do
+ * recibo é sempre dia/mês/ano. Só se troca o separador — quem receber uma data ISO
+ * ("2016-04-30") continua a ver `null`, como antes.
+ */
 private fun parseData(texto: String): Long? =
-    try { LocalDate.parse(texto.trim(), FORMATO_DATA).toEpochDay() } catch (_: Exception) { null }
+    try {
+        val normalizado = texto.trim().replace('-', '/')
+        LocalDate.parse(normalizado, FORMATO_DATA).toEpochDay()
+    } catch (_: Exception) {
+        null
+    }
 
 /** Os meses em português, pela ordem do calendário, para traduzir o "Período". */
 private val MESES = listOf(

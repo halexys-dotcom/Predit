@@ -462,12 +462,20 @@ class ReciboViewModel(
         val itens = recibo.linhas
             .filter { it.codigoRecibo in recibo.codigosDesconhecidos }
             .map { linha ->
+                // A descrição vem do PDF partida em vários blocos ("Baixa Assist" + ". " +
+                // "Familia" + "<12 Anos"): no modal tem de ficar numa linha só, senão o
+                // `Text` parte-a outra vez em sítios arbitrários. A heurística da sugestão
+                // lê a mesma versão limpa.
+                val descricao = linha.descricao
+                    .replace("\n", " ")
+                    .replace(REGEX_ESPACOS, " ")
+                    .trim()
                 ItemMapeamento(
                     codigoOriginal = linha.codigoRecibo,
-                    descricao = linha.descricao.ifEmpty { "Linha ${linha.ordem}" },
+                    descricao = descricao.ifEmpty { "Linha ${linha.ordem}" },
                     valor = linha.valor,
                     linha = linha.ordem,
-                    sugestao = sugerirRubrica(linha.descricao)
+                    sugestao = sugerirRubrica(descricao)
                 )
             }
 
@@ -885,6 +893,13 @@ private fun parseTexto(texto: String): Long? =
 /** Data no formato do recibo: dd/MM/aaaa. */
 private val FORMATO_DATA: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
-/** "31/08/2026" -> epochDay. null se não for data válida. */
+/** Espaços seguidos, para colapsar as descrições que o PDF parte em blocos. */
+private val REGEX_ESPACOS = Regex("\\s+")
+
+/** "31/08/2026" · "30-04-2016" -> epochDay. null se não for data válida. */
 private fun parseData(texto: String): Long? =
-    try { LocalDate.parse(texto.trim(), FORMATO_DATA).toEpochDay() } catch (_: Exception) { null }
+    try {
+        LocalDate.parse(texto.trim().replace('-', '/'), FORMATO_DATA).toEpochDay()
+    } catch (_: Exception) {
+        null
+    }

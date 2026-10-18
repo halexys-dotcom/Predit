@@ -385,6 +385,53 @@ class ReciboPdfParserTest {
 
         assertEquals(3, fundidos.size)
     }
+
+    /**
+     * A PSG imprime o suplemento do subsidio de Natal com o MESMO fecho da folha principal
+     * (31-05-2016 e 31-08-2016). As duas trazem linhas com valor, portanto nao sao folhas
+     * duplicadas: fundi-las perdia o recibo do mes (801,82) e ficava so o suplemento (54,30).
+     */
+    @Test
+    fun `fusao - PSG nao funde suplemento com o mesmo fecho`() {
+        val principal = reciboDeTeste(pagina = 1, totalAbonos = 8_018_200L, liquido = 6_802_600L)
+        val suplemento = reciboDeTeste(pagina = 2, totalAbonos = 543_000L, liquido = 475_700L)
+
+        val fundidos = fundirRecibos(listOf(principal, suplemento))
+
+        assertEquals(2, fundidos.size)
+        assertEquals(listOf(8_018_200L, 543_000L), fundidos.map { it.totalAbonos })
+    }
+
+    /** Um recibo mínimo com uma linha R01 — o suficiente para a fusão ver "tem linhas". */
+    private fun reciboDeTeste(pagina: Int, totalAbonos: Long, liquido: Long): ReciboImportado =
+        ReciboImportado(
+            pagina = pagina,
+            empresaEmissora = "PSG - SEGURANÇA PRIVADA, SA",
+            mesReferencia = YearMonth.of(2016, 5),
+            dataFecho = LocalDate.of(2016, 5, 31).toEpochDay(),
+            vencimentoBase = 0L,
+            vencimentoHora = 0L,
+            numDiasUteis = null,
+            irsRetidoAno = 0L,
+            totalAbonos = totalAbonos,
+            totalDescontos = 0L,
+            liquido = liquido,
+            linhas = listOf(
+                LinhaReciboImportada(
+                    codigoRecibo = "R01",
+                    descricao = "Vencimento",
+                    codigoInterno = "VENC",
+                    natureza = NaturezaRubrica.ABONO,
+                    valor = totalAbonos,
+                    quantidade = null,
+                    data = null,
+                    ordem = 1,
+                    aviso = null
+                )
+            ),
+            avisos = emptyList(),
+            codigosDesconhecidos = emptyList()
+        )
 }
 
 

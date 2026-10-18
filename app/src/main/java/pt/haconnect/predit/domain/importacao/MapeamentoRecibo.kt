@@ -61,10 +61,13 @@ data class MapeamentoRubrica(
  */
 private val RUBRICAS: Map<String, String> = mapOf(
     "R01" to "VENC",      // Vencimento
+    "R12" to "SUP_ALIM",  // Subsídio Alimentação - Valor Fixo (PSG)
     "R14" to "SUP_TRAN",  // Subsidio transport
     "SAC" to "SUP_ALIM",  // Subsídio Alimentação Cartão (PRIMAVERA)
     "RCR" to "SUP_ALIM",  // Subsídio Alimentação Cartão (Cegid 2025 — mesmo subsídio, outro código)
     "RCRA" to "SUP_ALIM", // ... acerto do subsídio de alimentação (Cegid 2025)
+    "R30" to "FERIAS",    // Subsídio de Férias (PSG)
+    "R31" to "NATAL",     // Subsídio de Natal (PSG)
     "R97" to "FERIAS"     // Subsídio de Férias
 )
 
