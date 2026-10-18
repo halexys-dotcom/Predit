@@ -90,7 +90,7 @@ data class InfoRecibo(
  * 28c: uma linha do recibo cujo código ainda não está mapeado, tal como o modal a mostra.
  *
  * [sugestao] é a heurística por descrição ([ReciboViewModel.sugerirRubrica]) — é uma ajuda,
- * não uma decisão: o utilizador pode escolher outra rubrica.
+ * e vem já como escolha inicial no modal (28g); o utilizador pode escolher outra rubrica.
  */
 data class ItemMapeamento(
     val codigoOriginal: String,
@@ -111,7 +111,11 @@ data class MapeamentoPendente(
     val reciboOriginal: ReciboImportado,
     val empresaEmissora: String?,
     val itens: List<ItemMapeamento>,
-    val escolhas: Map<String, String> = emptyMap() // codigoOriginal -> codigoInterno
+    /**
+     * codigoOriginal -> codigoInterno. Arranca pré-preenchido com a heurística (28g) e cresce
+     * com os cliques do utilizador; é o mapa que o "Confirmar" grava e re-aplica.
+     */
+    val escolhas: Map<String, String> = emptyMap()
 )
 
 /**
@@ -479,10 +483,19 @@ class ReciboViewModel(
                 )
             }
 
+        // 28g: as sugestões da heurística entram já como escolhas iniciais. Antes só apareciam
+        // no dropdown e o "Confirmar" ficava desativado até o utilizador abrir cada um — sem
+        // nada a explicar porquê. O utilizador continua a poder trocar; o que a heurística não
+        // soube sugerir fica por escolher, e aí o "Confirmar" espera.
+        val escolhasIniciais = itens.mapNotNull { item ->
+            item.sugestao?.let { item.codigoOriginal to it }
+        }.toMap()
+
         _mapeamentoPendente.value = MapeamentoPendente(
             reciboOriginal = recibo,
             empresaEmissora = recibo.empresaEmissora,
-            itens = itens
+            itens = itens,
+            escolhas = escolhasIniciais
         )
     }
 

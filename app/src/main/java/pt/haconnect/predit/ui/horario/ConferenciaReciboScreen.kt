@@ -655,8 +655,8 @@ private fun MapeamentoModal(
 
 /**
  * Uma linha do recibo sem destino. O valor aparece em euros: é o que o utilizador reconhece no
- * papel. A sugestão da heurística ([ItemMapeamento.sugestao]) vem pré-selecionada, mas não conta
- * como escolha: só o clique no dropdown é que a regista, e é isso que ativa o "Confirmar".
+ * papel. A sugestão da heurística ([ItemMapeamento.sugestao]) já vai pré-selecionada e conta
+ * como escolha (28g): o "Confirmar" só espera pelas linhas que a heurística não soube mapear.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

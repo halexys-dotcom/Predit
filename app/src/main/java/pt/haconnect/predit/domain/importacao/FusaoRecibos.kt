@@ -16,8 +16,11 @@ package pt.haconnect.predit.domain.importacao
  * (54,30) ganhava ao recibo do mes (801,82) e so esse valor era importado. As linhas
  * informativas nao contam: a 2.a folha da Fundacao so traz F106I/F35/F40.
  *
- * A lista sai pela ordem do PDF ([ReciboImportado.pagina]) — e a ordem em que o utilizador
- * ve as folhas, e por isso a mais natural no seletor de recibos.
+ * A ordem da lista é cronológica pela data de fecho ([ReciboImportado.dataFecho]) — é a ordem
+ * em que os meses acontecem, e é essa que o seletor de recibos mostra. Folhas com o mesmo
+ * fecho (duplicados, suplementos) mantêm a ordem do PDF, porque `sortedBy` é estável. Um
+ * recibo sem fecho reconhecível não tem lugar na cronologia: vai para o fim em vez de saltar
+ * para a frente, para não parecer o primeiro do PDF.
  */
 internal fun fundirRecibos(recibos: List<ReciboImportado>): List<ReciboImportado> {
     return recibos.groupBy { Triple(it.empresaEmissora, it.mesReferencia, it.dataFecho) }
@@ -38,5 +41,8 @@ internal fun fundirRecibos(recibos: List<ReciboImportado>): List<ReciboImportado
                 )
             )
         }
-        .sortedBy { it.pagina }
+        // 28g: cronológica pelo fecho. `sortedBy` é estável, por isso as folhas do mesmo fecho
+        // (duplicados e suplementos) ficam pela ordem do PDF. O `?: Long.MAX_VALUE` põe no fim
+        // os recibos sem fecho legível — sem isto o `null` ordenava à frente de todas as datas.
+        .sortedBy { it.dataFecho ?: Long.MAX_VALUE }
 }

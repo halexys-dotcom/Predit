@@ -379,10 +379,24 @@ private fun lerLinhas(
         val valor = numeros.maxByOrNull { it.first }?.second ?: 0L
         val quantidade = numeros.firstOrNull { it.first < colunas.quantidadeMax }?.second
 
-        val descricao = grupo.firstOrNull {
-            it.x >= colunas.descricaoMin && it.x < colunas.descricaoMax &&
-                dinheiroDe(it.texto) == null && !RE_DATA.matches(it.texto.trim())
-        }?.texto?.trim().orEmpty()
+        // 28g: a descrição de uma linha chega partida em vários blocos ("Baixa Assist" + ". " +
+        // "Familia" + "<12 Anos"). Ficávamos com o primeiro e o resto perdia-se. Juntam-se os
+        // blocos da coluna da descrição, na ordem da esquerda para a direita (já vem do
+        // `sortedWith(ordem)`), e colapsam-se os espaços.
+        //
+        // 28h: o grupo pode apanhar blocos que já pertencem à linha seguinte — na Fundação a
+        // descrição é desenhada ~1 pt acima do código, por isso o corte no código seguinte
+        // atribui-a à linha errada. Só se aceitam blocos a menos de 15 pt do código (o `grupo`
+        // começa no bloco do código): a descrição real fica a ~1 pt, as linhas seguintes a ~10.
+        val descricao = grupo
+            .filter {
+                it.x >= colunas.descricaoMin && it.x < colunas.descricaoMax &&
+                    dinheiroDe(it.texto) == null && !RE_DATA.matches(it.texto.trim()) &&
+                    abs(it.y - grupo.first().y) <= 15f // tolerância vertical
+            }
+            .joinToString(" ") { it.texto.trim() }
+            .replace(Regex("\\s+"), " ")
+            .trim()
 
         val data = grupo.firstOrNull { RE_DATA.matches(it.texto.trim()) }?.texto?.let { parseData(it) }
 
