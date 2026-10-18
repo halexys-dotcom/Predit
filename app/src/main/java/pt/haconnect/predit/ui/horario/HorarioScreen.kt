@@ -212,7 +212,8 @@ fun HorarioScreen(
                                                             texto = postoAbrev,
                                                             corTipo = Color(tipo.cor),
                                                             tamanho = 28.dp,
-                                                            modifier = Modifier.size(28.dp)
+                                                            modifier = Modifier, // sem size: o widthIn define a pilula
+                                                            formato = FormatoCelula.RETANGULAR
                                                         )
                                                     } else {
                                                         CelulaTipoTurno(tipo = tipo, tamanho = 28.dp, formato = FormatoCelula.RETANGULAR)
