@@ -302,6 +302,54 @@ class ReciboPdfParserTest {
         assertEquals(normal.linhas.map { it.codigoRecibo }, invertido.linhas.map { it.codigoRecibo })
         assertEquals(normal.linhas.map { it.valor }, invertido.linhas.map { it.valor })
     }
+
+    // -------------------------------------------------- Setembro 2026 (Fundação D. Pedro IV)
+
+    @Test
+    fun `Setembro 2026 - Fundacao D Pedro IV`() {
+        val recibos = ler("recibo-setembro-2026-fundacao.txt")
+
+        // O extractor entrega 4 páginas: a marca de água "Duplicado" e o corpo de cada uma
+        // das 2 folhas do PDF ("/Count 2"). Só as folhas com grelha dão recibo. E a
+        // PRIMAVERA só escreve os valores da linha "Total" na última folha — na primeira a
+        // linha existe mas os números não, portanto cabeçalho+linhas leem-se na 1.ª e os
+        // totais na 2.ª.
+        assertEquals(2, recibos.size)
+        val primeira = recibos.first()
+        val segunda = recibos.last()
+
+        // Cabecalho (repetido nas duas folhas)
+        assertEquals("FUNDAÇÃO D. PEDRO IV", primeira.empresaEmissora)
+        assertEquals(dia(2026, 9, 30), primeira.dataFecho)
+        assertEquals(10_000_000L, primeira.vencimentoBase) // 1000,00 €
+        assertEquals(57_700L, primeira.vencimentoHora)     // 5,77 €/h
+        assertEquals(22, primeira.numDiasUteis)            // "N. Dias Mês: 22.00"
+        assertEquals(1_920_000L, primeira.irsRetidoAno)    // 192,00 €
+
+        // Linhas da 1.ª folha (Descrição/Faltas/Remunerações em vez de Abonos/Quantidade)
+        assertEquals(9_666_700L, primeira.valorDe("R01"))  // 966,67 €
+        assertEquals(7_500_000L, primeira.valorDe("R20"))  // 750,00 €
+        assertEquals(1_911_400L, primeira.valorDe("D01"))  // 191,14 €
+
+        // Desconhecidos da 1.ª folha...
+        assertTrue(
+            "Faltam desconhecidos: ${primeira.codigosDesconhecidos}",
+            primeira.codigosDesconhecidos.containsAll(listOf("R04", "R13", "R20", "D05"))
+        )
+        // ...e os da 2.ª, incluindo o F106I: sufixo alfabético que o ICTS nao tem e que o
+        // RE_CODIGO antigo (`^[A-Z]{1,4}\d{0,3}$`) recusava.
+        assertEquals(listOf("F106I", "F35"), segunda.codigosDesconhecidos)
+
+        // Os informativos F40 e F50 nao devem estar em desconhecidos
+        assertTrue(!primeira.codigosDesconhecidos.contains("F40"))
+        assertTrue(!primeira.codigosDesconhecidos.contains("F50"))
+        assertTrue(!segunda.codigosDesconhecidos.contains("F40"))
+
+        // Totais e liquido: so a 2.ª folha os traz
+        assertEquals(18_376_700L, segunda.totalAbonos)    // 1837,67 €
+        assertEquals(4_830_200L, segunda.totalDescontos)  // 483,02 €
+        assertEquals(13_546_500L, segunda.liquido)        // 1354,65 €
+    }
 }
 
 

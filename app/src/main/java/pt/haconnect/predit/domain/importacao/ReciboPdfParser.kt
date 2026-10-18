@@ -69,8 +69,8 @@ private const val TOLERANCIA_LINHA_PT = 1.0f
 
 private val FORMATO_DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
-/** "R01", "SAC", "RCR", "RCRA", "F50", "D02"... */
-private val RE_CODIGO = Regex("""^[A-Z]{1,4}\d{0,3}$""")
+/** "R01", "SAC", "RCR", "RCRA", "F50", "D02", "F106I" (sufixo alfabético na Fundação)... */
+private val RE_CODIGO = Regex("""^[A-Z]{1,4}\d{0,3}[A-Z]?$""")
 
 /** "31/08/2026" */
 private val RE_DATA = Regex("""^\d{2}/\d{2}/\d{4}$""")
@@ -129,17 +129,30 @@ private fun parsePagina(
     // "Venc. / Hora", o "N.º Dias Úteis" e o "Período").
     val yCabecalho = blocos.firstOrNull { it.texto.trim() == "Data Fecho" }?.y
 
-    val periodo = valorDe(blocos, "Período", yCabecalho)?.texto?.trim()
-    val dataFecho = valorDe(blocos, "Data Fecho", yCabecalho)?.texto?.let { parseData(it) }
+    // Cada campo diz ao `valorDe` que tipo de texto aceita como valor: na Fundação as
+    // etiquetas do cabeçalho empilham-se na mesma coluna e, sem isto, o "Data Fecho" lia a
+    // etiqueta da linha de cima (Δx = 0) em vez da data desenhada ao lado.
+    val periodo = valorDe(blocos, "Período", yCabecalho) { numeroDoMes(it) != null }
+        ?.texto?.trim()
+    val dataFecho = valorDe(blocos, "Data Fecho", yCabecalho) { parseData(it) != null }
+        ?.texto?.let { parseData(it) }
     if (dataFecho == null) avisos.add("Cabeçalho sem \"Data Fecho\" legível")
 
-    val vencimentoBase = valorDe(blocos, "Vencimento", yCabecalho)?.texto?.let { dinheiroDe(it) } ?: 0L
-    val vencimentoHora = valorDe(blocos, "Venc. / Hora", yCabecalho)?.texto?.let { dinheiroDe(it) } ?: 0L
-    val numDiasUteis = valorDe(blocos, "N.º Dias Úteis", yCabecalho)?.texto?.let { diasDe(it) }
+    val vencimentoBase = valorDe(blocos, "Vencimento", yCabecalho) { dinheiroDe(it) != null }
+        ?.texto?.let { dinheiroDe(it) } ?: 0L
+    val vencimentoHora = valorDe(blocos, "Venc. / Hora", yCabecalho) { dinheiroDe(it) != null }
+        ?.texto?.let { dinheiroDe(it) } ?: 0L
+    // A Fundação escreve "N. Dias Mês:" onde a PRIMAVERA/ICTS escreve "N.º Dias Úteis".
+    val numDiasUteis =
+        valorDe(blocos, "N.º Dias Úteis", yCabecalho) { diasDe(it) != null }
+            ?.texto?.let { diasDe(it) }
+            ?: valorDe(blocos, "N. Dias Mês:", yCabecalho) { diasDe(it) != null }
+                ?.texto?.let { diasDe(it) }
 
     // O "IRS Retido" do cabeçalho está noutra linha (a do bloco acumulado do ano), mas
     // só existe uma vez na página, portanto não precisa de âncora.
-    val irsRetidoAno = valorDe(blocos, "IRS Retido", null)?.texto?.let { dinheiroDe(it) }
+    val irsRetidoAno = valorDe(blocos, "IRS Retido", null) { dinheiroDe(it) != null }
+        ?.texto?.let { dinheiroDe(it) }
     if (irsRetidoAno == null) {
         avisos.add("Cabeçalho sem \"IRS Retido\" legível: valor não importado")
     }
@@ -267,19 +280,37 @@ private data class Colunas(
     val quantidadeMax: Float
 )
 
-/** Mede as colunas a partir das etiquetas da linha de cabeçalho da grelha. */
+/**
+ * Mede as colunas a partir das etiquetas da linha de cabeçalho da grelha.
+ *
+ * Os rótulos mudam de fornecedor para fornecedor, mas a estrutura não: a PRIMAVERA/ICTS
+ * escreve `Abonos`/`Quantidade`/`Preço Unitário` e a Fundação escreve
+ * `Descrição`/`Faltas`/`Remunerações`. A geometria é a mesma — as fronteiras ficam sempre
+ * a meio caminho entre etiquetas vizinhas, nunca em constantes absolutas.
+ */
 private fun medirColunas(etiquetas: List<BlocoTexto>): Colunas? {
     fun x(etiqueta: String) = etiquetas.firstOrNull { it.texto.trim() == etiqueta }?.x
+
     val data = x("Data") ?: return null
-    val abonos = x("Abonos") ?: return null
-    val quantidade = x("Quantidade") ?: return null
-    val preco = x("Preço Unitário") ?: return null
+
+    // ICTS chama-lhe "Abonos"; a Fundação chama-lhe "Descrição".
+    val descricao = x("Abonos") ?: x("Descrição") ?: return null
+
+    // ICTS: Quantidade/Preço Unitário. Fundação: Faltas/Remunerações.
+    val quantidade = x("Quantidade") ?: x("Faltas")
+    val preco = x("Preço Unitário") ?: x("Remunerações")
+
+    val numeroMin =
+        if (quantidade != null) (descricao + quantidade) / 2f else (descricao + (preco ?: data)) / 2f
+    val quantidadeMax =
+        if (quantidade != null && preco != null) (quantidade + preco) / 2f else Float.MAX_VALUE
+
     return Colunas(
-        codigoMax = (data + abonos) / 2f,
-        descricaoMin = (data + abonos) / 2f,
-        descricaoMax = (abonos + quantidade) / 2f,
-        numeroMin = (abonos + quantidade) / 2f,
-        quantidadeMax = (quantidade + preco) / 2f
+        codigoMax = (data + descricao) / 2f,
+        descricaoMin = (data + descricao) / 2f,
+        descricaoMax = if (quantidade != null) (descricao + quantidade) / 2f else Float.MAX_VALUE,
+        numeroMin = numeroMin,
+        quantidadeMax = quantidadeMax
     )
 }
 
@@ -392,8 +423,20 @@ private fun lerLinhas(
  * [yCabecalho] é o y da linha de etiquetas do cabeçalho e serve para desambiguar etiquetas
  * repetidas na página — o "Vencimento" do cabeçalho e o "Vencimento" que descreve a linha
  * R01. `null` quando só há uma.
+ *
+ * [aceita] diz que tipo de texto pode ser o valor (data, dinheiro, mês, dias). É o que
+ * resolve a Fundação: lá as etiquetas do cabeçalho empilham-se na **mesma coluna** a ~11 pt
+ * de distância, e sem o filtro o "Data Fecho" lia o "Período" da linha de cima — que ganha
+ * por estar a Δx = 0. Com o filtro, só candidatos do tipo certo competem entre si e a
+ * geometria continua a decidir. Em PRIMAVERA/Cegid o filtro é inócuo (o valor já era o
+ * candidato mais próximo em x) e serve de rede: nunca apanha uma etiqueta vizinha.
  */
-private fun valorDe(blocos: List<BlocoTexto>, etiqueta: String, yCabecalho: Float?): BlocoTexto? {
+private fun valorDe(
+    blocos: List<BlocoTexto>,
+    etiqueta: String,
+    yCabecalho: Float?,
+    aceita: (String) -> Boolean = { true }
+): BlocoTexto? {
     val alvo = etiqueta.trim()
     val candidatos = blocos.filter { it.texto.trim() == alvo }
     val posicao = if (yCabecalho == null) {
@@ -402,8 +445,12 @@ private fun valorDe(blocos: List<BlocoTexto>, etiqueta: String, yCabecalho: Floa
         candidatos.minByOrNull { abs(it.y - yCabecalho) }
     } ?: return null
     return blocos
-        .filter { it !== posicao && abs(it.y - posicao.y) <= JANELA_VALOR_PT }
-        .minByOrNull { abs(it.x - posicao.x) }
+        .filter { it !== posicao && abs(it.y - posicao.y) <= JANELA_VALOR_PT && aceita(it.texto) }
+        // Δx decide; em empate, a linha mais próxima. Na Fundação os valores estão na
+        // mesma linha das etiquetas, e é isso que separa " 1 000,00" de " 5,77".
+        .minWithOrNull(
+            compareBy<BlocoTexto>({ abs(it.x - posicao.x) }, { abs(it.y - posicao.y) })
+        )
 }
 
 /** Os números desenhados na mesma linha visual de [referencia], à direita dela, por x. */
