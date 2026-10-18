@@ -130,6 +130,33 @@ fun AcercaScreen(onVoltar: () -> Unit) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             Text(
+                text = "Agradecimentos",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = "Este projeto não seria possível sem o feedback e o apoio dos primeiros " +
+                    "utilizadores. Um agradecimento especial a:",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Text(
+                text = "Carlos Oliveira, José Mendes, Ricardo Pinheiro, Liliana Sousa, " +
+                    "Jorge Revez, Ana Pereira, Alzira Tavares, Jorge Canji, Luís Matos, " +
+                    "Raquel Diebe, José Correia, Nabituque Naba, Nuno Carvalho, Susana Oliveira.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Text(
+                text = "E a todos os que participaram de forma anónima.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Text(
                 text = "Desenvolvido para uso pessoal.\nHAConnect, 2026.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
