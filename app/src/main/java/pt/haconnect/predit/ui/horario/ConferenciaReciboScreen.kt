@@ -298,11 +298,21 @@ fun ConferenciaReciboScreen(
                     .testTag("lista-recibo"),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                for (natureza in listOf(NaturezaRubrica.ABONO, NaturezaRubrica.DESCONTO)) {
+                for (natureza in listOf(
+                    NaturezaRubrica.ABONO,
+                    NaturezaRubrica.DESCONTO,
+                    NaturezaRubrica.INFORMATIVA
+                )) {
                     val doGrupo = uiState.linhas.filter { it.natureza == natureza }
                     if (doGrupo.isEmpty()) continue
                     Text(
-                        text = if (natureza == NaturezaRubrica.ABONO) "ABONOS" else "DESCONTOS",
+                        text = when (natureza) {
+                            NaturezaRubrica.ABONO -> "ABONOS"
+                            NaturezaRubrica.DESCONTO -> "DESCONTOS"
+                            // As ausências já saíram do VENC: a linha justifica o corte e não
+                            // entra nos totais, por isso tem um grupo próprio.
+                            NaturezaRubrica.INFORMATIVA -> "INFORMATIVO"
+                        },
                         // Fase 18c: 12 sp (igual ao subtítulo do cartão do Mais) + letterSpacing.
                         style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
                         fontWeight = FontWeight.Bold,

@@ -15,8 +15,9 @@ private val REGEX_ESPACOS = Regex("\\s+")
  * - o código é uma linha informativa (ver [CODIGOS_INFORMATIVOS]): baixa, férias gozadas,
  *   ausência parcial, subsídio de alimentação durante a baixa. Está no PDF, mas não é pagamento.
  *
- * A [natureza] das linhas informativas fica ABONO porque `NaturezaRubrica` só tem ABONO e
- * DESCONTO — e não tem consequência: sem `codigoInterno` a linha nunca chega a ser escrita.
+ * A [natureza] das linhas informativas fica ABONO porque não têm `codigoInterno` e nunca
+ * chegam a ser escritas. [NaturezaRubrica.INFORMATIVA] é outra coisa: serve para rubricas do
+ * catálogo que justificam um corte já aplicado (as ausências, que saem do VENC).
  */
 /**
  * De onde veio a decisão de [MapeamentoRubrica.codigoInterno] — é o que permite ao parser

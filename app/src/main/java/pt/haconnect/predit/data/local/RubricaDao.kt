@@ -24,6 +24,14 @@ interface RubricaDao {
     @Insert
     suspend fun inserir(rubrica: RubricaEntity): Long
 
+    /**
+     * Renomeia uma rubrica já semeada. O nome pode mudar entre versões (a "Desconto de atraso"
+     * passou a "Ausências" na 2.1.0) e o seeder não volta a inserir a linha: sem isto, quem
+     * actualiza ficava com o nome antigo. Idempotente — só escreve quando o nome difere.
+     */
+    @Query("UPDATE rubrica SET nome = :nome WHERE codigo = :codigo AND nome <> :nome")
+    suspend fun renomear(codigo: String, nome: String)
+
     /** Apagar por id — os testes do recibo provam aqui o FK RESTRICT de recibo_linha. */
     @Query("DELETE FROM rubrica WHERE id = :id")
     suspend fun apagar(id: Long)

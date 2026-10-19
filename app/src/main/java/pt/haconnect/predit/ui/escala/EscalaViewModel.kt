@@ -192,43 +192,26 @@ class EscalaViewModel(
 
         val diasDoMesAtual = listaDiasGrelha.filter { it.pertenceAoMesAtual }
 
-        // Folga marcada sobre um dia com diaReal (importado do PDF): o dia deixa de contar como
-        // turno e passa a contar como folga. Devolve os minutos reais do dia a descontar do
-        // planejamento (0 quando não é folga sobre um dia real com horas).
-        fun minutosFolgaSobreTurno(dia: DiaMesEscala): Int {
-            val efetiva = dia.ausenciaEfetiva ?: return 0
-            if (categoriasPorTipo[efetiva.tipoTurnoId] != CategoriaTurno.FOLGA) return 0
-            val real = dia.diaReal ?: return 0
-            return duracaoMinutos(real.inicioMin, real.fimMin, real.pausaMin)
-        }
-
-        val desconto = diasDoMesAtual.sumOf { minutosFolgaSobreTurno(it) }
-        val folgasSobreTurno = diasDoMesAtual.count { minutosFolgaSobreTurno(it) > 0 }
-
-        val totalMinutos = if (planejamento != null) {
-            planejamento.totalMinutos - desconto
-        } else {
-            diasDoMesAtual.sumOf { dia ->
-                val efetivo = dia.tipoTurnoEfetivo
-                when {
-                    dia.ausenciaEfetiva != null -> 8 * 60
-                    efetivo?.categoria == CategoriaTurno.TRABALHO ->
-                        duracaoMinutos(efetivo.inicioMin, efetivo.fimMin, efetivo.pausaMin)
-                    else -> 0
+        val totalMinutos = diasDoMesAtual.sumOf { dia ->
+            val efetivo = dia.tipoTurnoEfetivo
+            val real = dia.diaReal
+            when {
+                dia.ausenciaEfetiva != null -> {
+                    // Se for Folga, 0h. Se for Férias/Baixa, conta como 8h pagas.
+                    if (efetivo?.categoria == CategoriaTurno.FOLGA) 0 else 8 * 60
                 }
+                real != null -> duracaoMinutos(real.inicioMin, real.fimMin, real.pausaMin)
+                efetivo?.categoria == CategoriaTurno.TRABALHO -> duracaoMinutos(efetivo.inicioMin, efetivo.fimMin, efetivo.pausaMin)
+                else -> 0
             }
         }
 
-        val numTurnos = if (planejamento != null) {
-            planejamento.numTurnos - folgasSobreTurno
-        } else {
-            diasDoMesAtual.count { it.ausenciaEfetiva == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.TRABALHO }
+        val numTurnos = diasDoMesAtual.count {
+            it.ausenciaEfetiva == null && it.tipoTurnoEfetivo?.categoria == CategoriaTurno.TRABALHO
         }
 
-        val numFolgas = if (planejamento != null) {
-            planejamento.numFolgas + folgasSobreTurno
-        } else {
-            diasDoMesAtual.count { it.tipoTurnoEfetivo?.categoria == CategoriaTurno.FOLGA }
+        val numFolgas = diasDoMesAtual.count {
+            it.tipoTurnoEfetivo?.categoria == CategoriaTurno.FOLGA
         }
 
         val numAusencias = diasDoMesAtual.count { it.ausenciaEfetiva != null }

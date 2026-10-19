@@ -40,6 +40,6 @@ data class ReciboLinhaEntity(
     val rubricaId: Long,
     val valorEstimado: Long,             // 1/10000 €
     val valorReal: Long,                 // 1/10000 €
-    val natureza: String,                // NaturezaRubrica: "ABONO" | "DESCONTO"
+    val natureza: String,                // NaturezaRubrica: "ABONO" | "DESCONTO" | "INFORMATIVA"
     val ordem: Int
 )

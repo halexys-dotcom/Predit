@@ -19,7 +19,14 @@ import java.time.YearMonth
  * Domínio puro: sem Room, sem Android.
  */
 
-enum class NaturezaRubrica { ABONO, DESCONTO }
+/**
+ * Natureza de uma rubrica do recibo.
+ *
+ * [INFORMATIVA] é a linha que justifica um corte já aplicado noutra rubrica — hoje só as
+ * ausências (horas em falta), que já saíram do VENC. Não entra em abonos nem em descontos:
+ * contá-la num dos lados punha o mesmo valor a contar duas vezes no líquido.
+ */
+enum class NaturezaRubrica { ABONO, DESCONTO, INFORMATIVA }
 
 data class RubricaEstimada(
     val rubricaId: Long,
@@ -76,12 +83,19 @@ data class ContextoEstimativa(
 private val CODIGOS_ESTIMADOS = setOf(
     "VENC", "SUP_ALIM", "SUP_TRAN", "SUP_FUNCAO", "HNOT",
     "HSUP_DN", "HSUP_NT", "HSUP_DN_FER", "HSUP_NT_FER", "HSUP_DN_DESC", "HSUP_NT_DESC",
-    "DESC_FER", "DESC_DESC",
+    "DESC_FER", "DESC_DESC", "ATRASO",
     "D01", "D02", "D04"
 )
 
 /** Códigos de desconto conhecidos. A 8.2b.2 traz a lista completa do recibo. */
 private val CODIGOS_DESCONTO = setOf("D01", "D02", "D04")
+
+/**
+ * Rubrica das horas em falta (atrasos, saídas mais cedo). É INFORMATIVA: o valor já foi
+ * retirado do VENC (ver [estimarRecibo]), por isso não pode voltar a sair no líquido como
+ * desconto. Fica no catálogo — e editável no ecrã — só para justificar o VENC mais baixo.
+ */
+private const val CODIGO_AUSENCIAS = "ATRASO"
 
 /** Jornada diária normal (8h) e mês comercial usado nos proporcionais. */
 private const val MINUTOS_JORNADA_DIA = 8 * 60
@@ -239,36 +253,29 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         diasUteisAusencia
     }
 
-    // 28i: o vencimento base é proporcional aos dias efetivamente trabalhados. Sem isto, um mês
-    // inteiro de baixa pagava o base por inteiro e o D01/D02/D04 incidiam sobre dinheiro que não
-    // foi pago.
-    //     VENC = base × (dias de trabalho − dias de trabalho dentro de ausências) ÷ dias de trabalho
-    // O numerador e o denominador contam-se na mesma base — dias de trabalho da projeção — e não
-    // em segunda-a-sexta: numa escala com fins de semana ao serviço esses dias também se pagam e
-    // também se perdem com a baixa. Contar a ausência só aos dias úteis deixava um resíduo de
-    // vencimento precisamente nos meses em que a escala tem fim de semana (o caso do utilizador).
-    // Sem projeção cai nos dias úteis de ausência: não há escala com que comparar.
-    // O valor/hora não muda (continua base mensal ÷ 2080), para as horas suplementares de um mês
-    // com ausências não passarem a valer menos.
-    val diasUteisTotais = diasUteisMes
-    val diasAusenciaNoTrabalho = when {
-        mesInteiroAusente -> diasUteisTotais
-        projecaoDoMes.isNotEmpty() -> projecaoDoMes.count { dia ->
-            ehTrabalhoProjetado(dia, tipos) && dentroDeAusencia(dia.epochDay, ctx.ausencias)
-        }
-        else -> diasUteisAusencia
+    // VENC proporcional aos dias efetivos: ferias contam como dias pagos; baixa corta.
+    val projecaoDoMesAtual = ctx.projecao.filter { pertenceAoMes(it.epochDay, ctx.anoMes) }
+    val diasUteisTotais = if (projecaoDoMesAtual.isNotEmpty()) {
+        projecaoDoMesAtual.count { ehTrabalhoProjetado(it, tipos) }
+    } else {
+        ctx.diasReais.filter { pertenceAoMes(it.data, ctx.anoMes) && ehTrabalho(it, tipos) }.size
     }
-    val diasEfetivos = (diasUteisTotais - diasAusenciaNoTrabalho).coerceAtLeast(0)
-    val venc = when {
-        // Mês inteiro de ausência: não há dia de trabalho a pagar, mesmo que a projeção venha sem
-        // dias de serviço (aí `diasUteisTotais` é 0 e o fallback abaixo pagaria o mês todo).
-        mesInteiroAusente -> 0L
-        diasUteisTotais > 0 -> dividirArredondando(
+    // Ausencias que cortam o VENC: so a baixa (a falta nao existe ainda no enum).
+    val ausenciasBaixa = ctx.ausencias.filter { tipos[it.tipoTurnoId]?.categoria == CategoriaTurno.BAIXA }
+    fun cortaVenc(dia: Long): Boolean = ausenciasBaixa.any { it.dataInicio <= dia && dia <= it.dataFim }
+    val diasUteisNaoPagos = if (projecaoDoMesAtual.isNotEmpty()) {
+        projecaoDoMesAtual.count { ehTrabalhoProjetado(it, tipos) && cortaVenc(it.epochDay) }
+    } else {
+        ctx.diasReais.count { pertenceAoMes(it.data, ctx.anoMes) && ehTrabalho(it, tipos) && cortaVenc(it.data) }
+    }
+    val diasEfetivos = (diasUteisTotais - diasUteisNaoPagos).coerceAtLeast(0)
+    val vencBruto = if (diasUteisTotais == 0) {
+        0L
+    } else {
+        dividirArredondando(
             ctx.parametrosCCT.vencimentoBaseMil.toLong() * diasEfetivos,
             diasUteisTotais.toLong()
         )
-        // Projeção sem dias de serviço (só folgas): não há escala para prorratear, mês por inteiro.
-        else -> ctx.parametrosCCT.vencimentoBaseMil.toLong()
     }
 
     // Subsídios (8.3): regra fixa do recibo, que não olha aos DiaReal. O que os corta são
@@ -299,6 +306,26 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         0L
     }
 
+    // Atrasos: minutos em falta por dia com turno projetado de trabalho e registo real
+    // MANUAL, fora de ausencias. Cada minuto vale o valor/minuto (0,1095 EUR).
+    fun minutosAtrasoDoDia(dia: DiaProjetado): Int {
+        val tipo = dia.tipoTurnoId?.let { tipos[it] } ?: return 0
+        if (tipo.categoria != CategoriaTurno.TRABALHO) return 0
+        if (dentroDeAusencia(dia.epochDay, ctx.ausencias)) return 0
+        val real = ctx.diasReais.firstOrNull { it.data == dia.epochDay && it.origem == "MANUAL" } ?: return 0
+        val prevista = duracaoMinutos(tipo.inicioMin, tipo.fimMin, tipo.pausaMin)
+        val realMin = duracaoMinutos(real.inicioMin, real.fimMin, real.pausaMin)
+        return (prevista - realMin).coerceAtLeast(0)
+    }
+    val minutosAtraso = projecaoDoMesAtual.sumOf { minutosAtrasoDoDia(it) }
+    val atrasoMil = minutosAtraso.toLong() * valorMinutoMil(contexto).toLong()
+
+    // Decisão do utilizador (2026-10-19): o atraso é deduzido no próprio VENC. O recibo mostra
+    // o vencimento já líquido das horas em falta e a rubrica AUSENCIAS fica ao lado como
+    // justificação (informativa), sem voltar a sair nos descontos — senão o mesmo valor era
+    // descontado duas vezes no líquido.
+    val venc = (vencBruto - atrasoMil).coerceAtLeast(0L)
+
     val valores = linkedMapOf(
         "VENC" to venc,
         "HNOT" to valorMinutos(minutosNoturnos, valorHora, TipoHora.NOTURNA_ACRESCIMO),
@@ -312,11 +339,15 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         "SUP_TRAN" to subTran,
         "SUP_FUNCAO" to supFuncaoMil,
         "DESC_FER" to descFerMil,
-        "DESC_DESC" to descDescMil
+        "DESC_DESC" to descDescMil,
+        "ATRASO" to atrasoMil
     )
 
     // Bases de incidência: só as rubricas estimadas que incidem (o cartão de refeição,
     // SUP_ALIM, não incide SS nem IRS — é o que torna detetável o erro de agosto de 2026).
+    // O ATRASO não volta a ser subtraído aqui: já saiu do VENC (que incide) e a própria
+    // rubrica não incide (incideSS e incideIRS = false). Subtraí-lo outra vez baixava a base
+    // duas vezes.
     fun incide(codigo: String, campo: (Rubrica) -> Boolean): Boolean =
         porCodigo[codigo]?.let(campo) ?: false
 
@@ -372,6 +403,8 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // Fase 25: o desconto sindical só incide nos contratos sindicalizados (campo do contrato,
     // ligado pelo switch no ecrã). Desligado, a rubrica fica a 0 — a base não muda (o D04 sempre
     // incidiu só sobre o VENC); o que muda é haver ou não desconto.
+    // 2026-10-19: o VENC já vem líquido dos atrasos, por isso a base do sindicato acompanha
+    // esse corte — não se usa o vencBruto.
     valores["D04"] = if (ctx.contrato.sindicalizado) {
         dividirArredondando(venc * TAXA_SINDICATO_BPS, 10_000L)
     } else {
@@ -440,8 +473,11 @@ private fun pertenceAoMes(epochDay: Long, anoMes: YearMonth): Boolean =
 private fun dentroDeAusencia(epochDay: Long, ausencias: List<Ausencia>): Boolean =
     ausencias.any { epochDay >= it.dataInicio && epochDay <= it.dataFim }
 
-private fun naturezaDe(codigo: String): NaturezaRubrica =
-    if (codigo in CODIGOS_DESCONTO) NaturezaRubrica.DESCONTO else NaturezaRubrica.ABONO
+private fun naturezaDe(codigo: String): NaturezaRubrica = when {
+    codigo == CODIGO_AUSENCIAS -> NaturezaRubrica.INFORMATIVA
+    codigo in CODIGOS_DESCONTO -> NaturezaRubrica.DESCONTO
+    else -> NaturezaRubrica.ABONO
+}
 
 /** Sem data de admissão assume-se a janela noturna moderna (21h–06h). */
 private fun dataAdmissaoPadrao(): Long = LocalDate.of(2004, 7, 15).toEpochDay()

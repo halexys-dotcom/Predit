@@ -213,11 +213,18 @@ class PreditApplication : Application() {
             // ser lançado em "Outros" — que incide, e continua a incidir porque lá fica o R118
             // (média de horas noturnas), esse tributado. Não é estimado: vem do PDF ou à mão.
             RubricaEntity(0L, "COMP_BAIXA", "Complemento de baixa", false, false, false, TipoCalculo.MANUAL, true, 24),
+            // 2026-10-19: deixou de ser desconto — o valor já sai do VENC. A linha é
+            // informativa (justifica o vencimento mais baixo) e editável no ecrã do recibo.
+            RubricaEntity(0L, "ATRASO", "Ausências", false, false, false, TipoCalculo.DERIVADO, true, 25),
             RubricaEntity(0L, "OUTROS", "Outros", true, true, true, TipoCalculo.MANUAL, false, 99)
         )
         iniciais.forEach { rubrica ->
             if (dao.contarPorCodigo(rubrica.codigo) == 0) dao.inserir(rubrica)
         }
+        // O nome pode mudar entre versões (a 2.1.0 renomeou a "Desconto de atraso" para
+        // "Ausências"). Quem actualiza já tem a linha na BD e o seeder não a volta a inserir:
+        // o rename vai por aqui, sem precisar de migração.
+        dao.renomear("ATRASO", "Ausências")
     }
 
     /**

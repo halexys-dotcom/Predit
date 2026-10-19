@@ -6,8 +6,8 @@ import pt.haconnect.predit.domain.model.formatarMoeda
 import java.time.LocalDate
 
 /**
- * Motor do CCT. Todos os números esperados vêm do comando da Fase 8.1 e do
- * handover do projeto (valor/hora 2026 = 6,5653 €, sup. noturno = 14,36 €).
+ * Motor do CCT. Todos os numeros esperados vem do comando da Fase 8.1 e do
+ * handover do projeto (valor/hora 2026 = 6,57 EUR, sup. noturno = 14,37 EUR).
  */
 class CalculoCCTTest {
 
@@ -25,38 +25,47 @@ class CalculoCCTTest {
 
     @Test
     fun `T1 - valor por hora 2026 a 40h semanais`() {
-        // (11 379 800 × 12) ÷ (52 × 40) = 136 557 600 ÷ 2080 = 65 652,6923… → 65 653
-        assertEquals(65_653, valorHoraMil(contexto2026()))
+        // (11 379 800 x 12) / (52 x 40) = 65 652,69 arredonda ao centimo: 65 700
+        assertEquals(65_700, valorHoraMil(contexto2026()))
     }
 
     @Test
     fun `T2 - valor por hora 2025 a 40h semanais`() {
         val ctx = contexto2026().copy(vencimentoBaseMil = 10_760_000)
 
-        // (10 760 000 × 12) ÷ 2080 = 129 120 000 ÷ 2080 = 62 076,9230… → 62 077
-        assertEquals(62_077, valorHoraMil(ctx))
+        // (10 760 000 x 12) / 2080 = 62 076,92 arredonda ao centimo: 62 100
+        assertEquals(62_100, valorHoraMil(ctx))
     }
 
     @Test
     fun `T3 - acrescimo noturno 2026`() {
-        // 65 653 × 1 ÷ 4 = 16 413,25 → 16 413 (1,64 €/h): é o acréscimo de 25% sobre a hora
-        // normal, não o valor total da hora — a hora em si já vem no VENC.
-        assertEquals(16_413, valorHoraTipo(contexto2026(), TipoHora.NOTURNA_ACRESCIMO))
+        // 65 700 x 1 / 4 = 16 425 (1,6425 EUR/h): acrescimo de 25% sobre a hora normal,
+        // nao o valor total da hora (a hora em si ja vem no VENC).
+        assertEquals(16_425, valorHoraTipo(contexto2026(), TipoHora.NOTURNA_ACRESCIMO))
     }
 
     @Test
-    fun `T4 - suplemento noturno em dia normal 2026 da 14,36 EUR e nunca 14,37`() {
+    fun `T4 - suplemento noturno em dia normal 2026 da 14,37 EUR`() {
         val valor = valorHoraTipo(contexto2026(), TipoHora.SUP_NOTURNO_NORMAL)
 
-        // 65 653 × 35 ÷ 16 = 2 297 855 ÷ 16 = 143 615,9375 → 143 616 (multiplicar antes de dividir)
-        assertEquals(143_616, valor)
-        assertEquals("14,36 €", valor.formatarMoeda())
+        // 65 700 x 35 / 16 = 143 718,75 arredonda 143 719 (multiplicar antes de dividir)
+        assertEquals(143_719, valor)
+        assertEquals("14,37 €", valor.formatarMoeda())
     }
 
     @Test
     fun `T5 - valor do dia 2026`() {
-        // 65 653 × 8 = 525 224 (52,52 €)
-        assertEquals(525_224, valorDiaMil(contexto2026()))
-        assertEquals("52,52 €", valorDiaMil(contexto2026()).formatarMoeda())
+        // 65 700 x 8 = 525 600 (52,56 EUR)
+        assertEquals(525_600, valorDiaMil(contexto2026()))
+        assertEquals("52,56 €", valorDiaMil(contexto2026()).formatarMoeda())
+    }
+
+    @Test
+    fun `T6 - valor do minuto 2026 e o que desconta o atraso`() {
+        // 65 700 / 60 = 1 095 unidades (0,1095 EUR/min): e a base do desconto de atraso.
+        assertEquals(1_095, valorMinutoMil(contexto2026()))
+        // 2025: 62 100 / 60 = 1 035 (0,1035 EUR/min).
+        val ctx2025 = contexto2026().copy(vencimentoBaseMil = 10_760_000)
+        assertEquals(1_035, valorMinutoMil(ctx2025))
     }
 }

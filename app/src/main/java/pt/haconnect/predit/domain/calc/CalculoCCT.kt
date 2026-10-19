@@ -19,21 +19,25 @@ data class ContextoCalculo(
 )
 
 /**
- * Valor/hora em unidades de 1/10000 €:
- *   (vencimentoBaseMil × 12) ÷ (52 × horarioSemanalH)
+ * Valor/hora em unidades de 1/10000 EUR, arredondado ao centimo para bater com o recibo:
+ *   (vencimentoBaseMil x 12) / (52 x horarioSemanalH), arredondado aos 100 unidades.
  *
- * 2026, 40h: (11 379 800 × 12) ÷ 2080 = 65 652,6923… → 65 653 (6,5653 €/h)
- * 2025, 40h: (10 760 000 × 12) ÷ 2080 = 62 076,9230… → 62 077
+ * 2026, 40h: 65 700 (6,57 EUR/h). O recibo da empresa imprime 6,57.
+ * 2025, 40h: 62 100 (6,21 EUR/h).
  */
 fun valorHoraMil(ctx: ContextoCalculo): Int {
-    require(ctx.horarioSemanalH > 0) { "horarioSemanalH tem de ser positivo" }
+    require(0 < ctx.horarioSemanalH) { "horarioSemanalH tem de ser positivo" }
     val numerador = ctx.vencimentoBaseMil.toLong() * 12L
     val denominador = 52L * ctx.horarioSemanalH
-    return dividirArredondando(numerador, denominador).toInt()
+    return dividirArredondando(numerador, denominador * 100L).toInt() * 100
 }
 
-/** Valor/dia de 8h em unidades de 1/10000 €: 65 653 × 8 = 525 224 (52,52 €). */
+/** Valor/dia de 8h em unidades de 1/10000 EUR: 65 700 x 8 = 525 600 (52,56 EUR). */
 fun valorDiaMil(ctx: ContextoCalculo): Int = valorHoraMil(ctx) * 8
+
+/** Valor/minuto em unidades de 1/10000 EUR: valor/hora / 60 (65 700 / 60 = 1 095). */
+fun valorMinutoMil(ctx: ContextoCalculo): Int =
+    dividirArredondando(valorHoraMil(ctx).toLong(), 60L).toInt()
 
 /**
  * Multiplicadores da CCT (handover, secção 4), em fracções exatas — nunca Double:
