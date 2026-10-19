@@ -136,7 +136,7 @@ fun AcercaScreen(onVoltar: () -> Unit) {
 
             Text(
                 text = "Carlos Oliveira, José Mendes, Ricardo Pinheiro, Liliana Sousa, " +
-                    "Jorge Revez, Ana Pereira, Alzira Tavares, Jorge Canji, Luís Matos, " +
+                    "Jorge Revez, Ana Pereira, Alzira Tavares, Luís Matos, " +
                     "Raquel Diebe, José Correia, Nabituque Naba, Nuno Carvalho, Susana Oliveira.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
