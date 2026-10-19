@@ -327,8 +327,11 @@ class EstimadorReciboTest {
         // 1h noturna dentro da jornada (21h-22h): 65 700 x 1 / 4 = 16 425 (1,64 EUR) - o HNOT e
         // o acréscimo de 25%, a hora em si já vem no VENC.
         assertEquals(16_425L, est.valor("HNOT"))
-        // A 9.ª hora (22h–23h) é extra e também noturna: sai pelo HSUP_NT, com a noite dentro.
-        assertEquals(143_719L, est.valor("HSUP_NT"))
+        // Mas horas extra não: um dia de ausência registada (férias, baixa, folga) nunca gera
+        // suplemento, mesmo com um registo real por cima — nesse dia o utilizador não
+        // trabalhou. A 9.ª hora (22h–23h) fica sem HSUP_NT.
+        assertEquals(0L, est.valor("HSUP_NT"))
+        assertEquals(0L, est.valor("HSUP_DN"))
         // Trabalhar num dia de férias dá as horas, mas não devolve o dia útil ao subsídio:
         // é o mesmo valor do T6, porque a regra dos subsídios não olha aos dias trabalhados.
         assertEquals(1_334_500L, est.valor("SUP_ALIM"))
@@ -599,6 +602,83 @@ class EstimadorReciboTest {
         )
         assertEquals(0L, doPdf.valor("ATRASO"))
         assertEquals(11_379_800L, doPdf.valor("VENC"))
+    }
+
+    /**
+     * O caso real de julho/agosto de 2026: a folha de agosto — que paga as variáveis de julho,
+     * por causa do desfasamento 1 — traz 9,86 € em "Sup. diurno dia normal", e a conta é
+     * 1h x 6,57 EUR x 1,5 (não 1,5h x 6,57: 9,855 € é o valor de UMA hora a 150%). É o dia 7 de
+     * julho, das 12h às 21h: 9h contra as 8h da jornada diária prevista, 1h suplementar. O
+     * motor já acertava — o que faltava era o dia de férias por cima de um registo não pagar
+     * nada (T7). O saldo mensal negativo do Horário não anula isto: não há compensação entre
+     * dias.
+     */
+    @Test
+    fun `26 - dia de 9h contra jornada de 8h paga 1h de suplemento como na folha`() {
+        val julho = YearMonth.of(2026, 7)
+        val dia = julho.atDay(7).toEpochDay()
+        val doPdf = DiaReal(
+            data = dia,
+            tipoTurnoId = null,
+            inicioMin = 12 * 60,
+            fimMin = 21 * 60,
+            pausaMin = 0,
+            origem = "PDF"
+        )
+        val projecao = listOf(DiaProjetado(dia, tipoTurnoId = 1L))
+
+        val est = estimarRecibo(
+            contexto(julho, listOf(doPdf), projecao = projecao)
+                .copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        assertEquals(98_550L, est.valor("HSUP_DN"))
+        assertEquals(0L, est.valor("HSUP_NT"))
+        assertEquals(0L, est.valor("HNOT"))
+    }
+
+    /**
+     * Regra do CCT confirmada pelo utilizador (2026-10-19): o suplemento é por dia e não se
+     * compensa com os dias curtos do mesmo mês. Dia 6: 9h30 reais contra 8h previstas → 1h30 de
+     * suplemento. Dia 7: 4h reais contra 8h previstas → 4h de atraso, que saem do VENC. Uma
+     * regra não anula a outra.
+     */
+    @Test
+    fun `27 - suplemento por dia nao se compensa com o atraso do dia seguinte`() {
+        val outubro = YearMonth.of(2026, 10)
+        val longo = DiaReal(
+            data = outubro.atDay(6).toEpochDay(),
+            tipoTurnoId = null,
+            inicioMin = 9 * 60,
+            fimMin = 18 * 60 + 30,
+            pausaMin = 0,
+            origem = "MANUAL"
+        )
+        val curto = DiaReal(
+            data = outubro.atDay(7).toEpochDay(),
+            tipoTurnoId = null,
+            inicioMin = 9 * 60,
+            fimMin = 13 * 60,
+            pausaMin = 0,
+            origem = "MANUAL"
+        )
+        val projecao = listOf(
+            DiaProjetado(longo.data, tipoTurnoId = 1L),
+            DiaProjetado(curto.data, tipoTurnoId = 1L)
+        )
+
+        val est = estimarRecibo(
+            contexto(outubro, listOf(longo, curto), projecao = projecao)
+                .copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        // 90 min x 6,57 EUR x 1,5 = 14,78 EUR.
+        assertEquals(147_825L, est.valor("HSUP_DN"))
+        // 240 min x 0,1095 EUR = 26,28 EUR, já deduzidos no VENC e justificados no ATRASO.
+        assertEquals(262_800L, est.valor("ATRASO"))
+        // Turno das 9h às 18h30: nada cai na janela noturna.
+        assertEquals(0L, est.valor("HSUP_NT"))
+        assertEquals(0L, est.valor("HNOT"))
     }
 
     @Test

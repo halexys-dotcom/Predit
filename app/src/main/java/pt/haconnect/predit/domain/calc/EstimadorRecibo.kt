@@ -180,20 +180,24 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     var minSupNtDesc = 0L
 
     for (dia in diasTrabalhados) {
-        // Espelho do cálculo do HSUP: só a janela noturna dentro das primeiras 8h de jornada.
-        // As horas extra noturnas (após as 8h) já são pagas via HSUP_NT*, e é a mesma `noturno`
-        // que as classifica lá — a subtração cobre também os turnos que atravessam a meia-noite,
-        // onde somar 8h ao início não dá uma hora do mesmo dia.
-        val noturnoDoDia = minutosNaJanela(dia.inicioMin, dia.fimMin, janela)
+        val realDoDia = duracaoMinutos(dia.inicioMin, dia.fimMin, dia.pausaMin)
+        // HNOT: só a janela noturna dentro da jornada prevista. As horas extra noturnas (para
+        // lá da jornada) já são pagas via HSUP_NT*, e é a mesma `noturno` que as classifica lá.
+        // A janela é contada em minutos do dia, por isso aguenta turnos que atravessam a
+        // meia-noite — somar a jornada ao início não dá uma hora do mesmo dia.
+        val jornadaDoDia = minOf(realDoDia, jornadaPrevistaDoDia(dia, projecaoDoMes, tipos))
+        minutosNoturnos += minutosNaJanela(dia.inicioMin, dia.inicioMin + jornadaDoDia, janela)
 
-        val extra = duracaoMinutos(dia.inicioMin, dia.fimMin, dia.pausaMin) - MINUTOS_JORNADA_DIA
-        if (extra <= 0) {
-            minutosNoturnos += noturnoDoDia
-            continue
-        }
+        // Horas extra (2026-10-19): só há suplemento se o dia render mais do que a jornada
+        // prevista para ESSE dia. Um dia coberto por ausência registada (férias, baixa, folga)
+        // não foi trabalhado, mesmo que haja um registo real por cima: não paga suplemento.
+        // O que fica dentro da jornada desse dia é atraso (sai do VENC), não suplemento — e um
+        // dia curto não se compensa com um dia longo.
+        if (dentroDeAusencia(dia.data, ctx.ausencias)) continue
+        val extra = realDoDia - jornadaDoDia
+        if (extra <= 0) continue
 
-        val noturno = minutosNaJanela(dia.inicioMin + MINUTOS_JORNADA_DIA, dia.fimMin, janela)
-        minutosNoturnos += noturnoDoDia - noturno
+        val noturno = minutosNaJanela(dia.inicioMin + jornadaDoDia, dia.fimMin, janela)
         val diurno = extra - noturno
         when {
             dia.data in feriados -> {
@@ -516,6 +520,35 @@ private fun ehTrabalho(dia: DiaReal, tipos: Map<Long, TipoTurno>): Boolean {
 private fun ehTrabalhoProjetado(dia: DiaProjetado, tipos: Map<Long, TipoTurno>): Boolean {
     val tipo = dia.tipoTurnoId?.let { tipos[it] } ?: return false
     return tipo.categoria == CategoriaTurno.TRABALHO
+}
+
+/**
+ * Minutos de trabalho previstos para o dia — a régua das horas suplementares.
+ *
+ * Regra do CCT confirmada pelo utilizador (2026-10-19): o suplemento só existe quando as horas
+ * reais passam as horas previstas **daquele dia**; um dia curto não se compensa com um dia
+ * longo. A régua é, por ordem: o turno projetado pela rotação; o tipo do próprio registo (o
+ * editor guarda o tipo escolhido); e, sem nenhum deles, a jornada normal de 8h — que é também a
+ * régua de quem trabalha uma folga (aí a folga vale 200% em DESC_DESC e o excedente sai pelas
+ * HSUP_*_DESC).
+ */
+private fun jornadaPrevistaDoDia(
+    dia: DiaReal,
+    projecaoDoMes: List<DiaProjetado>,
+    tipos: Map<Long, TipoTurno>
+): Int {
+    val projetado = projecaoDoMes.firstOrNull { it.epochDay == dia.data }
+        ?.tipoTurnoId?.let { tipos[it] }
+    if (projetado != null && projetado.categoria == CategoriaTurno.TRABALHO) {
+        val previsto = duracaoMinutos(projetado.inicioMin, projetado.fimMin, projetado.pausaMin)
+        if (previsto > 0) return previsto
+    }
+    val doRegisto = dia.tipoTurnoId?.let { tipos[it] }
+    if (doRegisto != null && doRegisto.categoria == CategoriaTurno.TRABALHO) {
+        val previsto = duracaoMinutos(doRegisto.inicioMin, doRegisto.fimMin, doRegisto.pausaMin)
+        if (previsto > 0) return previsto
+    }
+    return MINUTOS_JORNADA_DIA
 }
 
 /** Dia de descanso: a projeção dizia folga e o dia acabou trabalhado. */

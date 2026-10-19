@@ -42,7 +42,12 @@ data class TotaisMes(
     val minutosReais: Int,
     val minutosPrevistos: Int,
     val rotuloPrevisto: String = "Horas previstas pela escala",
-    val subtituloPrevisto: String? = null
+    val subtituloPrevisto: String? = null,
+    // O rodapé compara as horas reais com o previsto, e o previsto tem duas fontes possíveis:
+    // o PDF importado da empresa (que inclui turnos de 9h/10h e dias de férias) ou a projeção
+    // da rotação. O rótulo diz qual delas está a ser usada, para ninguém ler a diferença como
+    // se fosse contra a jornada normal de 8h.
+    val rotuloDiferenca: String = "Diferença face à projeção"
 ) {
     val diferencaMinutos: Int get() = minutosReais - minutosPrevistos
 }
@@ -156,6 +161,7 @@ class HorarioViewModel(
         val minutosPrevistos: Int
         val rotuloPrevisto: String
         val subtituloPrevisto: String?
+        val rotuloDiferenca: String
 
         if (planejamento != null) {
             val descontoFolga = listaDiasReais
@@ -172,6 +178,8 @@ class HorarioViewModel(
                 .toLocalDate()
                 .format(formatterDate)
             subtituloPrevisto = "Fonte: importado em $dataImpStr"
+            // O previsto vem do PDF da empresa, não da escala nem da jornada de 8h.
+            rotuloDiferenca = "Diferença face ao PDF"
         } else {
             var currPrev = inicioMes
             var projSum = 0
@@ -189,6 +197,7 @@ class HorarioViewModel(
             minutosPrevistos = projSum
             rotuloPrevisto = "Horas estimadas (projeção)"
             subtituloPrevisto = null
+            rotuloDiferenca = "Diferença face à projeção"
         }
 
         HorarioUiState(
@@ -198,7 +207,8 @@ class HorarioViewModel(
                 minutosReais = minutosReais,
                 minutosPrevistos = minutosPrevistos,
                 rotuloPrevisto = rotuloPrevisto,
-                subtituloPrevisto = subtituloPrevisto
+                subtituloPrevisto = subtituloPrevisto,
+                rotuloDiferenca = rotuloDiferenca
             )
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HorarioUiState())

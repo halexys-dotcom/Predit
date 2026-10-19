@@ -298,7 +298,7 @@ fun HorarioScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Diferença face à escala", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                            Text(totais.rotuloDiferenca, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                             val dif = totais.diferencaMinutos
                             val sinal = if (dif >= 0) "+" else "-"
                             val absDif = abs(dif)
