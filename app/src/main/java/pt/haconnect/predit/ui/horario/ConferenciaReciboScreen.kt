@@ -265,6 +265,18 @@ fun ConferenciaReciboScreen(
             )
         }
 
+        // A1: o IRS foi estimado com as tabelas de outro ano (ainda não há as deste).
+        uiState.avisoTabelasIRS?.let { aviso ->
+            Text(
+                text = aviso,
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .testTag("aviso-tabelas-irs")
+            )
+        }
+
         // Fase 27d: o aviso da importação fica no mesmo sítio do erro, mas em cor neutra —
         // é informação, não falha.
         uiState.mensagemImportacao?.let { aviso ->
@@ -309,8 +321,8 @@ fun ConferenciaReciboScreen(
                         text = when (natureza) {
                             NaturezaRubrica.ABONO -> "ABONOS"
                             NaturezaRubrica.DESCONTO -> "DESCONTOS"
-                            // As ausências já saíram do VENC: a linha justifica o corte e não
-                            // entra nos totais, por isso tem um grupo próprio.
+                            // As ausências são informativas: não entram nos totais nem cortam
+                            // o VENC, por isso têm um grupo próprio.
                             NaturezaRubrica.INFORMATIVA -> "INFORMATIVO"
                         },
                         // Fase 18c: 12 sp (igual ao subtítulo do cartão do Mais) + letterSpacing.
@@ -387,6 +399,27 @@ fun ConferenciaReciboScreen(
                 TextButton(onClick = { viewModel.cancelarSeletor() }) {
                     Text("Cancelar")
                 }
+            }
+        )
+    }
+
+    // A3: o recibo não traz mês legível, por isso não se sabe se é do mês visível. Só se aplica
+    // com a confirmação do utilizador.
+    if (uiState.confirmarReciboSemMes) {
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelarReciboSemMes() },
+            title = { Text("Recibo sem mês reconhecível") },
+            text = {
+                Text(
+                    "Não consegui ler o mês deste recibo. Aplicar os valores a " +
+                        "${uiState.anoMesFormatado}?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmarReciboSemMes() }) { Text("Aplicar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.cancelarReciboSemMes() }) { Text("Cancelar") }
             }
         )
     }

@@ -291,4 +291,24 @@ class PdfPlannerParserTest {
         assertEquals(7 * 60 + 30, dia.duracaoMin)
         assertTrue(plano.avisos.isEmpty())
     }
+
+    @Test
+    fun `18 - Ano colado a underscore no nome do ficheiro`() {
+        // O \b antigo falhava aqui: "_" e "2" são ambos caracteres de palavra.
+        val texto = "01-Julho 13:00 21:00"
+        val plano = parsePdfPlanner(texto, "Horario_2026.pdf")
+
+        assertEquals(YearMonth.of(2026, 7), plano.mesReferencia)
+        assertEquals(1, plano.dias.size)
+        assertTrue(plano.avisos.isEmpty())
+    }
+
+    @Test
+    fun `19 - Numero mais longo no nome nao e ano`() {
+        // 20261 não é um ano: sem dígitos colados é que conta.
+        val plano = parsePdfPlanner("01-Julho 13:00 21:00", "Planning_20261.pdf")
+
+        assertNull(plano.mesReferencia)
+        assertTrue(plano.avisos.contains("Ano não detetado no nome do ficheiro"))
+    }
 }

@@ -32,8 +32,9 @@ fun parsePdfPlanner(
 ): PlanoImportado {
     val avisos = mutableListOf<String>()
 
-    // 1. Extrair Ano do nome do ficheiro
-    val yearRegex = Regex("""\b(20\d{2})\b""")
+    // 1. Extrair Ano do nome do ficheiro. Sem \b: o "_" é carácter de palavra e o \b falhava em
+    // "Horario_2026.pdf". Basta não haver dígitos colados ao ano.
+    val yearRegex = Regex("""(?<!\d)(20\d{2})(?!\d)""")
     val yearMatch = yearRegex.find(nomeFicheiro)
     val ano = yearMatch?.groupValues?.get(1)?.toIntOrNull()
 

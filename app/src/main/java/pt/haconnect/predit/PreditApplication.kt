@@ -213,8 +213,8 @@ class PreditApplication : Application() {
             // ser lançado em "Outros" — que incide, e continua a incidir porque lá fica o R118
             // (média de horas noturnas), esse tributado. Não é estimado: vem do PDF ou à mão.
             RubricaEntity(0L, "COMP_BAIXA", "Complemento de baixa", false, false, false, TipoCalculo.MANUAL, true, 24),
-            // 2026-10-19: deixou de ser desconto — o valor já sai do VENC. A linha é
-            // informativa (justifica o vencimento mais baixo) e editável no ecrã do recibo.
+            // 2026-10-20: não é desconto nem corta o VENC (que é o valor absoluto do contrato).
+            // A linha é informativa (mostra as horas em falta) e editável no ecrã do recibo.
             RubricaEntity(0L, "ATRASO", "Ausências", false, false, false, TipoCalculo.DERIVADO, true, 25),
             RubricaEntity(0L, "OUTROS", "Outros", true, true, true, TipoCalculo.MANUAL, false, 99)
         )

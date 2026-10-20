@@ -160,6 +160,57 @@ class ReciboImportacaoTest {
         assertEquals(mapOf(1L to 11_379_800L, 10L to 0L), somados)
     }
 
+    /**
+     * C7: o D05 da Fundação ("Desconto Subsídio Alimentação", 105,00 €) é um desconto que a app
+     * não conhece. Mapeado para OUTROS — ou para SUP_ALIM, que era a sugestão da heurística —
+     * somava ao líquido. Não entra na soma e é reportado para a importação abortar.
+     */
+    @Test
+    fun `desconto mapeado para rubrica de abono fica de fora e e reportado`() {
+        val descontosSemRubrica = mutableListOf<String>()
+        val somados = somarLinhasPorRubrica(
+            listOf(
+                linha("R01", 9_666_700L),
+                linha("D05", 1_050_000L, codigoInterno = "OUTROS", natureza = NaturezaRubrica.DESCONTO)
+            ),
+            catalogo,
+            mutableListOf(),
+            descontosSemRubrica
+        )
+
+        assertEquals(mapOf(1L to 9_666_700L), somados)
+        assertEquals(listOf("D05"), descontosSemRubrica)
+    }
+
+    /** C7: um desconto sem código interno nenhum também é reportado. */
+    @Test
+    fun `desconto sem codigo interno e reportado`() {
+        val descontosSemRubrica = mutableListOf<String>()
+        somarLinhasPorRubrica(
+            listOf(linha("D05", 1_050_000L, codigoInterno = null, natureza = NaturezaRubrica.DESCONTO)),
+            catalogo,
+            mutableListOf(),
+            descontosSemRubrica
+        )
+
+        assertEquals(listOf("D05"), descontosSemRubrica)
+    }
+
+    /** C7: um desconto que cai numa rubrica de desconto do catálogo escreve normalmente. */
+    @Test
+    fun `desconto com rubrica de desconto escreve o valor`() {
+        val descontosSemRubrica = mutableListOf<String>()
+        val somados = somarLinhasPorRubrica(
+            listOf(linha("D02", 460_000L, natureza = NaturezaRubrica.DESCONTO)),
+            catalogo + ("D02" to rubrica(21L, "D02")),
+            mutableListOf(),
+            descontosSemRubrica
+        )
+
+        assertEquals(mapOf(21L to 460_000L), somados)
+        assertTrue(descontosSemRubrica.isEmpty())
+    }
+
     private fun rubrica(id: Long, codigo: String) = Rubrica(
         id = id,
         codigo = codigo,
@@ -179,12 +230,13 @@ class ReciboImportacaoTest {
     private fun linha(
         codigoRecibo: String,
         valor: Long,
-        codigoInterno: String? = mapearCodigoRecibo(codigoRecibo).codigoInterno
+        codigoInterno: String? = mapearCodigoRecibo(codigoRecibo).codigoInterno,
+        natureza: NaturezaRubrica = NaturezaRubrica.ABONO
     ) = LinhaReciboImportada(
         codigoRecibo = codigoRecibo,
         descricao = codigoRecibo,
         codigoInterno = codigoInterno,
-        natureza = NaturezaRubrica.ABONO,
+        natureza = natureza,
         valor = valor,
         quantidade = null,
         data = null,

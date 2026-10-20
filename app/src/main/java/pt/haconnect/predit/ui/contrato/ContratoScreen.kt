@@ -136,7 +136,11 @@ fun ContratoScreen(
     val dataNoFuturo = dataAdmissaoParsed != null && dataAdmissaoParsed.isAfter(hoje)
     val dataValida = dataAdmissaoParsed != null && !dataNoFuturo
 
-    val podeSalvar = dataValida
+    // O valor/hora do CCT divide pelo horário semanal: 0 (ou vazio) rebentava o motor do recibo.
+    val horarioSemanal = horarioSemanalTexto.trim().toIntOrNull()
+    val horarioValido = horarioSemanal != null && horarioSemanal in HORARIO_SEMANAL_MIN..HORARIO_SEMANAL_MAX
+
+    val podeSalvar = dataValida && horarioValido
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -171,7 +175,7 @@ fun ContratoScreen(
                                     categoriaCodigo = categoriaCodigo,
                                     dataAdmissao = dataAdmissaoParsed.toEpochDay(),
                                     regimeHorario = regimeHorario,
-                                    horarioSemanalH = horarioSemanalTexto.toIntOrNull() ?: 40,
+                                    horarioSemanalH = horarioSemanal ?: 40,
                                     numeroDependentes = numeroDependentesTexto.toIntOrNull() ?: 0,
                                     estadoCivil = estadoCivil,
                                     titulares = titularesTexto.toIntOrNull() ?: 1,
@@ -595,6 +599,15 @@ fun ContratoScreen(
                 value = horarioSemanalTexto,
                 onValueChange = { horarioSemanalTexto = it },
                 singleLine = true,
+                isError = !horarioValido,
+                supportingText = if (!horarioValido) {
+                    {
+                        Text(
+                            "Indica um horário entre $HORARIO_SEMANAL_MIN e $HORARIO_SEMANAL_MAX horas.",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                } else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -735,6 +748,10 @@ fun ContratoScreen(
  * Ano mais antigo aceite nos campos de ano (IRS Jovem). Abaixo disto é gralha, não história.
  */
 private const val ANO_MINIMO_CONTRATO = 1900
+
+/** Limites do horário semanal do contrato, em horas. Fora disto o Guardar fica desativado. */
+private const val HORARIO_SEMANAL_MIN = 1
+private const val HORARIO_SEMANAL_MAX = 60
 
 private fun EstadoCivil.nomeFormatado(): String {
     return when (this) {

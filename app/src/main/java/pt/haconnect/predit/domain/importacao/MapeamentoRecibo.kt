@@ -17,7 +17,7 @@ private val REGEX_ESPACOS = Regex("\\s+")
  *
  * A [natureza] das linhas informativas fica ABONO porque não têm `codigoInterno` e nunca
  * chegam a ser escritas. [NaturezaRubrica.INFORMATIVA] é outra coisa: serve para rubricas do
- * catálogo que justificam um corte já aplicado (as ausências, que saem do VENC).
+ * catálogo que se mostram sem pagar nem descontar (as ausências).
  */
 /**
  * De onde veio a decisão de [MapeamentoRubrica.codigoInterno] — é o que permite ao parser
@@ -111,6 +111,13 @@ private const val RUBRICA_COMPLEMENTO_BAIXA = "COMP_BAIXA"
 
 /** Códigos cujo valor sai do recibo: a natureza deles é DESCONTO, não ABONO. */
 private val CODIGOS_DESCONTO = setOf("D01", "D02", "D04")
+
+/**
+ * A rubrica interna é de desconto? É a guarda do C7: uma linha que o recibo dá como desconto só
+ * pode cair numa destas — numa de abono (OUTROS, SUP_ALIM...) somava ao líquido em vez de tirar.
+ */
+internal fun ehRubricaDeDesconto(codigoInterno: String): Boolean =
+    codigoInterno.trim().uppercase() in CODIGOS_DESCONTO
 
 /**
  * Traduz um código de recibo (`R01`, `D02`, ...) para o que a app precisa de saber:

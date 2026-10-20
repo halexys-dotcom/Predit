@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -12,6 +13,7 @@ import pt.haconnect.predit.data.pdf.extrairBlocosPdf
 import pt.haconnect.predit.data.repository.AusenciaRepository
 import pt.haconnect.predit.data.repository.ContratoRepository
 import pt.haconnect.predit.data.repository.DiaRealRepository
+import pt.haconnect.predit.data.repository.EscaloesIRSDoAno
 import pt.haconnect.predit.data.repository.MapeamentoRubricaRepository
 import pt.haconnect.predit.data.repository.MunicipioRepository
 import pt.haconnect.predit.data.repository.ParametrosCCTRepository
@@ -23,7 +25,6 @@ import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.AplicacaoVigente
 import pt.haconnect.predit.domain.calc.ContextoCalculo
 import pt.haconnect.predit.domain.calc.ContextoEstimativa
-import pt.haconnect.predit.domain.calc.EscalaoIRS
 import pt.haconnect.predit.domain.calc.NaturezaRubrica
 import pt.haconnect.predit.domain.calc.estimarRecibo
 import pt.haconnect.predit.domain.calc.janelaNoturna
@@ -31,6 +32,7 @@ import pt.haconnect.predit.domain.calc.projetarIntervalo
 import pt.haconnect.predit.domain.calc.valorHoraMil
 import pt.haconnect.predit.domain.importacao.LinhaReciboImportada
 import pt.haconnect.predit.domain.importacao.ReciboImportado
+import pt.haconnect.predit.domain.importacao.ehRubricaDeDesconto
 import pt.haconnect.predit.domain.importacao.fundirRecibos
 import pt.haconnect.predit.domain.importacao.mapearCodigoRecibo
 import pt.haconnect.predit.domain.importacao.parseReciboPdf
@@ -158,7 +160,17 @@ data class ReciboUiState(
      * 28c: códigos do recibo importado que nenhum mapa conhece. Enquanto não for nulo, o
      * recibo ainda não foi aplicado — está à espera das escolhas do utilizador.
      */
-    val mapeamentoPendente: MapeamentoPendente? = null
+    val mapeamentoPendente: MapeamentoPendente? = null,
+    /**
+     * A1: o ano do mês não tem tabelas de retenção e o IRS foi estimado com as do último ano
+     * carregado. É aviso, não erro: o recibo estima-se na mesma, mas o D02 pode não bater.
+     */
+    val avisoTabelasIRS: String? = null,
+    /**
+     * A3: o recibo importado não traz mês reconhecível. Enquanto for verdade, o ecrã pergunta se
+     * é para aplicar ao mês visível — o recibo ainda não foi aplicado.
+     */
+    val confirmarReciboSemMes: Boolean = false
 ) {
     /** Sem recibo gravado o formulário vem pré-preenchido, portanto Guardar tem de estar ativo. */
     val podeGuardar: Boolean get() = !carregando && (!guardado || temAlteracoes)
@@ -250,6 +262,10 @@ class ReciboViewModel(
     // aplicado — primeiro escolhem-se os destinos, só depois `aplicarReciboImportado` corre.
     private val _mapeamentoPendente = MutableStateFlow<MapeamentoPendente?>(null)
 
+    // A3: o recibo que chegou sem mês reconhecível, à espera de o utilizador confirmar que é do
+    // mês visível. Enquanto não for nulo, ainda não foi aplicado.
+    private val _reciboSemMesPendente = MutableStateFlow<ReciboImportado?>(null)
+
     private val contrato = contratoRepository.observar()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -299,28 +315,33 @@ class ReciboViewModel(
         combine(_recibosParaEscolher, _mensagemImportacao, _avisosImportacao) { recibos, mensagem, avisos ->
             ImportacaoUi(recibos, mensagem, avisos)
         },
-        _mapeamentoPendente
-    ) { base, seletorAberto, importacao, mapeamentoPendente ->
+        _mapeamentoPendente,
+        _reciboSemMesPendente
+    ) { base, seletorAberto, importacao, mapeamentoPendente, reciboSemMes ->
         base.copy(
             seletorDeReciboAberto = seletorAberto,
             recibosParaEscolher = importacao.recibosParaEscolher,
             mensagemImportacao = importacao.mensagemImportacao,
             avisosImportacao = importacao.avisosImportacao,
-            mapeamentoPendente = mapeamentoPendente
+            mapeamentoPendente = mapeamentoPendente,
+            confirmarReciboSemMes = reciboSemMes != null
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReciboUiState())
 
     /**
      * Os fluxos do mês escolhido: o recibo gravado, as linhas gravadas e os escalões de IRS
      * do ano. Vão por dentro do `flatMapLatest` porque dependem do mês selecionado.
+     *
+     * A1: os escalões vêm com recurso — sem tabelas para o ano do mês (2027 antes de a app as
+     * trazer), chegam os do último ano carregado, e o estado leva o aviso.
      */
     private fun estadoDoMes(fontes: Fontes): Flow<ReciboUiState> {
         val anoMes = chaveDe(fontes.cabecalho.anoMes)
         return combine(
             reciboRepository.observarMes(anoMes),
             reciboRepository.observarLinhas(anoMes),
-            tabelaIRSRepository.observarPorAno(fontes.cabecalho.anoMes.year)
-        ) { mes, linhas, escaloes -> calcularEstado(fontes, mes, linhas, escaloes) }
+            tabelaIRSRepository.observarComRecurso(fontes.cabecalho.anoMes.year)
+        ) { mes, linhas, tabelas -> calcularEstado(fontes, mes, linhas, tabelas) }
     }
 
     /**
@@ -331,8 +352,9 @@ class ReciboViewModel(
         fontes: Fontes,
         mesGuardado: ReciboMes?,
         linhasGuardadas: List<ReciboLinha>,
-        escaloes: List<EscalaoIRS>
+        tabelasIRS: EscaloesIRSDoAno
     ): ReciboUiState {
+        val escaloes = tabelasIRS.escaloes
         val anoMes = chaveDe(fontes.cabecalho.anoMes)
         val formatado = formatarAnoMes(fontes.cabecalho.anoMes)
         val inicio = fontes.cabecalho.anoMes.atDay(1).toEpochDay()
@@ -362,7 +384,9 @@ class ReciboViewModel(
 
         // Se a semente ainda não chegou (tabelas de IRS vazias), o motor atira — e um fluxo
         // que morre deixava o ecrã vazio para sempre. Fica uma mensagem e o fluxo sobrevive,
-        // que assim recupera sozinho quando as tabelas entram.
+        // que assim recupera sozinho quando as tabelas entram. A1: a falta de tabelas para o
+        // ano já não chega aqui (vem o recurso ao último ano); o que sobra é a semente por
+        // chegar ou um erro a sério, e cada um tem a sua mensagem.
         val desfasamento = contrato.desfasamentoPagamentoVariaveis
         // O motor lê a projeção do mês das variáveis (M com desfasamento 0, M-1 com 1).
         // Constrói-se o intervalo que cobre os dois meses: com desfasamento 0 cobre só M;
@@ -370,7 +394,7 @@ class ReciboViewModel(
         val inicioVariaveis = fontes.cabecalho.anoMes.minusMonths(desfasamento.toLong()).atDay(1).toEpochDay()
         val inicioProjecao = minOf(inicio, inicioVariaveis)
         val fimProjecao = fontes.cabecalho.anoMes.atEndOfMonth().toEpochDay()
-        val estimativa = runCatching {
+        val estimativa = try {
             estimarRecibo(
                 ContextoEstimativa(
                     anoMes = fontes.cabecalho.anoMes,
@@ -395,14 +419,27 @@ class ReciboViewModel(
                     desfasamentoPagamentoVariaveis = desfasamento
                 )
             )
-        }.getOrElse {
+        } catch (e: CancellationException) {
+            // O cancelamento do fluxo (mudar de mês, sair do ecrã) não é erro do cálculo.
+            throw e
+        } catch (e: Exception) {
             return ReciboUiState(
                 anoMes = anoMes,
                 anoMesFormatado = formatado,
                 guardado = mesGuardado != null,
-                mensagemErro = "Ainda a carregar os parâmetros e as tabelas de retenção."
+                mensagemErro = if (escaloes.isEmpty()) {
+                    "Ainda a carregar os parâmetros e as tabelas de retenção."
+                } else {
+                    "Não foi possível estimar o recibo: ${e.message ?: "erro desconhecido"}"
+                }
             )
         }
+        val avisoTabelasIRS = tabelasIRS.anoDasTabelas
+            ?.takeIf { it != fontes.cabecalho.anoMes.year }
+            ?.let { ano ->
+                "Sem tabelas de retenção de IRS para ${fontes.cabecalho.anoMes.year}: o IRS foi " +
+                    "estimado com as tabelas de $ano."
+            }
 
         val estimadasPorId = estimativa.rubricas.associateBy { it.rubricaId }
         val guardadasPorId = linhasGuardadas.associateBy { it.rubricaId }
@@ -459,7 +496,8 @@ class ReciboViewModel(
             mensagemErro = fontes.cabecalho.mensagemErro,
             dataFechoTexto = textoDataFecho(fontes, mesGuardado),
             irsRetidoAnoTexto = textoIrsRetido(fontes, mesGuardado),
-            nota = fontes.cabecalho.cabecalhoEditado?.nota ?: mesGuardado?.nota ?: ""
+            nota = fontes.cabecalho.cabecalhoEditado?.nota ?: mesGuardado?.nota ?: "",
+            avisoTabelasIRS = avisoTabelasIRS
         )
     }
 
@@ -480,15 +518,39 @@ class ReciboViewModel(
      * para o utilizador dizer, no modal, onde cada código vai. Sem desconhecidos, o caminho é
      * o de sempre.
      */
-    private fun processarReciboUnico(recibo: ReciboImportado) {
-        if (recibo.codigosDesconhecidos.isEmpty()) {
+    private fun processarReciboUnico(recibo: ReciboImportado, mesConfirmado: Boolean = false) {
+        // A3: o recibo só se aplica ao mês a que pertence. Os valores vão para o mês visível, por
+        // isso um PDF de agosto aberto em setembro escrevia (e gravava) setembro.
+        val mesDoRecibo = recibo.mesReferencia
+        val mesVisivel = _anoMesAtual.value
+        if (mesDoRecibo == null && !mesConfirmado) {
+            // Sem mês legível não há com que comparar: pergunta-se antes de aplicar.
+            _reciboSemMesPendente.value = recibo
+            return
+        }
+        if (mesDoRecibo != null && mesDoRecibo != mesVisivel) {
+            _mensagemErro.value = "O recibo é de ${formatarAnoMes(mesDoRecibo)}, mas estás no mês " +
+                "${formatarAnoMes(mesVisivel)}. Navega para o mês correto antes de importar."
+            _mensagemImportacao.value = null
+            _avisosImportacao.value = emptyList()
+            return
+        }
+
+        // C7: além dos códigos desconhecidos, vão ao modal as linhas de desconto que estejam
+        // mapeadas para uma rubrica de abono (um mapeamento antigo do utilizador): sem isto o
+        // recibo ficava bloqueado sem forma de corrigir o mapa.
+        val aMapear = (
+            recibo.codigosDesconhecidos +
+                recibo.linhas.filter { descontoSemRubricaDeDesconto(it) }.map { it.codigoRecibo }
+            ).distinct()
+        if (aMapear.isEmpty()) {
             aplicarReciboImportado(recibo)
             return
         }
 
         // Construir a lista de itens para o modal
         val itens = recibo.linhas
-            .filter { it.codigoRecibo in recibo.codigosDesconhecidos }
+            .filter { it.codigoRecibo in aMapear }
             .map { linha ->
                 // A descrição vem do PDF partida em vários blocos ("Baixa Assist" + ". " +
                 // "Familia" + "<12 Anos"): no modal tem de ficar numa linha só, senão o
@@ -503,7 +565,7 @@ class ReciboViewModel(
                     descricao = descricao.ifEmpty { "Linha ${linha.ordem}" },
                     valor = linha.valor,
                     linha = linha.ordem,
-                    sugestao = sugerirRubrica(descricao)
+                    sugestao = sugerirRubrica(descricao, linha.natureza)
                 )
             }
 
@@ -526,10 +588,13 @@ class ReciboViewModel(
     /**
      * Heurística pela descrição da linha ("Subsídio de Alimentação" -> SUP_ALIM). É só uma
      * sugestão pré-selecionada no modal: quem decide é o utilizador.
+     *
+     * C7: a sugestão tem de ser da mesma natureza da linha. "Desconto Subsídio Alimentação" (D05
+     * da Fundação) tem "alimenta" e sugeria SUP_ALIM — um abono, que somava o desconto ao líquido.
      */
-    private fun sugerirRubrica(descricao: String): String? {
+    private fun sugerirRubrica(descricao: String, natureza: NaturezaRubrica): String? {
         val d = descricao.lowercase()
-        return when {
+        val sugestao = when {
             "alimenta" in d -> "SUP_ALIM"
             "transp" in d -> "SUP_TRAN"
             "vencimento" in d || "salário" in d || "salario" in d -> "VENC"
@@ -540,7 +605,18 @@ class ReciboViewModel(
             "sindicato" in d -> "D04"
             else -> null
         }
+        return sugestao?.takeIf { ehRubricaDeDesconto(it) == (natureza == NaturezaRubrica.DESCONTO) }
     }
+
+    /** C7: linha que o recibo dá como desconto, mas sem rubrica de desconto para a receber. */
+    private fun descontoSemRubricaDeDesconto(linha: LinhaReciboImportada): Boolean =
+        linha.natureza == NaturezaRubrica.DESCONTO &&
+            linha.codigoInterno?.let { ehRubricaDeDesconto(it) } != true
+
+    /** "Desconto desconhecido: D05. Configura a rubrica antes de importar." */
+    private fun mensagemDescontoDesconhecido(codigos: List<String>): String =
+        "Desconto desconhecido: ${codigos.distinct().joinToString(", ")}. " +
+            "Configura a rubrica antes de importar."
 
     /**
      * 27d: aplica um recibo importado às edições do mês atual. Cada linha com `codigoInterno`
@@ -565,13 +641,25 @@ class ReciboViewModel(
         val anoMes = chaveDe(_anoMesAtual.value)
         val catalogo = rubricasCatalogo.value.associateBy { it.codigo }
         val naoReconhecidas = mutableListOf<String>()
+        val descontosSemRubrica = mutableListOf<String>()
+
+        // A soma é local a esta importação: o que estava no mês antes (edição à mão ou
+        // importação anterior) é substituído, para reimportar o mesmo PDF dar o mesmo e não
+        // o dobro. Ver somarLinhasPorRubrica para a soma das linhas repetidas (RCR + RCRA).
+        val somados =
+            somarLinhasPorRubrica(recibo.linhas, catalogo, naoReconhecidas, descontosSemRubrica)
+
+        // C7: um desconto sem rubrica de desconto não entra — nem em parte. Aplicar o resto
+        // deixava o mês com um líquido errado e sem nada a dizer porquê.
+        if (descontosSemRubrica.isNotEmpty()) {
+            _mensagemErro.value = mensagemDescontoDesconhecido(descontosSemRubrica)
+            _mensagemImportacao.value = null
+            _avisosImportacao.value = emptyList()
+            return
+        }
 
         _edicoes.update { atual ->
             val doMes = atual[anoMes].orEmpty().toMutableMap()
-            // A soma é local a esta importação: o que estava no mês antes (edição à mão ou
-            // importação anterior) é substituído, para reimportar o mesmo PDF dar o mesmo e não
-            // o dobro. Ver somarLinhasPorRubrica para a soma das linhas repetidas (RCR + RCRA).
-            val somados = somarLinhasPorRubrica(recibo.linhas, catalogo, naoReconhecidas)
             for ((rubricaId, valorFinal) in somados) {
                 doMes[rubricaId] = Edicao(textoDe(valorFinal), valorFinal)
             }
@@ -663,6 +751,20 @@ class ReciboViewModel(
         _seletorDeReciboAberto.value = false
     }
 
+    /** A3: o recibo sem mês legível é mesmo do mês visível — segue o caminho de sempre. */
+    fun confirmarReciboSemMes() {
+        val recibo = _reciboSemMesPendente.value ?: return
+        _reciboSemMesPendente.value = null
+        processarReciboUnico(recibo, mesConfirmado = true)
+    }
+
+    /** A3: o utilizador não confirmou o mês — o recibo não é aplicado. */
+    fun cancelarReciboSemMes() {
+        _reciboSemMesPendente.value = null
+        _mensagemImportacao.value = "Importação cancelada."
+        _avisosImportacao.value = emptyList()
+    }
+
     /**
      * 28c: o utilizador escolheu a rubrica de um código do recibo.
      */
@@ -687,7 +789,27 @@ class ReciboViewModel(
     fun confirmarMapeamento() {
         val pendente = _mapeamentoPendente.value ?: return
         viewModelScope.launch {
-            // 1. Gravar na BD
+            // 1. Traduzir as linhas com as escolhas (em memoria, sem voltar a ler o PDF)
+            val novasLinhas = pendente.reciboOriginal.linhas.map { linha ->
+                val novoCodigo = pendente.escolhas[linha.codigoRecibo] ?: linha.codigoInterno
+                linha.copy(codigoInterno = novoCodigo)
+            }
+            val reciboCorrigido = pendente.reciboOriginal.copy(linhas = novasLinhas)
+
+            // 2. C7: um desconto escolhido para uma rubrica de abono aborta antes de gravar —
+            //    senão o mapa errado ficava na BD e voltava em todas as importações seguintes.
+            val descontosInvalidos = novasLinhas
+                .filter { descontoSemRubricaDeDesconto(it) }
+                .map { it.codigoRecibo }
+            if (descontosInvalidos.isNotEmpty()) {
+                _mapeamentoPendente.value = null
+                _mensagemErro.value = mensagemDescontoDesconhecido(descontosInvalidos)
+                _mensagemImportacao.value = null
+                _avisosImportacao.value = emptyList()
+                return@launch
+            }
+
+            // 3. Gravar na BD
             val empresa = pendente.empresaEmissora
             if (empresa != null && pendente.escolhas.isNotEmpty()) {
                 // Uma transacao (ver MapeamentoRubricaRepository.guardarNormalizados): uma
@@ -695,14 +817,7 @@ class ReciboViewModel(
                 mapeamentoRepository.guardarNormalizados(empresa, pendente.escolhas)
             }
 
-            // 2. Re-aplicar o recibo em memoria
-            val novasLinhas = pendente.reciboOriginal.linhas.map { linha ->
-                val novoCodigo = pendente.escolhas[linha.codigoRecibo] ?: linha.codigoInterno
-                linha.copy(codigoInterno = novoCodigo)
-            }
-            val reciboCorrigido = pendente.reciboOriginal.copy(linhas = novasLinhas)
-
-            // 3. Aplicar e limpar
+            // 4. Aplicar e limpar
             aplicarReciboImportado(reciboCorrigido)
             _mapeamentoPendente.value = null
         }
@@ -915,7 +1030,13 @@ private fun formatarAnoMes(anoMes: YearMonth): String {
 internal fun somarLinhasPorRubrica(
     linhas: List<LinhaReciboImportada>,
     catalogoPorCodigo: Map<String, Rubrica>,
-    naoReconhecidas: MutableList<String>
+    naoReconhecidas: MutableList<String>,
+    /**
+     * C7: códigos do recibo que são descontos mas não têm rubrica de desconto (D01/D02/D04) no
+     * catálogo. Ficam fora da soma e quem chama aborta a importação: lançá-los em OUTROS, ou noutra
+     * rubrica de abono, somava o desconto ao líquido em vez de o tirar.
+     */
+    descontosSemRubrica: MutableList<String> = mutableListOf()
 ): Map<Long, Long> {
     // Primeiro as rubricas declaradas e não pagas, para uma linha com valor escrita depois somar
     // por cima de 0 em vez de ser apagada.
@@ -926,6 +1047,13 @@ internal fun somarLinhasPorRubrica(
         catalogoPorCodigo[codigoMapeado]?.let { somados[it.id] = 0L }
     }
     for (linha in linhas) {
+        if (linha.natureza == NaturezaRubrica.DESCONTO) {
+            val codigo = linha.codigoInterno
+            if (codigo == null || catalogoPorCodigo[codigo] == null || !ehRubricaDeDesconto(codigo)) {
+                descontosSemRubrica.add(linha.codigoRecibo)
+                continue
+            }
+        }
         val codigoInterno = linha.codigoInterno ?: continue
         val rubrica = catalogoPorCodigo[codigoInterno]
         if (rubrica == null) {

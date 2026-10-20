@@ -323,7 +323,13 @@ private data class Colunas(
     /** A partir deste x um número é uma quantidade/preço/valor, não código nem data. */
     val numeroMin: Float,
     /** Abaixo deste x um número é "Quantidade"; acima é "Preço Unitário". */
-    val quantidadeMax: Float
+    val quantidadeMax: Float,
+    /**
+     * A partir deste x o valor da linha está na coluna "Descontos" (C7): é o que diz que uma
+     * linha de código desconhecido é um desconto e não um abono. `null` quando a grelha não traz
+     * as duas etiquetas — aí a natureza fica a do mapeamento, como antes.
+     */
+    val descontosMin: Float?
 )
 
 /**
@@ -351,12 +357,21 @@ private fun medirColunas(etiquetas: List<BlocoTexto>): Colunas? {
     val quantidadeMax =
         if (quantidade != null && preco != null) (quantidade + preco) / 2f else Float.MAX_VALUE
 
+    // C7: a coluna dos abonos é "Importância" na ICTS e "Remunerações" na Fundação; a dos
+    // descontos chama-se "Descontos" nas duas e fica à direita. A fronteira é o meio caminho.
+    val importancia = x("Importância") ?: x("Remunerações")
+    val descontos = x("Descontos")
+    val descontosMin =
+        if (importancia != null && descontos != null && descontos > importancia) (importancia + descontos) / 2f
+        else null
+
     return Colunas(
         codigoMax = (data + descricao) / 2f,
         descricaoMin = (data + descricao) / 2f,
         descricaoMax = if (quantidade != null) (descricao + quantidade) / 2f else Float.MAX_VALUE,
         numeroMin = numeroMin,
-        quantidadeMax = quantidadeMax
+        quantidadeMax = quantidadeMax,
+        descontosMin = descontosMin
     )
 }
 
@@ -406,8 +421,21 @@ private fun lerLinhas(
         // O valor da linha é o número mais à direita: as importâncias dos abonos ficam na
         // coluna "Importância" e os descontos na coluna "Descontos", ambas à direita das
         // colunas de quantidade e preço unitário.
-        val valor = numeros.maxByOrNull { it.first }?.second ?: 0L
+        val maisADireita = numeros.maxByOrNull { it.first }
+        val valor = maisADireita?.second ?: 0L
         val quantidade = numeros.firstOrNull { it.first < colunas.quantidadeMax }?.second
+
+        // C7: um valor na coluna "Descontos" é desconto, seja qual for o código. Sem isto, um
+        // desconto que a app não conhece (o D05 da Fundação) entrava como abono e somava ao
+        // líquido. As linhas informativas ficam de fora: não escrevem valor nenhum.
+        val naColunaDescontos = colunas.descontosMin != null && maisADireita != null &&
+            maisADireita.first >= colunas.descontosMin
+        val natureza =
+            if (naColunaDescontos && mapeamento.origem != OrigemMapeamento.INFORMATIVO) {
+                NaturezaRubrica.DESCONTO
+            } else {
+                mapeamento.natureza
+            }
 
         // 28g: a descrição de uma linha chega partida em vários blocos ("Baixa Assist" + ". " +
         // "Familia" + "<12 Anos"). Ficávamos com o primeiro e o resto perdia-se. Juntam-se os
@@ -444,7 +472,7 @@ private fun lerLinhas(
                 codigoRecibo = cod,
                 descricao = descricao,
                 codigoInterno = mapeamento.codigoInterno,
-                natureza = mapeamento.natureza,
+                natureza = natureza,
                 valor = valor,
                 quantidade = quantidade,
                 data = data,

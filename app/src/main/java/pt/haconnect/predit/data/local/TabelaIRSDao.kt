@@ -17,6 +17,10 @@ interface TabelaIRSDao {
     @Query("SELECT * FROM tabela_irs WHERE ano = :ano ORDER BY regiao, categoria, tabelaNumero, ordemEscalao")
     fun observarPorAno(ano: Int): Flow<List<TabelaIRSEntity>>
 
+    /** Anos com tabelas carregadas, por ordem — é daqui que sai o recurso quando falta um ano. */
+    @Query("SELECT DISTINCT ano FROM tabela_irs ORDER BY ano")
+    fun observarAnos(): Flow<List<Int>>
+
     @Query("SELECT COUNT(*) FROM tabela_irs WHERE regiao = :regiao AND ano = :ano")
     suspend fun contarPorRegiao(regiao: String, ano: Int): Int
 

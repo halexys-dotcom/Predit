@@ -454,24 +454,22 @@ class EstimadorReciboTest {
             ).copy(tiposTurno = listOf(tipoTrabalho, tipoBaixa))
         )
 
-        // Baixa corta o VENC: 13 dos 22 dias de trabalho caem na baixa (10 a 22).
-        // 9 dias efetivos: 1 137,98 EUR x 9 / 22 = 465,54 EUR.
-        assertEquals(4_655_373L, est.valor("VENC"))
+        // 2026-10-20: o VENC é o valor absoluto do contrato — a baixa não o corta.
+        assertEquals(11_379_800L, est.valor("VENC"))
         assertEquals(863_500L, est.valor("SUP_ALIM"))     // (22 - 11) x 7,85 EUR = 86,35 EUR
         assertEquals(329_903L, est.valor("SUP_TRAN"))     // 32,99 EUR
         assertEquals(0L, est.valor("HNOT"))
         assertEquals(0L, est.valor("HSUP_NT"))
-        // Base de IRS 498,53 EUR: escalao de 0% (ate 920 EUR), sem retencao.
-        assertEquals(0L, est.valor("D02"))
+        // Base de IRS 1 137,98 + 32,99 = 1 170,97 EUR: escalao de 21,2 %.
+        assertEquals(472_057L, est.valor("D02"))
     }
 
     /**
-     * Baixa o mes inteiro: a baixa corta o VENC, que fica a zero - 31 dias de trabalho,
-     * 31 dentro da baixa, 0 dias efetivos. Os subsidios mantem a regra 8.3 e anulam-se
-     * no mes inteiro coberto.
+     * Baixa o mes inteiro: o VENC fica no valor absoluto do contrato (2026-10-20) e os descontos
+     * incidem sobre ele. Os subsidios mantem a regra 8.3 e anulam-se no mes inteiro coberto.
      */
     @Test
-    fun `23 - baixa o mes inteiro - vencimento e descontos a zero`() {
+    fun `23 - baixa o mes inteiro - vencimento absoluto e subsidios a zero`() {
         val agosto = YearMonth.of(2026, 8)
         val baixaOMes = Ausencia(
             id = 23,
@@ -493,11 +491,11 @@ class EstimadorReciboTest {
             ).copy(tiposTurno = listOf(tipoTrabalho, tipoBaixa))
         )
 
-        // 31 dias de trabalho, 31 dentro da baixa: 0 dias efetivos, VENC a zero.
-        assertEquals(0L, est.valor("VENC"))
-        assertEquals(0L, est.valor("D01"))   // 11% de 0
-        assertEquals(0L, est.valor("D02"))   // IRS de 0
-        assertEquals(0L, est.valor("D04"))   // 1% de 0
+        // A baixa não corta o VENC: fica o vencimento base, e os descontos incidem sobre ele.
+        assertEquals(11_379_800L, est.valor("VENC"))
+        assertEquals(1_251_778L, est.valor("D01"))   // 11 % de 1 137,98 EUR
+        assertEquals(410_929L, est.valor("D02"))     // escalao de 15,7 %
+        assertEquals(113_798L, est.valor("D04"))     // 1 % de 1 137,98 EUR
         // É o que o recibo real de Março de 2026 paga: R14 = 0,00 e o cartão anula-se.
         assertEquals(0L, est.valor("SUP_ALIM"))
         assertEquals(0L, est.valor("SUP_TRAN"))
@@ -507,11 +505,11 @@ class EstimadorReciboTest {
     }
 
     /**
-     * Regra do CCT: VENC proporcional aos dias efetivos; ferias contam, baixa corta.
-     * Maio com 10 dias de ferias e 21 de baixa paga so os 10 dias de ferias.
+     * Regra do utilizador (2026-10-20): o VENC é o valor absoluto do contrato. Maio com 10 dias
+     * de ferias e 21 de baixa continua a estimar o vencimento base inteiro.
      */
     @Test
-    fun `24 - maio com 10 ferias e 21 baixa paga so os 10 dias de ferias`() {
+    fun `24 - maio com 10 ferias e 21 baixa mantem o VENC absoluto`() {
         val maio = YearMonth.of(2026, 5)
         val feriasMaio = Ausencia(
             id = 24,
@@ -539,21 +537,19 @@ class EstimadorReciboTest {
             ).copy(tiposTurno = listOf(tipoTrabalho, tipoFerias, tipoBaixa))
         )
 
-        // 31 dias de trabalho: 10 ferias (pagas) + 21 baixa (cortam) = 10 dias efetivos.
-        // 1 137,98 EUR x 10 / 31 = 367,09 EUR.
-        assertEquals(3_670_903L, est.valor("VENC"))
+        // Nem as ferias nem a baixa mexem no VENC.
+        assertEquals(11_379_800L, est.valor("VENC"))
     }
 
     /**
      * Atrasos: os minutos em falta num dia com registo MANUAL valem o valor/minuto
-     * (65 700 / 60 = 1 095 = 0,1095 EUR). O valor sai do próprio VENC — o recibo mostra o
-     * vencimento já descontado — e a rubrica AUSENCIAS fica registada como INFORMATIVA, só
-     * para justificar o corte: se voltasse a contar como desconto, saía duas vezes do líquido.
-     * SS, IRS e sindicato incidem sobre o VENC final.
+     * (65 700 / 60 = 1 095 = 0,1095 EUR). A rubrica AUSENCIAS é INFORMATIVA: é calculada e
+     * mostrada, mas não sai do VENC (valor absoluto, 2026-10-20), não é desconto e não mexe no
+     * líquido. SS, IRS e sindicato incidem sobre o VENC do contrato.
      * O que vem do PDF é horário planeado, não trabalho efetivo: não gera atraso.
      */
     @Test
-    fun `25 - atraso sai do VENC e a rubrica de ausencias e informativa`() {
+    fun `25 - atraso e informativo e nao mexe no VENC`() {
         val outubro = YearMonth.of(2026, 10)
         val dia = outubro.atDay(2).toEpochDay()
         // Jornada projetada das 13h as 21h (8h); o registo manual saiu 1h01 mais cedo.
@@ -579,20 +575,19 @@ class EstimadorReciboTest {
             NaturezaRubrica.INFORMATIVA,
             est.rubricas.first { it.codigo == "ATRASO" }.natureza
         )
-        // VENC final = 1 137,98 - 6,6795 = 1 131,3005 EUR (um dia projetado, um efetivo).
-        assertEquals(11_313_005L, est.valor("VENC"))
-        // Bases de SS e IRS: VENC final + SUP_TRAN = 1 183,3905 EUR — o atraso nao volta
-        // a ser subtraido, porque ja saiu do VENC.
-        assertEquals(1_301_730L, est.valor("D01"))   // 11 %
-        assertEquals(498_388L, est.valor("D02"))     // escalao de 21,2 %
-        // Sindicato: 1 % do VENC ja descontado (113,13005 EUR).
-        assertEquals(113_130L, est.valor("D04"))
+        // O VENC é o valor absoluto do contrato: o atraso não o corta.
+        assertEquals(11_379_800L, est.valor("VENC"))
+        // Bases de SS e IRS: VENC + SUP_TRAN = 1 190,07 EUR — o atraso nao entra.
+        assertEquals(1_309_077L, est.valor("D01"))   // 11 %
+        assertEquals(512_548L, est.valor("D02"))     // escalao de 21,2 %
+        // Sindicato: 1 % do VENC (11,38 EUR).
+        assertEquals(113_798L, est.valor("D04"))
         // Descontos: so D01 + D02 + D04. A rubrica das ausencias nao entra.
-        assertEquals(1_913_248L, est.totalDescontos)
-        // Abonos: 1 131,3005 + 7,85 + 52,09 = 1 191,2405 EUR.
-        assertEquals(11_912_405L, est.totalAbonos)
-        // Liquido: 1 191,2405 - 191,3248 = 999,9157 EUR (uma unica deducao do atraso).
-        assertEquals(9_999_157L, est.liquido)
+        assertEquals(1_935_423L, est.totalDescontos)
+        // Abonos: 1 137,98 + 7,85 + 52,09 = 1 197,92 EUR.
+        assertEquals(11_979_200L, est.totalAbonos)
+        // Liquido: 1 197,92 - 193,5423 = 1 004,3777 EUR — o atraso nao mexe no liquido.
+        assertEquals(10_043_777L, est.liquido)
         assertEquals(est.totalAbonos - est.totalDescontos, est.liquido)
 
         // O mesmo dia vindo do PDF nao conta: e o horario planeado da empresa.
@@ -640,7 +635,7 @@ class EstimadorReciboTest {
     /**
      * Regra do CCT confirmada pelo utilizador (2026-10-19): o suplemento é por dia e não se
      * compensa com os dias curtos do mesmo mês. Dia 6: 9h30 reais contra 8h previstas → 1h30 de
-     * suplemento. Dia 7: 4h reais contra 8h previstas → 4h de atraso, que saem do VENC. Uma
+     * suplemento. Dia 7: 4h reais contra 8h previstas → 4h de atraso (informativo). Uma
      * regra não anula a outra.
      */
     @Test
@@ -674,11 +669,50 @@ class EstimadorReciboTest {
 
         // 90 min x 6,57 EUR x 1,5 = 14,78 EUR.
         assertEquals(147_825L, est.valor("HSUP_DN"))
-        // 240 min x 0,1095 EUR = 26,28 EUR, já deduzidos no VENC e justificados no ATRASO.
+        // 240 min x 0,1095 EUR = 26,28 EUR, mostrados no ATRASO (informativo, o VENC não muda).
         assertEquals(262_800L, est.valor("ATRASO"))
         // Turno das 9h às 18h30: nada cai na janela noturna.
         assertEquals(0L, est.valor("HSUP_NT"))
         assertEquals(0L, est.valor("HNOT"))
+    }
+
+    /**
+     * A2: com pausa, a janela das horas extra (de início + jornada até ao fim) mede mais do que o
+     * extra real, porque a pausa fica lá dentro. Turno previsto 14h–22h30 com 30 min de pausa (8h);
+     * trabalhado até às 00h30 com a mesma pausa: 10h reais, 2h de extra. A janela mede 22h–00h30
+     * (150 min), mas o extra é 120 min — o noturno fica nos 120 e o diurno não fica negativo.
+     */
+    @Test
+    fun `28 - pausa nao faz o noturno das horas extra passar o extra real`() {
+        val outubro = YearMonth.of(2026, 10)
+        val dia = outubro.atDay(6).toEpochDay()   // terça-feira, sem feriado
+        val turnoComPausa = tipoTrabalho.copy(
+            id = 7,
+            inicioMin = 14 * 60,
+            fimMin = 22 * 60 + 30,
+            pausaMin = 30
+        )
+        val real = DiaReal(
+            data = dia,
+            tipoTurnoId = null,
+            inicioMin = 14 * 60,
+            fimMin = 30,              // 00h30 do dia seguinte
+            pausaMin = 30,
+            origem = "MANUAL"
+        )
+
+        val est = estimarRecibo(
+            contexto(outubro, listOf(real), projecao = listOf(DiaProjetado(dia, tipoTurnoId = 7L)))
+                .copy(tiposTurno = listOf(turnoComPausa))
+        )
+
+        // 120 min x 6,57 EUR x 2,1875 = 28,74 EUR. Sem o teto davam 150 min (35,93 EUR).
+        assertEquals(287_438L, est.valor("HSUP_NT"))
+        assertEquals(0L, est.valor("HSUP_DN"))
+        // HNOT: a jornada vai das 14h às 22h (sem contar a pausa), 1h na janela 21h–06h.
+        assertEquals(16_425L, est.valor("HNOT"))
+        // O dia rendeu mais do que o previsto: não há atraso.
+        assertEquals(0L, est.valor("ATRASO"))
     }
 
     @Test
@@ -826,8 +860,8 @@ class EstimadorReciboTest {
         assertEquals(1_648_500L, estimativa.valor("SUP_ALIM"))
         // SUP_TRAN = 52,09 EUR (mês completo, sem ausências)
         assertEquals(520_900L, estimativa.valor("SUP_TRAN"))
-        // Sem projecao do mes atual (setembro), o VENC proporcional fica a 0.
-        assertEquals(0L, estimativa.valor("VENC"))
+        // O VENC é o valor absoluto do contrato: não depende da projeção de setembro.
+        assertEquals(11_379_800L, estimativa.valor("VENC"))
     }
 
 
@@ -889,8 +923,8 @@ class EstimadorReciboTest {
         // O sábado trabalhado com folga projetada é DESC_DESC (2x o valor/hora)
         // 8h x 65 700 x 2 = 525 600 x 2 = 1 051 200
         assertEquals(1_051_200L, estimativa.valor("DESC_DESC"))
-        // Sem projecao do mes atual (setembro), o VENC proporcional fica a 0.
-        assertEquals(0L, estimativa.valor("VENC"))
+        // O VENC é o valor absoluto do contrato: não depende da projeção de setembro.
+        assertEquals(11_379_800L, estimativa.valor("VENC"))
     }
 
     @Test

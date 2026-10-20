@@ -22,9 +22,8 @@ import java.time.YearMonth
 /**
  * Natureza de uma rubrica do recibo.
  *
- * [INFORMATIVA] é a linha que justifica um corte já aplicado noutra rubrica — hoje só as
- * ausências (horas em falta), que já saíram do VENC. Não entra em abonos nem em descontos:
- * contá-la num dos lados punha o mesmo valor a contar duas vezes no líquido.
+ * [INFORMATIVA] é a linha que se mostra mas não paga nem desconta — hoje só as ausências (horas
+ * em falta). Não entra em abonos nem em descontos, e não mexe no líquido.
  */
 enum class NaturezaRubrica { ABONO, DESCONTO, INFORMATIVA }
 
@@ -91,9 +90,9 @@ private val CODIGOS_ESTIMADOS = setOf(
 private val CODIGOS_DESCONTO = setOf("D01", "D02", "D04")
 
 /**
- * Rubrica das horas em falta (atrasos, saídas mais cedo). É INFORMATIVA: o valor já foi
- * retirado do VENC (ver [estimarRecibo]), por isso não pode voltar a sair no líquido como
- * desconto. Fica no catálogo — e editável no ecrã — só para justificar o VENC mais baixo.
+ * Rubrica das horas em falta (atrasos, saídas mais cedo). É INFORMATIVA: o valor é calculado e
+ * mostrado, mas não sai do VENC nem do líquido (ver [estimarRecibo]). Fica no catálogo — e
+ * editável no ecrã — para o utilizador ver as horas em falta do mês.
  */
 private const val CODIGO_AUSENCIAS = "ATRASO"
 
@@ -191,13 +190,16 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         // Horas extra (2026-10-19): só há suplemento se o dia render mais do que a jornada
         // prevista para ESSE dia. Um dia coberto por ausência registada (férias, baixa, folga)
         // não foi trabalhado, mesmo que haja um registo real por cima: não paga suplemento.
-        // O que fica dentro da jornada desse dia é atraso (sai do VENC), não suplemento — e um
-        // dia curto não se compensa com um dia longo.
+        // O que fica dentro da jornada desse dia é atraso (rubrica informativa), não suplemento —
+        // e um dia curto não se compensa com um dia longo.
         if (dentroDeAusencia(dia.data, ctx.ausencias)) continue
         val extra = realDoDia - jornadaDoDia
         if (extra <= 0) continue
 
-        val noturno = minutosNaJanela(dia.inicioMin + jornadaDoDia, dia.fimMin, janela)
+        // A janela vai de início + jornada até ao fim, e a pausa fica dentro desse intervalo: com
+        // pausa, a janela mede mais minutos do que o extra real. O noturno nunca passa o extra
+        // (que já vem sem a pausa), e por isso o diurno nunca fica negativo.
+        val noturno = minOf(minutosNaJanela(dia.inicioMin + jornadaDoDia, dia.fimMin, janela), extra)
         val diurno = extra - noturno
         when {
             dia.data in feriados -> {
@@ -257,30 +259,8 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         diasUteisAusencia
     }
 
-    // VENC proporcional aos dias efetivos: ferias contam como dias pagos; baixa corta.
+    // Projeção do mês do recibo (M), não do mês das variáveis: é a régua dos atrasos, mais abaixo.
     val projecaoDoMesAtual = ctx.projecao.filter { pertenceAoMes(it.epochDay, ctx.anoMes) }
-    val diasUteisTotais = if (projecaoDoMesAtual.isNotEmpty()) {
-        projecaoDoMesAtual.count { ehTrabalhoProjetado(it, tipos) }
-    } else {
-        ctx.diasReais.filter { pertenceAoMes(it.data, ctx.anoMes) && ehTrabalho(it, tipos) }.size
-    }
-    // Ausencias que cortam o VENC: so a baixa (a falta nao existe ainda no enum).
-    val ausenciasBaixa = ctx.ausencias.filter { tipos[it.tipoTurnoId]?.categoria == CategoriaTurno.BAIXA }
-    fun cortaVenc(dia: Long): Boolean = ausenciasBaixa.any { it.dataInicio <= dia && dia <= it.dataFim }
-    val diasUteisNaoPagos = if (projecaoDoMesAtual.isNotEmpty()) {
-        projecaoDoMesAtual.count { ehTrabalhoProjetado(it, tipos) && cortaVenc(it.epochDay) }
-    } else {
-        ctx.diasReais.count { pertenceAoMes(it.data, ctx.anoMes) && ehTrabalho(it, tipos) && cortaVenc(it.data) }
-    }
-    val diasEfetivos = (diasUteisTotais - diasUteisNaoPagos).coerceAtLeast(0)
-    val vencBruto = if (diasUteisTotais == 0) {
-        0L
-    } else {
-        dividirArredondando(
-            ctx.parametrosCCT.vencimentoBaseMil.toLong() * diasEfetivos,
-            diasUteisTotais.toLong()
-        )
-    }
 
     // Subsídios (8.3): regra fixa do recibo, que não olha aos DiaReal. O que os corta são
     // os dias úteis — segunda a sexta — cobertos por ausências registadas, e só esses:
@@ -324,11 +304,11 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     val minutosAtraso = projecaoDoMesAtual.sumOf { minutosAtrasoDoDia(it) }
     val atrasoMil = minutosAtraso.toLong() * valorMinutoMil(contexto).toLong()
 
-    // Decisão do utilizador (2026-10-19): o atraso é deduzido no próprio VENC. O recibo mostra
-    // o vencimento já líquido das horas em falta e a rubrica AUSENCIAS fica ao lado como
-    // justificação (informativa), sem voltar a sair nos descontos — senão o mesmo valor era
-    // descontado duas vezes no líquido.
-    val venc = (vencBruto - atrasoMil).coerceAtLeast(0L)
+    // Decisão do utilizador (2026-10-20): o VENC é o valor absoluto do contrato — o vencimento
+    // base da tabela do CCT. Nem as ausências (baixa, férias) nem os atrasos o alteram. A rubrica
+    // ATRASO (Ausências) continua a ser calculada e mostrada, mas é INFORMATIVA: não sai do VENC,
+    // não entra nos descontos e não mexe no líquido. Não voltar a "corrigir" para proporcional.
+    val venc = ctx.parametrosCCT.vencimentoBaseMil.toLong()
 
     val valores = linkedMapOf(
         "VENC" to venc,
@@ -349,9 +329,7 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
 
     // Bases de incidência: só as rubricas estimadas que incidem (o cartão de refeição,
     // SUP_ALIM, não incide SS nem IRS — é o que torna detetável o erro de agosto de 2026).
-    // O ATRASO não volta a ser subtraído aqui: já saiu do VENC (que incide) e a própria
-    // rubrica não incide (incideSS e incideIRS = false). Subtraí-lo outra vez baixava a base
-    // duas vezes.
+    // O ATRASO é informativo e não incide (incideSS e incideIRS = false): não mexe nas bases.
     fun incide(codigo: String, campo: (Rubrica) -> Boolean): Boolean =
         porCodigo[codigo]?.let(campo) ?: false
 
@@ -407,8 +385,7 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // Fase 25: o desconto sindical só incide nos contratos sindicalizados (campo do contrato,
     // ligado pelo switch no ecrã). Desligado, a rubrica fica a 0 — a base não muda (o D04 sempre
     // incidiu só sobre o VENC); o que muda é haver ou não desconto.
-    // 2026-10-19: o VENC já vem líquido dos atrasos, por isso a base do sindicato acompanha
-    // esse corte — não se usa o vencBruto.
+    // 2026-10-20: o VENC é o valor absoluto do contrato (os atrasos não o cortam), e é essa a base.
     valores["D04"] = if (ctx.contrato.sindicalizado) {
         dividirArredondando(venc * TAXA_SINDICATO_BPS, 10_000L)
     } else {

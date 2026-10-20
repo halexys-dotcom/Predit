@@ -376,6 +376,40 @@ class ReciboPdfParserTest {
         assertEquals(13_546_500L, segunda.liquido)        // 1354,65 €
     }
 
+    /**
+     * C7: a natureza de uma linha desconhecida sai da coluna em que o valor está. O D05 da
+     * Fundação ("Desconto Subsídio Alimentação") traz o valor na coluna "Descontos" e é desconto;
+     * o R13 negativo (-5,00) está em "Remunerações" e continua abono.
+     */
+    @Test
+    fun `C7 - desconto desconhecido da Fundacao sai como DESCONTO pela coluna`() {
+        val primeira = ler("recibo-setembro-2026-fundacao.txt").first()
+
+        val d05 = primeira.linhas.filter { it.codigoRecibo == "D05" }
+        assertEquals(2, d05.size)
+        assertTrue(d05.all { it.natureza == NaturezaRubrica.DESCONTO })
+        assertTrue(d05.all { it.codigoInterno == null })
+
+        assertTrue(
+            primeira.linhas.filter { it.codigoRecibo == "R13" }.all { it.natureza == NaturezaRubrica.ABONO }
+        )
+        assertEquals(NaturezaRubrica.ABONO, primeira.linha("R01").natureza)
+        assertEquals(NaturezaRubrica.DESCONTO, primeira.linha("D01").natureza)
+    }
+
+    /** C7: na ICTS as linhas de abono e os descontos conhecidos mantêm a natureza de sempre. */
+    @Test
+    fun `C7 - ICTS mantem abonos e descontos`() {
+        val recibo = ler("recibo-setembro-2026.txt").first()
+
+        assertEquals(NaturezaRubrica.ABONO, recibo.linha("R01").natureza)
+        assertEquals(NaturezaRubrica.ABONO, recibo.linha("SAC").natureza)
+        assertEquals(NaturezaRubrica.DESCONTO, recibo.linha("D02").natureza)
+        // Informativa: o preço unitário não está na coluna dos descontos, e mesmo que estivesse
+        // as informativas ficam fora da regra.
+        assertEquals(NaturezaRubrica.ABONO, recibo.linha("F74").natureza)
+    }
+
     // ------------------------------------------------------------------ Fusao (28f)
 
     @Test
