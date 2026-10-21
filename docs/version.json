@@ -1,7 +1,7 @@
 {
-  "versionCode": 25,
-  "versionName": "2.1.0",
+  "versionCode": 26,
+  "versionName": "2.1.1",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.1.0/app-github-release.apk",
-  "changelog": "Importação de recibos a partir do PDF, com mapeamento configurável de rubricas e conferência linha a linha. Horas extra e atrasos calculados por dia contra o turno projetado (regras CCT). O rodapé do Horário passa a dizer se a diferença é face ao PDF ou face à projeção."
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.1.1/app-github-release.apk",
+  "changelog": "Regras de visibilidade finais na conferência do recibo: Funcao, Sindicato, Complemento de Baixa, Natal, Ferias, Feriados e Outros so aparecem quando fazem sentido no mes ou no contrato. A rede de seguranca mostra sempre as linhas com valores importados do PDF ou superiores a zero, para nada se perder entre meses."
 }

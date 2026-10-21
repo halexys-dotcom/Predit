@@ -102,6 +102,19 @@ private const val CODIGO_SUBSIDIO_FERIAS = "FERIAS"
 private const val MES_DO_SUBSIDIO_NATAL = 12
 
 /**
+ * Subsídio de função ([mostrarSubsidioFuncao]): só as categorias que o recebem (hoje o Team
+ * Leader, 52,46 €/mês — ver [pt.haconnect.predit.data.local.CATEGORIAS_CCT]) o têm no ecrã. Nas
+ * restantes a linha estava sempre a 0,00.
+ */
+private const val CODIGO_SUBSIDIO_FUNCAO = "SUP_FUNCAO"
+
+/** Código da categoria CCT que recebe o subsídio de função. */
+private const val CATEGORIA_TEAM_LEADER = "TEAM_LEADER"
+
+/** Desconto sindical ([mostrarSindicato]): o D04 só existe nos contratos sindicalizados. */
+private const val CODIGO_SINDICATO = "D04"
+
+/**
  * 2026-10-21: as linhas que o ecrã de conferência desenha.
  *
  * - Rubricas de recurso ([CODIGOS_OUTROS]) só aparecem quando têm valor: a zero não dizem nada e
@@ -111,31 +124,51 @@ private const val MES_DO_SUBSIDIO_NATAL = 12
  * - O subsídio de Natal (v2.1.1) só aparece em dezembro ([mostrarNatal]).
  * - O subsídio de férias (v2.1.1) só aparece quando há férias no mês ou no seguinte
  *   ([mostrarFerias], ver [temFeriasNoMesOuSeguinte]).
+ * - O subsídio de função (v2.1.1) só aparece nas categorias que o recebem — o Team Leader
+ *   ([mostrarSubsidioFuncao]).
+ * - O desconto sindical (v2.1.1, `D04`) só aparece nos contratos sindicalizados ([mostrarSindicato]).
+ * - O complemento de baixa (v2.1.1, `COMP_BAIXA`) nunca se desenha a zero: não se estima, só existe
+ *   quando o recibo do mês o traz — e aí quem o mostra é a rede de segurança.
  * - Todas as outras aparecem sempre, mesmo a zero: são as linhas do recibo e é preciso vê-las
  *   para as conferir.
  *
  * Uma linha com valor — no Estimado ou no Real — nunca é escondida, seja de que rubrica for. É a
- * rede de segurança das regras de calendário: com o pagamento das variáveis desfasado (M paga as
+ * rede de segurança, e vem sempre primeiro: com o pagamento das variáveis desfasado (M paga as
  * variáveis de M-1) os valores de um mês podem aparecer noutro, o subsídio pode ter sido pago
- * fora do mês (ou importado do PDF) e uma edição à mão também pode pôr lá um valor.
+ * fora do mês (ou importado do PDF), o D04 de um mês sindicalizado fica gravado depois de o
+ * switch ser desligado, e uma edição à mão também pode pôr lá um valor.
  *
  * É um filtro de desenho, não de estado: [ReciboUiState.linhas] continua com o catálogo inteiro,
  * porque é dele que o "Guardar" escreve uma linha por rubrica e o modal de mapeamento tira as
  * escolhas. Consequência assumida: a zero a linha não tem campo onde escrever — um valor em
- * "Outros" entra pela importação do recibo, que escreve na mesma rubrica.
+ * "Outros" (ou no complemento de baixa) entra pela importação do recibo, que escreve na mesma
+ * rubrica.
  */
 internal fun linhasVisiveis(
     linhas: List<LinhaConferencia>,
     temFeriado: Boolean,
     mostrarNatal: Boolean,
-    mostrarFerias: Boolean
+    mostrarFerias: Boolean,
+    mostrarSubsidioFuncao: Boolean,
+    mostrarSindicato: Boolean
 ): List<LinhaConferencia> = linhas.filter { linha ->
     when {
+        // 1. Rede de segurança, antes de qualquer regra.
         linha.valorEstimado != 0L || linha.valorReal != 0L -> true
+        // 2. Rubricas de recurso: a zero não dizem nada.
         linha.codigo in CODIGOS_OUTROS -> false
+        // 3. Feriados: só nos meses com feriado.
         linha.codigo in CODIGOS_FERIADO -> temFeriado
+        // 4. Natal: só em dezembro.
         linha.codigo == CODIGO_SUBSIDIO_NATAL -> mostrarNatal
+        // 5. Férias: só com férias no mês ou no seguinte.
         linha.codigo == CODIGO_SUBSIDIO_FERIAS -> mostrarFerias
+        // 6. Subsídio de função: só nas categorias que o recebem.
+        linha.codigo == CODIGO_SUBSIDIO_FUNCAO -> mostrarSubsidioFuncao
+        // 7. Sindicato: só nos contratos sindicalizados.
+        linha.codigo == CODIGO_SINDICATO -> mostrarSindicato
+        // 8. Complemento de baixa: a zero não se desenha; com valor, a regra 1 já o mostrou.
+        linha.codigo == CODIGO_COMPLEMENTO_BAIXA -> false
         else -> true
     }
 }
@@ -204,6 +237,16 @@ data class ReciboUiState(
      * Decide se a linha do subsídio de férias se desenha.
      */
     val mostrarSubsidioFerias: Boolean = false,
+    /**
+     * v2.1.1: a categoria do contrato recebe subsídio de função — hoje só o Team Leader o tem
+     * ([CATEGORIA_TEAM_LEADER]). Decide se a linha `SUP_FUNCAO` se desenha.
+     */
+    val mostrarSubsidioFuncao: Boolean = false,
+    /**
+     * v2.1.1: o contrato é sindicalizado (`ContratoUtilizador.sindicalizado`). Decide se o D04 se
+     * desenha — desligado, o estimador põe-no a 0 e a linha só fazia crescer a lista.
+     */
+    val mostrarSindicato: Boolean = false,
     val totalAbonosEstimado: Long = 0L,
     val totalAbonosReal: Long = 0L,
     val totalDescontosEstimado: Long = 0L,
@@ -478,6 +521,15 @@ class ReciboViewModel(
             fontes.cabecalho.anoMes
         )
 
+        // v2.1.1: o subsídio de função e o desconto sindical dependem do contrato, não do mês.
+        // - Subsídio de função: só a categoria que o recebe (Team Leader, 52,46 €/mês — ver
+        //   CATEGORIAS_CCT) o tem no recibo; nas outras a linha estava sempre a 0,00.
+        // - Sindicato: o D04 é 1 % do VENC e só existe se o contrato for sindicalizado. Desligado,
+        //   o estimador põe-no a 0 e a linha desaparecia do ecrã na mesma, mas continuava a pesar.
+        val mostrarSubsidioFuncao = contrato.categoriaCodigo
+            .contains(CATEGORIA_TEAM_LEADER, ignoreCase = true)
+        val mostrarSindicato = contrato.sindicalizado
+
         // Complemento de baixa (COMP_BAIXA, R51): não se estima — é o valor que o recibo do mês
         // traz (importado do PDF ou escrito à mão). Sem isto as bases de incidência ignoravam o
         // complemento e o D01/D02 estimados não batiam com o recibo real de maio/2026, que
@@ -595,6 +647,8 @@ class ReciboViewModel(
             temFeriado = temFeriado,
             mostrarSubsidioNatal = mostrarNatal,
             mostrarSubsidioFerias = mostrarFerias,
+            mostrarSubsidioFuncao = mostrarSubsidioFuncao,
+            mostrarSindicato = mostrarSindicato,
             totalAbonosEstimado = estimativa.totalAbonos,
             totalAbonosReal = abonosReal,
             totalDescontosEstimado = estimativa.totalDescontos,

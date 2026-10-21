@@ -11,7 +11,10 @@ import java.time.YearMonth
  * - as rubricas de feriado (`HSUP_DN_FER`, `HSUP_NT_FER`, `DESC_FER`, `ACR_NOT_FER`) só aparecem
  *   nos meses com feriado, mesmo a 0,00 nesses meses;
  * - o subsídio de Natal (`NATAL`) só em dezembro;
- * - o subsídio de férias (`FERIAS`) só quando há férias no mês ou no seguinte.
+ * - o subsídio de férias (`FERIAS`) só quando há férias no mês ou no seguinte;
+ * - o subsídio de função (`SUP_FUNCAO`) só nas categorias que o recebem — o Team Leader;
+ * - o desconto sindical (`D04`) só nos contratos sindicalizados;
+ * - o complemento de baixa (`COMP_BAIXA`) só com valor: a zero não se desenha.
  *
  * Uma linha com valor nunca é escondida, seja qual for a regra — é a rede de segurança.
  *
@@ -57,7 +60,9 @@ class LinhasVisiveisTest {
                 linhas,
                 temFeriado = true,
                 mostrarNatal = false,
-                mostrarFerias = false
+                mostrarFerias = false,
+                mostrarSubsidioFuncao = false,
+                mostrarSindicato = true
             ).map { it.codigo }
         )
     }
@@ -79,7 +84,9 @@ class LinhasVisiveisTest {
                 linhas,
                 temFeriado = true,
                 mostrarNatal = false,
-                mostrarFerias = true
+                mostrarFerias = true,
+                mostrarSubsidioFuncao = false,
+                mostrarSindicato = true
             ).map { it.codigo }
         )
     }
@@ -103,7 +110,9 @@ class LinhasVisiveisTest {
                 linhas,
                 temFeriado = false,
                 mostrarNatal = false,
-                mostrarFerias = false
+                mostrarFerias = false,
+                mostrarSubsidioFuncao = false,
+                mostrarSindicato = false
             ).map { it.codigo }
         )
     }
@@ -127,7 +136,12 @@ class LinhasVisiveisTest {
 
         assertEquals(
             listOf("VENC", "HSUP_DN_FER", "HSUP_NT_FER", "DESC_FER", "ACR_NOT_FER", "D04"),
-            visiveis(linhas, mes = YearMonth.of(2026, 10), temFeriado = true).map { it.codigo }
+            visiveis(
+                linhas,
+                mes = YearMonth.of(2026, 10),
+                temFeriado = true,
+                mostrarSindicato = true
+            ).map { it.codigo }
         )
     }
 
@@ -209,19 +223,130 @@ class LinhasVisiveisTest {
     }
 
     /**
+     * O subsídio de função só existe no Team Leader. Num contrato de outra categoria (a APAA é o
+     * default) a linha está a 0,00 e não se desenha.
+     */
+    @Test
+    fun `SUP_FUNCAO fica oculto se a categoria nao for Team Leader`() {
+        val linhas = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("SUP_FUNCAO", 0L)
+        )
+
+        assertEquals(
+            listOf("VENC"),
+            visiveis(
+                linhas,
+                mes = YearMonth.of(2026, 9),
+                temFeriado = false,
+                mostrarSubsidioFuncao = false
+            ).map { it.codigo }
+        )
+    }
+
+    /** No Team Leader a linha desenha-se mesmo a 0,00: é a rubrica que ele recebe. */
+    @Test
+    fun `SUP_FUNCAO aparece no Team Leader mesmo a zero`() {
+        val linhas = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("SUP_FUNCAO", 0L)
+        )
+
+        assertEquals(
+            listOf("VENC", "SUP_FUNCAO"),
+            visiveis(
+                linhas,
+                mes = YearMonth.of(2026, 9),
+                temFeriado = false,
+                mostrarSubsidioFuncao = true
+            ).map { it.codigo }
+        )
+    }
+
+    /** Contrato não sindicalizado: o D04 está a 0 e não se desenha. */
+    @Test
+    fun `D04 fica oculto se o contrato nao for sindicalizado`() {
+        val linhas = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("D04", 0L)
+        )
+
+        assertEquals(
+            listOf("VENC"),
+            visiveis(
+                linhas,
+                mes = YearMonth.of(2026, 9),
+                temFeriado = false,
+                mostrarSindicato = false
+            ).map { it.codigo }
+        )
+    }
+
+    /** Contrato sindicalizado: o D04 desenha-se, mesmo a 0,00 num mês sem VENC. */
+    @Test
+    fun `D04 aparece no contrato sindicalizado mesmo a zero`() {
+        val linhas = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("D04", 0L)
+        )
+
+        assertEquals(
+            listOf("VENC", "D04"),
+            visiveis(
+                linhas,
+                mes = YearMonth.of(2026, 9),
+                temFeriado = false,
+                mostrarSindicato = true
+            ).map { it.codigo }
+        )
+    }
+
+    /**
+     * A rede de segurança vale para todas as rubricas novas: o complemento de baixa (que a zero
+     * nunca se desenha) e o D04 (com o switch do sindicato desligado) aparecem quando o recibo do
+     * mês traz valor — importado do PDF, gravado de um mês anterior ou escrito à mão.
+     */
+    @Test
+    fun `qualquer rubrica com valor prevalece sobre a regra que a esconderia`() {
+        val linhas = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("COMP_BAIXA", estimado = 0L, real = 286_410L),
+            conferencia("D04", estimado = 113_798L, real = 0L),
+            conferencia("SUP_FUNCAO", estimado = 0L, real = 524_600L)
+        )
+
+        assertEquals(
+            listOf("VENC", "COMP_BAIXA", "D04", "SUP_FUNCAO"),
+            visiveis(
+                linhas,
+                mes = YearMonth.of(2026, 5),
+                temFeriado = false,
+                mostrarSubsidioFuncao = false,
+                mostrarSindicato = false
+            ).map { it.codigo }
+        )
+    }
+
+    /**
      * Chama o filtro com as flags do ecrã, derivando a do Natal do mês como o ViewModel faz
-     * (dezembro) e deixando a das férias explícita — é o que as ausências decidem.
+     * (dezembro) e deixando as das férias explícitas — é o que as ausências decidem. As duas do
+     * contrato (subsídio de função e sindicato) ficam a false por omissão: um contrato APAA não
+     * sindicalizado, que é o caso mais comum.
      */
     private fun visiveis(
         linhas: List<LinhaConferencia>,
         mes: YearMonth,
         temFeriado: Boolean,
-        mostrarFerias: Boolean = false
+        mostrarFerias: Boolean = false,
+        mostrarSubsidioFuncao: Boolean = false,
+        mostrarSindicato: Boolean = false
     ) = linhasVisiveis(
         linhas,
         temFeriado = temFeriado,
         mostrarNatal = mes.monthValue == 12,
-        mostrarFerias = mostrarFerias
+        mostrarFerias = mostrarFerias,
+        mostrarSubsidioFuncao = mostrarSubsidioFuncao,
+        mostrarSindicato = mostrarSindicato
     )
 
     private fun conferencia(

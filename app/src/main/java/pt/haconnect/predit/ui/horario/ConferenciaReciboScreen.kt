@@ -306,7 +306,9 @@ fun ConferenciaReciboScreen(
                 uiState.linhas,
                 uiState.temFeriado,
                 uiState.mostrarSubsidioNatal,
-                uiState.mostrarSubsidioFerias
+                uiState.mostrarSubsidioFerias,
+                uiState.mostrarSubsidioFuncao,
+                uiState.mostrarSindicato
             )
             // Column com scroll em vez de LazyColumn: são 20 rubricas, não vale a pena
             // virtualizar — e uma lista lazy dentro de uma Column condicional não estava a
