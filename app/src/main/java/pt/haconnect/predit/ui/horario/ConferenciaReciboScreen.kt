@@ -299,9 +299,15 @@ fun ConferenciaReciboScreen(
             )
         } else {
             // 2026-10-21: as rubricas de recurso ("Outros" e "Outros" dos descontos) ficam fora da
-            // lista enquanto estiverem a zero nas duas colunas, e as de feriado só aparecem nos
-            // meses com feriado — ver linhasVisiveis.
-            val visiveis = linhasVisiveis(uiState.linhas, uiState.temFeriado)
+            // lista enquanto estiverem a zero nas duas colunas, as de feriado só aparecem nos
+            // meses com feriado e os subsídios só nos meses em que fazem sentido — ver
+            // linhasVisiveis.
+            val visiveis = linhasVisiveis(
+                uiState.linhas,
+                uiState.temFeriado,
+                uiState.mostrarSubsidioNatal,
+                uiState.mostrarSubsidioFerias
+            )
             // Column com scroll em vez de LazyColumn: são 20 rubricas, não vale a pena
             // virtualizar — e uma lista lazy dentro de uma Column condicional não estava a
             // desenhar os itens quando o ecrã era composto por um clique no separador.

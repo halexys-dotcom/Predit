@@ -30,6 +30,7 @@ import pt.haconnect.predit.domain.calc.estimarRecibo
 import pt.haconnect.predit.domain.calc.janelaNoturna
 import pt.haconnect.predit.domain.calc.projetarIntervalo
 import pt.haconnect.predit.domain.calc.temFeriadoNoMes
+import pt.haconnect.predit.domain.calc.temFeriasNoMesOuSeguinte
 import pt.haconnect.predit.domain.calc.valorHoraMil
 import pt.haconnect.predit.domain.importacao.LinhaReciboImportada
 import pt.haconnect.predit.domain.importacao.ReciboImportado
@@ -93,6 +94,13 @@ private val CODIGOS_OUTROS = setOf("OUTROS", RUBRICA_OUTROS_DESC)
  */
 private val CODIGOS_FERIADO = setOf("HSUP_DN_FER", "HSUP_NT_FER", "DESC_FER", "ACR_NOT_FER")
 
+/** Subsídios com regra de calendário própria: o de Natal em dezembro, o de férias junto às férias. */
+private const val CODIGO_SUBSIDIO_NATAL = "NATAL"
+private const val CODIGO_SUBSIDIO_FERIAS = "FERIAS"
+
+/** Dezembro é o mês do subsídio de Natal. */
+private const val MES_DO_SUBSIDIO_NATAL = 12
+
 /**
  * 2026-10-21: as linhas que o ecrã de conferência desenha.
  *
@@ -100,13 +108,16 @@ private val CODIGOS_FERIADO = setOf("HSUP_DN_FER", "HSUP_NT_FER", "DESC_FER", "A
  *   só faziam crescer a lista.
  * - Rubricas de feriado ([CODIGOS_FERIADO]) só aparecem nos meses com feriado ([temFeriado], ver
  *   [temFeriadoNoMes]), a zero ou não: é o que o utilizador pediu para limpar o ecrã.
+ * - O subsídio de Natal (v2.1.1) só aparece em dezembro ([mostrarNatal]).
+ * - O subsídio de férias (v2.1.1) só aparece quando há férias no mês ou no seguinte
+ *   ([mostrarFerias], ver [temFeriasNoMesOuSeguinte]).
  * - Todas as outras aparecem sempre, mesmo a zero: são as linhas do recibo e é preciso vê-las
  *   para as conferir.
  *
  * Uma linha com valor — no Estimado ou no Real — nunca é escondida, seja de que rubrica for. É a
- * rede de segurança das rubricas de feriado: com o pagamento das variáveis desfasado (M paga as
- * variáveis de M-1) os valores de um mês com feriado podem aparecer num mês sem nenhum, e uma
- * edição à mão também pode pôr lá um valor.
+ * rede de segurança das regras de calendário: com o pagamento das variáveis desfasado (M paga as
+ * variáveis de M-1) os valores de um mês podem aparecer noutro, o subsídio pode ter sido pago
+ * fora do mês (ou importado do PDF) e uma edição à mão também pode pôr lá um valor.
  *
  * É um filtro de desenho, não de estado: [ReciboUiState.linhas] continua com o catálogo inteiro,
  * porque é dele que o "Guardar" escreve uma linha por rubrica e o modal de mapeamento tira as
@@ -115,12 +126,16 @@ private val CODIGOS_FERIADO = setOf("HSUP_DN_FER", "HSUP_NT_FER", "DESC_FER", "A
  */
 internal fun linhasVisiveis(
     linhas: List<LinhaConferencia>,
-    temFeriado: Boolean
+    temFeriado: Boolean,
+    mostrarNatal: Boolean,
+    mostrarFerias: Boolean
 ): List<LinhaConferencia> = linhas.filter { linha ->
     when {
         linha.valorEstimado != 0L || linha.valorReal != 0L -> true
         linha.codigo in CODIGOS_OUTROS -> false
         linha.codigo in CODIGOS_FERIADO -> temFeriado
+        linha.codigo == CODIGO_SUBSIDIO_NATAL -> mostrarNatal
+        linha.codigo == CODIGO_SUBSIDIO_FERIAS -> mostrarFerias
         else -> true
     }
 }
@@ -180,6 +195,15 @@ data class ReciboUiState(
      * Decide se as rubricas de feriado se desenham — ver [linhasVisiveis].
      */
     val temFeriado: Boolean = false,
+    /**
+     * v2.1.1: o mês é dezembro — mês do subsídio de Natal. Decide se a linha se desenha.
+     */
+    val mostrarSubsidioNatal: Boolean = false,
+    /**
+     * v2.1.1: há férias marcadas no mês visível ou no seguinte — [temFeriasNoMesOuSeguinte].
+     * Decide se a linha do subsídio de férias se desenha.
+     */
+    val mostrarSubsidioFerias: Boolean = false,
     val totalAbonosEstimado: Long = 0L,
     val totalAbonosReal: Long = 0L,
     val totalDescontosEstimado: Long = 0L,
@@ -442,6 +466,18 @@ class ReciboViewModel(
             municipio?.feriadoMes ?: 0
         )
 
+        // v2.1.1: os subsídios só se desenham quando fazem sentido no mês.
+        // - Natal: em dezembro, o mês em que se paga.
+        // - Férias: quando há férias marcadas no mês ou no seguinte. Quem marca férias de 10 a 24
+        //   de agosto quer o subsídio à vista em julho, para o prever, e continua a querê-lo em
+        //   agosto, o mês em que as goza.
+        val mostrarNatal = fontes.cabecalho.anoMes.monthValue == MES_DO_SUBSIDIO_NATAL
+        val mostrarFerias = temFeriasNoMesOuSeguinte(
+            fontes.agendas.ausencias,
+            fontes.agendas.tiposTurno.associate { it.id to it.categoria },
+            fontes.cabecalho.anoMes
+        )
+
         // Complemento de baixa (COMP_BAIXA, R51): não se estima — é o valor que o recibo do mês
         // traz (importado do PDF ou escrito à mão). Sem isto as bases de incidência ignoravam o
         // complemento e o D01/D02 estimados não batiam com o recibo real de maio/2026, que
@@ -557,6 +593,8 @@ class ReciboViewModel(
             anoMesFormatado = formatado,
             linhas = linhas,
             temFeriado = temFeriado,
+            mostrarSubsidioNatal = mostrarNatal,
+            mostrarSubsidioFerias = mostrarFerias,
             totalAbonosEstimado = estimativa.totalAbonos,
             totalAbonosReal = abonosReal,
             totalDescontosEstimado = estimativa.totalDescontos,

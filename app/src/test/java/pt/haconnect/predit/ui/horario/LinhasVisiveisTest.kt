@@ -3,12 +3,17 @@ package pt.haconnect.predit.ui.horario
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import pt.haconnect.predit.domain.calc.NaturezaRubrica
+import java.time.YearMonth
 
 /**
- * O filtro do ecrã de conferência (2026-10-21). Duas regras, ambas de desenho:
+ * O filtro do ecrã de conferência (v2.1.1). Regras, todas de desenho:
  * - as rubricas de recurso ("Outros" dos abonos e "Outros" dos descontos) só aparecem com valor;
  * - as rubricas de feriado (`HSUP_DN_FER`, `HSUP_NT_FER`, `DESC_FER`, `ACR_NOT_FER`) só aparecem
- *   nos meses com feriado, mesmo a 0,00 nesses meses.
+ *   nos meses com feriado, mesmo a 0,00 nesses meses;
+ * - o subsídio de Natal (`NATAL`) só em dezembro;
+ * - o subsídio de férias (`FERIAS`) só quando há férias no mês ou no seguinte.
+ *
+ * Uma linha com valor nunca é escondida, seja qual for a regra — é a rede de segurança.
  *
  * O estado ([ReciboUiState.linhas]) e a BD ficam com o catálogo inteiro — é dele que o "Guardar"
  * escreve uma linha por rubrica e que o modal de mapeamento tira as escolhas.
@@ -16,9 +21,96 @@ import pt.haconnect.predit.domain.calc.NaturezaRubrica
 class LinhasVisiveisTest {
 
     /**
-     * Outubro de 2026 tem o 5 (Implantação da República) e por isso as linhas de feriado ficam;
-     * as de recurso estão a zero e saem. As restantes aparecem sempre, mesmo as que estão a zero
-     * (o D04 deste mês, por exemplo).
+     * A regra do Natal tal como o ReciboViewModel a aplica ao mês: dezembro. Em novembro o
+     * subsídio ainda não se desenha; em dezembro, sim.
+     */
+    @Test
+    fun `em novembro o Natal nao aparece e em dezembro aparece`() {
+        val linhas = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("NATAL", 0L)
+        )
+        val novembro = YearMonth.of(2026, 11)
+        val dezembro = YearMonth.of(2026, 12)
+
+        assertEquals(
+            listOf("VENC"),
+            visiveis(linhas, mes = novembro, temFeriado = false).map { it.codigo }
+        )
+        assertEquals(
+            listOf("VENC", "NATAL"),
+            visiveis(linhas, mes = dezembro, temFeriado = true).map { it.codigo }
+        )
+    }
+
+    /** Um mês sem férias marcadas nem no mês nem no seguinte não mostra o subsídio de férias. */
+    @Test
+    fun `sem ferias no mes nem no seguinte o subsidio de ferias nao aparece`() {
+        val linhas = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("FERIAS", 0L)
+        )
+
+        assertEquals(
+            listOf("VENC"),
+            linhasVisiveis(
+                linhas,
+                temFeriado = true,
+                mostrarNatal = false,
+                mostrarFerias = false
+            ).map { it.codigo }
+        )
+    }
+
+    /**
+     * Com férias no mês (ou no seguinte, que é o caso de julho quando as férias são em agosto) a
+     * linha aparece, mesmo a 0,00: é a altura em que o utilizador a quer conferir e editar.
+     */
+    @Test
+    fun `com ferias no mes o subsidio de ferias aparece`() {
+        val linhas = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("FERIAS", 0L)
+        )
+
+        assertEquals(
+            listOf("VENC", "FERIAS"),
+            linhasVisiveis(
+                linhas,
+                temFeriado = true,
+                mostrarNatal = false,
+                mostrarFerias = true
+            ).map { it.codigo }
+        )
+    }
+
+    /**
+     * Rede de segurança: um subsídio com valor — estimado ou importado do PDF — aparece sempre,
+     * mesmo fora das regras. Sem isto, um subsídio pago em novembro ou importado num mês sem
+     * férias desaparecia do ecrã e os totais deixavam de fechar com o que se vê.
+     */
+    @Test
+    fun `subsidios com valor aparecem sempre mesmo fora das regras`() {
+        val linhas = listOf(
+            conferencia("NATAL", estimado = 0L, real = 5_689_900L),
+            conferencia("FERIAS", estimado = 3_400_000L, real = 0L),
+            conferencia("VENC", 11_379_800L)
+        )
+
+        assertEquals(
+            listOf("NATAL", "FERIAS", "VENC"),
+            linhasVisiveis(
+                linhas,
+                temFeriado = false,
+                mostrarNatal = false,
+                mostrarFerias = false
+            ).map { it.codigo }
+        )
+    }
+
+    /**
+     * Um mês com feriado mostra as quatro rubricas de feriado; as de recurso estão a zero e saem.
+     * As restantes aparecem sempre, mesmo as que estão a zero (o D04 deste mês).
      */
     @Test
     fun `mes com feriado mostra as rubricas de feriado e esconde os Outros a zero`() {
@@ -35,7 +127,7 @@ class LinhasVisiveisTest {
 
         assertEquals(
             listOf("VENC", "HSUP_DN_FER", "HSUP_NT_FER", "DESC_FER", "ACR_NOT_FER", "D04"),
-            linhasVisiveis(linhas, temFeriado = true).map { it.codigo }
+            visiveis(linhas, mes = YearMonth.of(2026, 10), temFeriado = true).map { it.codigo }
         )
     }
 
@@ -56,7 +148,7 @@ class LinhasVisiveisTest {
 
         assertEquals(
             listOf("VENC", "D01"),
-            linhasVisiveis(linhas, temFeriado = false).map { it.codigo }
+            visiveis(linhas, mes = YearMonth.of(2026, 9), temFeriado = false).map { it.codigo }
         )
     }
 
@@ -75,7 +167,7 @@ class LinhasVisiveisTest {
 
         assertEquals(
             listOf("VENC", "D01"),
-            linhasVisiveis(linhas, temFeriado = false).map { it.codigo }
+            visiveis(linhas, mes = YearMonth.of(2026, 9), temFeriado = false).map { it.codigo }
         )
     }
 
@@ -93,14 +185,15 @@ class LinhasVisiveisTest {
 
         assertEquals(
             listOf("OUTROS", "OUTROS_DESC", "VENC"),
-            linhasVisiveis(linhas, temFeriado = false).map { it.codigo }
+            visiveis(linhas, mes = YearMonth.of(2026, 9), temFeriado = false).map { it.codigo }
         )
     }
 
     /**
-     * Rede de segurança: uma linha com valor nunca é escondida. Com o pagamento das variáveis
-     * desfasado, um valor de feriado de um mês anterior (ou escrito à mão) pode cair num mês sem
-     * feriado nenhum — aí a linha tem de aparecer, senão o total não fechava com o que se vê.
+     * Rede de segurança das rubricas de feriado: uma linha com valor nunca é escondida. Com o
+     * pagamento das variáveis desfasado, um valor de feriado de um mês anterior (ou escrito à mão)
+     * pode cair num mês sem feriado nenhum — aí a linha tem de aparecer, senão o total não fechava
+     * com o que se vê.
      */
     @Test
     fun `rubrica de feriado com valor aparece mesmo sem feriado no mes`() {
@@ -111,9 +204,25 @@ class LinhasVisiveisTest {
 
         assertEquals(
             listOf("VENC", "HSUP_DN_FER"),
-            linhasVisiveis(linhas, temFeriado = false).map { it.codigo }
+            visiveis(linhas, mes = YearMonth.of(2026, 9), temFeriado = false).map { it.codigo }
         )
     }
+
+    /**
+     * Chama o filtro com as flags do ecrã, derivando a do Natal do mês como o ViewModel faz
+     * (dezembro) e deixando a das férias explícita — é o que as ausências decidem.
+     */
+    private fun visiveis(
+        linhas: List<LinhaConferencia>,
+        mes: YearMonth,
+        temFeriado: Boolean,
+        mostrarFerias: Boolean = false
+    ) = linhasVisiveis(
+        linhas,
+        temFeriado = temFeriado,
+        mostrarNatal = mes.monthValue == 12,
+        mostrarFerias = mostrarFerias
+    )
 
     private fun conferencia(
         codigo: String,
