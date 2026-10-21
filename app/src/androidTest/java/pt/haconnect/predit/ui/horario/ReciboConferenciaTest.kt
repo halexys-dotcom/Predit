@@ -309,9 +309,11 @@ class ReciboConferenciaTest {
         assertEquals(chave, cabecalho.anoMes)
 
         val linhas = runBlocking { app.database.reciboLinhaDao().obterPorMes(chave) }
-        // Uma linha por rubrica do catálogo: 22 desde a 28i (o COMP_BAIXA entrou no catálogo;
-        // antes eram 21, desde a 13a, quando entrou o SUP_FUNCAO).
-        assertEquals("uma linha por rubrica do catálogo", 22, linhas.size)
+        // Uma linha por rubrica do catálogo. Deriva-se do catálogo semeado em vez de fixar o
+        // número: ele já mudou três vezes (13a SUP_FUNCAO, 28i COMP_BAIXA, 2.1.0 ATRASO) e a
+        // 2026-10-21 entrou a OUTROS_DESC, para os descontos que a app não conhece.
+        val rubricasNoCatalogo = runBlocking { app.database.rubricaDao().contar() }
+        assertEquals("uma linha por rubrica do catálogo", rubricasNoCatalogo, linhas.size)
 
         val idVenc = runBlocking { app.database.rubricaDao().obterPorCodigo("VENC") }!!.id
         val linhaVenc = linhas.first { it.rubricaId == idVenc }

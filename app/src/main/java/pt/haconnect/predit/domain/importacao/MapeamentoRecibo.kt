@@ -69,7 +69,11 @@ private val RUBRICAS: Map<String, String> = mapOf(
     "RCRA" to "SUP_ALIM", // ... acerto do subsídio de alimentação (Cegid 2025)
     "R30" to "FERIAS",    // Subsídio de Férias (PSG)
     "R31" to "NATAL",     // Subsídio de Natal (PSG)
-    "R97" to "FERIAS"     // Subsídio de Férias
+    "R97" to "FERIAS",    // Subsídio de Férias
+    // 2026-10-21: o D05 da Fundação ("Desconto Subsídio Alimentação") tem rubrica própria em vez
+    // de ficar desconhecido — era o que bloqueava a importação dos recibos da Fundação. A rubrica
+    // é de desconto (ver [RUBRICAS_DESCONTO]), não de abono: o valor tem de sair do líquido.
+    "D05" to RUBRICA_OUTROS_DESC
 )
 
 /**
@@ -113,11 +117,24 @@ private const val RUBRICA_COMPLEMENTO_BAIXA = "COMP_BAIXA"
 private val CODIGOS_DESCONTO = setOf("D01", "D02", "D04")
 
 /**
+ * 2026-10-21: rubrica que recebe os descontos que o recibo traz e o catálogo não conhece como
+ * desconto (o D05 da Fundação). Existe para a importação não bloquear: o valor tem de sair do
+ * líquido, e em "Outros" (abono) somava.
+ */
+private const val RUBRICA_OUTROS_DESC = "OUTROS_DESC"
+
+/**
+ * Rubricas internas que podem receber uma linha de desconto. As três derivadas (D01/D02/D04) e a
+ * de recurso (OUTROS_DESC): o parser não conhece a natureza das rubricas, só estes códigos.
+ */
+private val RUBRICAS_DESCONTO: Set<String> = CODIGOS_DESCONTO + RUBRICA_OUTROS_DESC
+
+/**
  * A rubrica interna é de desconto? É a guarda do C7: uma linha que o recibo dá como desconto só
  * pode cair numa destas — numa de abono (OUTROS, SUP_ALIM...) somava ao líquido em vez de tirar.
  */
 internal fun ehRubricaDeDesconto(codigoInterno: String): Boolean =
-    codigoInterno.trim().uppercase() in CODIGOS_DESCONTO
+    codigoInterno.trim().uppercase() in RUBRICAS_DESCONTO
 
 /**
  * Traduz um código de recibo (`R01`, `D02`, ...) para o que a app precisa de saber:
@@ -148,7 +165,7 @@ fun mapearCodigoRecibo(
     val doUtilizador = mapeamentosUtilizador[normalizado]
     if (doUtilizador != null) {
         val natureza =
-            if (doUtilizador in CODIGOS_DESCONTO) NaturezaRubrica.DESCONTO else NaturezaRubrica.ABONO
+            if (doUtilizador in RUBRICAS_DESCONTO) NaturezaRubrica.DESCONTO else NaturezaRubrica.ABONO
         return MapeamentoRubrica(
             normalizado, doUtilizador, natureza, null, OrigemMapeamento.UTILIZADOR
         )
@@ -169,9 +186,13 @@ fun mapearCodigoRecibo(
         )
     }
     if (RUBRICAS.containsKey(normalizado)) {
+        // A natureza vem do destino, não do sítio do mapa: o D05 cai em OUTROS_DESC, que é de
+        // desconto (o D01/D02/D04 não passam por aqui — são o próprio código, tratados acima).
+        val destino = RUBRICAS.getValue(normalizado)
         return MapeamentoRubrica(
-            normalizado, RUBRICAS.getValue(normalizado), NaturezaRubrica.ABONO, null,
-            OrigemMapeamento.HARDCODED
+            normalizado, destino,
+            if (destino in RUBRICAS_DESCONTO) NaturezaRubrica.DESCONTO else NaturezaRubrica.ABONO,
+            null, OrigemMapeamento.HARDCODED
         )
     }
     if (normalizado in CODIGOS_PARA_OUTROS) {

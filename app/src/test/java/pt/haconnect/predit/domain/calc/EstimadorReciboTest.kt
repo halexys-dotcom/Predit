@@ -211,6 +211,27 @@ class EstimadorReciboTest {
         assertEquals(11_692_277L, est.liquido)
     }
 
+    /**
+     * 2026-10-21: a rubrica de recurso dos descontos desconhecidos (OUTROS_DESC, onde cai o D05 da
+     * Fundação) tem de contar como DESCONTO. Se fosse abono, o valor real importado somava ao
+     * líquido em vez de o tirar — que é o que a guarda do C7 existe para impedir.
+     */
+    @Test
+    fun `29 - Outros Desconto conta como desconto e nao como abono`() {
+        val agosto = YearMonth.of(2026, 8)
+        val comOutrosDesc = catalogo + Rubrica(
+            98, "OUTROS_DESC", "Outros (Desconto)", false, false, false, "MANUAL", false, 98
+        )
+        val est = estimarRecibo(contexto(agosto, dias(agosto, 22), rubricas = comOutrosDesc))
+
+        assertEquals(NaturezaRubrica.DESCONTO, est.rubricas.first { it.codigo == "OUTROS_DESC" }.natureza)
+        // Não é estimada (manual), por isso não mexe nos totais por si — mas se fosse abono,
+        // saía daqui somada.
+        val semEla = estimarRecibo(contexto(agosto, dias(agosto, 22)))
+        assertEquals(semEla.totalAbonos, est.totalAbonos)
+        assertEquals(semEla.totalDescontos, est.totalDescontos)
+    }
+
     @Test
     fun `T2 - julho 2026 sem ausencia registada, a divergencia do IRS`() {
         val julho = YearMonth.of(2026, 7)

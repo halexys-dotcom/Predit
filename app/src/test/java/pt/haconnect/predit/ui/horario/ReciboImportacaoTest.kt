@@ -25,6 +25,7 @@ class ReciboImportacaoTest {
         rubrica(9L, "SUP_ALIM"),
         rubrica(10L, "SUP_TRAN"),
         rubrica(24L, "COMP_BAIXA"),
+        rubrica(98L, "OUTROS_DESC"),
         rubrica(99L, "OUTROS")
     ).associateBy { it.codigo }
 
@@ -161,13 +162,14 @@ class ReciboImportacaoTest {
     }
 
     /**
-     * C7: o D05 da Fundação ("Desconto Subsídio Alimentação", 105,00 €) é um desconto que a app
-     * não conhece. Mapeado para OUTROS — ou para SUP_ALIM, que era a sugestão da heurística —
-     * somava ao líquido. Não entra na soma e é reportado para a importação abortar.
+     * C7: o D05 da Fundação ("Desconto Subsídio Alimentação", 105,00 €) é um desconto. Mapeado
+     * para OUTROS — ou para SUP_ALIM, que era a sugestão da heurística — somava ao líquido.
+     * Desde 2026-10-21 não bloqueia: vai para OUTROS_DESC (rubrica de desconto) e a UI avisa.
      */
     @Test
-    fun `desconto mapeado para rubrica de abono fica de fora e e reportado`() {
+    fun `desconto mapeado para rubrica de abono vai para Outros Desconto`() {
         val descontosSemRubrica = mutableListOf<String>()
+        val avisos = mutableListOf<String>()
         val somados = somarLinhasPorRubrica(
             listOf(
                 linha("R01", 9_666_700L),
@@ -175,24 +177,46 @@ class ReciboImportacaoTest {
             ),
             catalogo,
             mutableListOf(),
-            descontosSemRubrica
+            descontosSemRubrica,
+            avisos
         )
 
-        assertEquals(mapOf(1L to 9_666_700L), somados)
-        assertEquals(listOf("D05"), descontosSemRubrica)
+        assertEquals(mapOf(1L to 9_666_700L, 98L to 1_050_000L), somados)
+        assertTrue(descontosSemRubrica.isEmpty())
+        assertEquals(listOf("Desconto desconhecido foi para Outros (Desconto)"), avisos)
     }
 
-    /** C7: um desconto sem código interno nenhum também é reportado. */
+    /** C7: um desconto sem código interno nenhum também vai para Outros (Desconto), com aviso. */
     @Test
-    fun `desconto sem codigo interno e reportado`() {
-        val descontosSemRubrica = mutableListOf<String>()
-        somarLinhasPorRubrica(
+    fun `desconto sem codigo interno vai para Outros Desconto`() {
+        val avisos = mutableListOf<String>()
+        val somados = somarLinhasPorRubrica(
             listOf(linha("D05", 1_050_000L, codigoInterno = null, natureza = NaturezaRubrica.DESCONTO)),
             catalogo,
+            mutableListOf(),
+            mutableListOf(),
+            avisos
+        )
+
+        assertEquals(mapOf(98L to 1_050_000L), somados)
+        assertEquals(listOf("Desconto desconhecido foi para Outros (Desconto)"), avisos)
+    }
+
+    /**
+     * C7: sem OUTROS_DESC no catálogo (BD anterior à rubrica) não há onde escrever o valor a
+     * subtrair — a importação volta a bloquear em vez de somar o desconto ao líquido.
+     */
+    @Test
+    fun `desconto sem OUTROS_DESC no catalogo e reportado`() {
+        val descontosSemRubrica = mutableListOf<String>()
+        val somados = somarLinhasPorRubrica(
+            listOf(linha("D05", 1_050_000L, codigoInterno = null, natureza = NaturezaRubrica.DESCONTO)),
+            catalogo - "OUTROS_DESC",
             mutableListOf(),
             descontosSemRubrica
         )
 
+        assertTrue(somados.isEmpty())
         assertEquals(listOf("D05"), descontosSemRubrica)
     }
 

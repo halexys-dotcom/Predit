@@ -356,11 +356,13 @@ class ReciboPdfParserTest {
         assertEquals(7_500_000L, primeira.valorDe("R20"))  // 750,00 €
         assertEquals(1_911_400L, primeira.valorDe("D01"))  // 191,14 €
 
-        // Desconhecidos da 1.ª folha...
+        // Desconhecidos da 1.ª folha... (o D05 já não está: 2026-10-21 tem rubrica própria,
+        // OUTROS_DESC, e é o que desbloqueia os recibos da Fundação)
         assertTrue(
             "Faltam desconhecidos: ${primeira.codigosDesconhecidos}",
-            primeira.codigosDesconhecidos.containsAll(listOf("R04", "R13", "R20", "D05"))
+            primeira.codigosDesconhecidos.containsAll(listOf("R04", "R13", "R20"))
         )
+        assertTrue("O D05 não pode continuar desconhecido", "D05" !in primeira.codigosDesconhecidos)
         // ...e os da 2.ª, incluindo o F106I: sufixo alfabético que o ICTS nao tem e que o
         // RE_CODIGO antigo (`^[A-Z]{1,4}\d{0,3}$`) recusava.
         assertEquals(listOf("F106I", "F35"), segunda.codigosDesconhecidos)
@@ -378,17 +380,24 @@ class ReciboPdfParserTest {
 
     /**
      * C7: a natureza de uma linha desconhecida sai da coluna em que o valor está. O D05 da
-     * Fundação ("Desconto Subsídio Alimentação") traz o valor na coluna "Descontos" e é desconto;
-     * o R13 negativo (-5,00) está em "Remunerações" e continua abono.
+     * Fundação ("Desconto Subsídio Alimentação") traz o valor na coluna "Descontos", é desconto e
+     * desde 2026-10-21 tem rubrica própria (OUTROS_DESC) — o mapeamento também a dá como
+     * DESCONTO, para o caso de a grelha não trazer a etiqueta "Descontos".
+     * O R13 negativo (-5,00) está em "Remunerações" e continua abono.
      */
     @Test
-    fun `C7 - desconto desconhecido da Fundacao sai como DESCONTO pela coluna`() {
+    fun `C7 - D05 da Fundacao sai como DESCONTO e vai para Outros Desconto`() {
         val primeira = ler("recibo-setembro-2026-fundacao.txt").first()
 
         val d05 = primeira.linhas.filter { it.codigoRecibo == "D05" }
         assertEquals(2, d05.size)
         assertTrue(d05.all { it.natureza == NaturezaRubrica.DESCONTO })
-        assertTrue(d05.all { it.codigoInterno == null })
+        assertTrue(d05.all { it.codigoInterno == "OUTROS_DESC" })
+
+        // O mapeamento sozinho já diz desconto, sem depender da coluna do PDF.
+        val mapeado = mapearCodigoRecibo("D05")
+        assertEquals("OUTROS_DESC", mapeado.codigoInterno)
+        assertEquals(NaturezaRubrica.DESCONTO, mapeado.natureza)
 
         assertTrue(
             primeira.linhas.filter { it.codigoRecibo == "R13" }.all { it.natureza == NaturezaRubrica.ABONO }

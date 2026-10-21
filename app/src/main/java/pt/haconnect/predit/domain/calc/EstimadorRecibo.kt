@@ -96,6 +96,12 @@ private val CODIGOS_DESCONTO = setOf("D01", "D02", "D04")
  */
 private const val CODIGO_AUSENCIAS = "ATRASO"
 
+/**
+ * 2026-10-21: rubrica dos descontos que o recibo traz e a app não conhece (o D05 da Fundação).
+ * É de DESCONTO, como as D0x — sem isto o valor entrava nos abonos e somava ao líquido.
+ */
+private const val CODIGO_OUTROS_DESC = "OUTROS_DESC"
+
 /** Jornada diária normal (8h) e mês comercial usado nos proporcionais. */
 private const val MINUTOS_JORNADA_DIA = 8 * 60
 private const val DIAS_MES_COMERCIAL = 30L
@@ -456,7 +462,7 @@ private fun dentroDeAusencia(epochDay: Long, ausencias: List<Ausencia>): Boolean
 
 private fun naturezaDe(codigo: String): NaturezaRubrica = when {
     codigo == CODIGO_AUSENCIAS -> NaturezaRubrica.INFORMATIVA
-    codigo in CODIGOS_DESCONTO -> NaturezaRubrica.DESCONTO
+    codigo in CODIGOS_DESCONTO || codigo == CODIGO_OUTROS_DESC -> NaturezaRubrica.DESCONTO
     else -> NaturezaRubrica.ABONO
 }
 

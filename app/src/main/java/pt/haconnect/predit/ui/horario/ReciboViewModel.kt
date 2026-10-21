@@ -642,15 +642,18 @@ class ReciboViewModel(
         val catalogo = rubricasCatalogo.value.associateBy { it.codigo }
         val naoReconhecidas = mutableListOf<String>()
         val descontosSemRubrica = mutableListOf<String>()
+        val avisosDesconto = mutableListOf<String>()
 
         // A soma é local a esta importação: o que estava no mês antes (edição à mão ou
         // importação anterior) é substituído, para reimportar o mesmo PDF dar o mesmo e não
         // o dobro. Ver somarLinhasPorRubrica para a soma das linhas repetidas (RCR + RCRA).
-        val somados =
-            somarLinhasPorRubrica(recibo.linhas, catalogo, naoReconhecidas, descontosSemRubrica)
+        val somados = somarLinhasPorRubrica(
+            recibo.linhas, catalogo, naoReconhecidas, descontosSemRubrica, avisosDesconto
+        )
 
-        // C7: um desconto sem rubrica de desconto não entra — nem em parte. Aplicar o resto
-        // deixava o mês com um líquido errado e sem nada a dizer porquê.
+        // C7: um desconto vai sempre para uma rubrica de desconto — a dele ou, quando não há,
+        // OUTROS_DESC (ver somarLinhasPorRubrica). O abort fica para a BD que ainda não tem essa
+        // rubrica: aí não há onde escrever o valor sem o somar ao líquido em vez de o tirar.
         if (descontosSemRubrica.isNotEmpty()) {
             _mensagemErro.value = mensagemDescontoDesconhecido(descontosSemRubrica)
             _mensagemImportacao.value = null
@@ -677,8 +680,9 @@ class ReciboViewModel(
         }
         _mensagemErro.value = null
         // 28j: os avisos do parser sobem à UI (é por eles que o utilizador percebe porque é que
-        // num mês de baixa total o VENC ficou a 0,00 e o mês fecha pelo complemento R51).
-        _avisosImportacao.value = recibo.avisos.distinct()
+        // num mês de baixa total o VENC ficou a 0,00 e o mês fecha pelo complemento R51). Os
+        // avisos de desconto (OUTROS_DESC) juntam-se-lhes, sem repetir o mesmo texto.
+        _avisosImportacao.value = (recibo.avisos + avisosDesconto).distinct()
     }
 
     // --- comandos ------------------------------------------------------------
@@ -1005,6 +1009,12 @@ private fun formatarAnoMes(anoMes: YearMonth): String {
     return "$capitalizado ${anoMes.year}"
 }
 
+/** Rubrica de recurso para os descontos que o mapa não sabe onde pôr (ver somarLinhasPorRubrica). */
+private const val RUBRICA_OUTROS_DESC = "OUTROS_DESC"
+
+/** Aviso que acompanha um desconto lançado na rubrica de recurso. */
+private const val AVISO_DESCONTO_OUTROS = "Desconto desconhecido foi para Outros (Desconto)"
+
 /**
  * Soma as linhas de um recibo importado por rubrica do catálogo, pela ordem em que vêm no PDF.
  *
@@ -1026,17 +1036,29 @@ private fun formatarAnoMes(anoMes: YearMonth): String {
  * limpar o que tivesse ficado de uma importação anterior — sem isso, reimportar Março depois da
  * 28i deixava lá os 1 137,98 € que ninguém recebeu e os Totais Reais não fechavam nos 258,70 €
  * que o recibo declara.
+ *
+ * 2026-10-21: um desconto nunca fica de fora nem entra numa rubrica de abono. Se não houver
+ * rubrica de desconto para o receber (a dele não existe no catálogo, ou o mapa manda-o para um
+ * abono), vai para `OUTROS_DESC` e a UI avisa — antes a importação abortava e o recibo da
+ * Fundação (D05) não entrava. Só sem `OUTROS_DESC` no catálogo é que aborta (ver
+ * [descontosSemRubrica]).
  */
 internal fun somarLinhasPorRubrica(
     linhas: List<LinhaReciboImportada>,
     catalogoPorCodigo: Map<String, Rubrica>,
     naoReconhecidas: MutableList<String>,
     /**
-     * C7: códigos do recibo que são descontos mas não têm rubrica de desconto (D01/D02/D04) no
-     * catálogo. Ficam fora da soma e quem chama aborta a importação: lançá-los em OUTROS, ou noutra
-     * rubrica de abono, somava o desconto ao líquido em vez de o tirar.
+     * C7: descontos que não podem ficar na própria rubrica (sem código interno, código fora do
+     * catálogo ou mapeado para uma rubrica de abono) **e** que também não puderam ir para
+     * [RUBRICA_OUTROS_DESC] — só acontece numa BD anterior à rubrica. Quem chama aborta a
+     * importação: escrevê-los num abono somava o desconto ao líquido em vez de o tirar.
      */
-    descontosSemRubrica: MutableList<String> = mutableListOf()
+    descontosSemRubrica: MutableList<String> = mutableListOf(),
+    /**
+     * 2026-10-21: avisos dos descontos que foram para [RUBRICA_OUTROS_DESC] em vez de bloquearem a
+     * importação. A UI mostra-os a seguir à importação, junto aos avisos do parser.
+     */
+    avisosDesconto: MutableList<String> = mutableListOf()
 ): Map<Long, Long> {
     // Primeiro as rubricas declaradas e não pagas, para uma linha com valor escrita depois somar
     // por cima de 0 em vez de ser apagada.
@@ -1049,8 +1071,19 @@ internal fun somarLinhasPorRubrica(
     for (linha in linhas) {
         if (linha.natureza == NaturezaRubrica.DESCONTO) {
             val codigo = linha.codigoInterno
-            if (codigo == null || catalogoPorCodigo[codigo] == null || !ehRubricaDeDesconto(codigo)) {
-                descontosSemRubrica.add(linha.codigoRecibo)
+            val vaiParaDesconto =
+                codigo != null && catalogoPorCodigo[codigo] != null && ehRubricaDeDesconto(codigo)
+            if (!vaiParaDesconto) {
+                // 2026-10-21: o desconto não fica de fora nem entra num abono — vai para
+                // OUTROS_DESC e a UI avisa. Sem essa rubrica no catálogo (BD antiga) volta a
+                // bloquear: não há onde escrever o valor a subtrair.
+                val recurso = catalogoPorCodigo[RUBRICA_OUTROS_DESC]
+                if (recurso == null) {
+                    descontosSemRubrica.add(linha.codigoRecibo)
+                } else {
+                    somados[recurso.id] = (somados[recurso.id] ?: 0L) + linha.valor
+                    avisosDesconto.add(AVISO_DESCONTO_OUTROS)
+                }
                 continue
             }
         }

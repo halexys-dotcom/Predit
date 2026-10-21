@@ -216,6 +216,10 @@ class PreditApplication : Application() {
             // 2026-10-20: não é desconto nem corta o VENC (que é o valor absoluto do contrato).
             // A linha é informativa (mostra as horas em falta) e editável no ecrã do recibo.
             RubricaEntity(0L, "ATRASO", "Ausências", false, false, false, TipoCalculo.DERIVADO, true, 25),
+            // 2026-10-21: descontos que o recibo traz e o catálogo não conhece (o D05 da Fundação,
+            // "Desconto Subsídio Alimentação") vão para aqui em vez de bloquear a importação. É
+            // manual como o "Outros", mas de desconto: entra nos totais a subtrair, nunca a somar.
+            RubricaEntity(0L, "OUTROS_DESC", "Outros (Desconto)", false, false, false, TipoCalculo.MANUAL, false, 98),
             RubricaEntity(0L, "OUTROS", "Outros", true, true, true, TipoCalculo.MANUAL, false, 99)
         )
         iniciais.forEach { rubrica ->
