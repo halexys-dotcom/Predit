@@ -80,6 +80,29 @@ data class LinhaConferencia(
 }
 
 /**
+ * Rubricas de recurso: "Outros" (abonos, onde cai o R118) e "Outros" dos descontos ([RUBRICA_OUTROS_DESC],
+ * onde cai o D05 da Fundação). As duas nascem a zero — só ganham valor quando o recibo traz um
+ * código que o mapa não conhece ou quando o utilizador escreve um valor.
+ */
+private val CODIGOS_OUTROS = setOf("OUTROS", RUBRICA_OUTROS_DESC)
+
+/**
+ * 2026-10-21: as linhas que o ecrã de conferência desenha. As rubricas de recurso ([CODIGOS_OUTROS])
+ * só aparecem quando têm valor — no Estimado ou no Real —, porque a zero não dizem nada e só faziam
+ * crescer a lista. Todas as outras aparecem sempre, mesmo a zero: são as linhas do recibo e é
+ * preciso vê-las para as conferir.
+ *
+ * É um filtro de desenho, não de estado: [ReciboUiState.linhas] continua com o catálogo inteiro,
+ * porque é dele que o "Guardar" escreve uma linha por rubrica e o modal de mapeamento tira as
+ * escolhas. Consequência assumida: a zero a linha não tem campo onde escrever — um valor em
+ * "Outros" entra pela importação do recibo, que escreve na mesma rubrica.
+ */
+internal fun linhasVisiveis(linhas: List<LinhaConferencia>): List<LinhaConferencia> =
+    linhas.filter { linha ->
+        linha.codigo !in CODIGOS_OUTROS || linha.valorEstimado != 0L || linha.valorReal != 0L
+    }
+
+/**
  * Um recibo detetado no PDF, para o seletor (Fase 27d). Sem códigos nem valores — só o mês
  * de referência e a data de fecho, quando o recibo a traz.
  */
@@ -1036,7 +1059,7 @@ private fun formatarAnoMes(anoMes: YearMonth): String {
 }
 
 /** Rubrica de recurso para os descontos que o mapa não sabe onde pôr (ver somarLinhasPorRubrica). */
-private const val RUBRICA_OUTROS_DESC = "OUTROS_DESC"
+internal const val RUBRICA_OUTROS_DESC = "OUTROS_DESC"
 
 /**
  * Complemento de baixa (R51). Não se estima — o valor vem do recibo —, mas entra nas bases de
@@ -1044,8 +1067,12 @@ private const val RUBRICA_OUTROS_DESC = "OUTROS_DESC"
  */
 private const val CODIGO_COMPLEMENTO_BAIXA = "COMP_BAIXA"
 
-/** Aviso que acompanha um desconto lançado na rubrica de recurso. */
-private const val AVISO_DESCONTO_OUTROS = "Desconto desconhecido foi para Outros (Desconto)"
+/**
+ * Aviso que acompanha um desconto lançado na rubrica de recurso. Diz "(desconto)" porque desde
+ * 2026-10-21 a rubrica se chama só "Outros", como a dos abonos — sem isto o aviso não distinguia
+ * para qual das duas o valor foi.
+ */
+private const val AVISO_DESCONTO_OUTROS = "Desconto desconhecido foi para Outros (desconto)"
 
 /**
  * Soma as linhas de um recibo importado por rubrica do catálogo, pela ordem em que vêm no PDF.

@@ -184,10 +184,10 @@ class ReciboImportacaoTest {
 
         assertEquals(mapOf(1L to 9_666_700L, 98L to 1_050_000L), somados)
         assertTrue(descontosSemRubrica.isEmpty())
-        assertEquals(listOf("Desconto desconhecido foi para Outros (Desconto)"), avisos)
+        assertEquals(listOf("Desconto desconhecido foi para Outros (desconto)"), avisos)
     }
 
-    /** C7: um desconto sem código interno nenhum também vai para Outros (Desconto), com aviso. */
+    /** C7: um desconto sem código interno nenhum também vai para OUTROS_DESC ("Outros"), com aviso. */
     @Test
     fun `desconto sem codigo interno vai para Outros Desconto`() {
         val avisos = mutableListOf<String>()
@@ -200,7 +200,7 @@ class ReciboImportacaoTest {
         )
 
         assertEquals(mapOf(98L to 1_050_000L), somados)
-        assertEquals(listOf("Desconto desconhecido foi para Outros (Desconto)"), avisos)
+        assertEquals(listOf("Desconto desconhecido foi para Outros (desconto)"), avisos)
     }
 
     /**
@@ -235,6 +235,61 @@ class ReciboImportacaoTest {
         assertEquals(mapOf(21L to 460_000L), somados)
         assertTrue(descontosSemRubrica.isEmpty())
     }
+
+    /**
+     * 2026-10-21: as rubricas de recurso ("Outros" dos abonos e OUTROS_DESC, que também se chama
+     * "Outros") só se desenham quando têm valor. Num mês sem importação nem edição as duas estão a
+     * zero e desaparecem da lista; as restantes ficam sempre, mesmo a zero — são as linhas do recibo.
+     */
+    @Test
+    fun `Outros a zero ficam fora da lista e as restantes linhas ficam`() {
+        val linhas = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("D01", 1_251_778L),
+            conferencia("OUTROS", 0L),
+            conferencia("OUTROS_DESC", 0L)
+        )
+
+        assertEquals(listOf("VENC", "D01"), linhasVisiveis(linhas).map { it.codigo })
+    }
+
+    /**
+     * Basta uma das colunas ter valor: o "Outros" do abono vem de uma importação (só no Real) e o
+     * OUTROS_DESC pode ter valor estimado numa edição. Esconder a linha escondia o valor.
+     */
+    @Test
+    fun `Outros com valor numa das colunas aparecem na lista`() {
+        val linhas = listOf(
+            conferencia("OUTROS", estimado = 0L, real = 2_050_000L),
+            conferencia("OUTROS_DESC", estimado = 1_050_000L, real = 0L),
+            conferencia("VENC", 11_379_800L)
+        )
+
+        assertEquals(
+            listOf("OUTROS", "OUTROS_DESC", "VENC"),
+            linhasVisiveis(linhas).map { it.codigo }
+        )
+    }
+
+    private fun conferencia(
+        codigo: String,
+        estimado: Long,
+        real: Long = estimado
+    ) = LinhaConferencia(
+        rubricaId = codigo.hashCode().toLong(),
+        codigo = codigo,
+        nome = codigo,
+        natureza = if (codigo == RUBRICA_OUTROS_DESC || codigo.startsWith("D")) {
+            NaturezaRubrica.DESCONTO
+        } else {
+            NaturezaRubrica.ABONO
+        },
+        ordem = 0,
+        ativaConferencia = true,
+        valorEstimado = estimado,
+        valorReal = real,
+        textoRealEditavel = ""
+    )
 
     private fun rubrica(id: Long, codigo: String) = Rubrica(
         id = id,

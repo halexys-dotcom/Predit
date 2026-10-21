@@ -223,7 +223,7 @@ class EstimadorReciboTest {
     fun `29 - Outros Desconto conta como desconto e nao como abono`() {
         val agosto = YearMonth.of(2026, 8)
         val comOutrosDesc = catalogo + Rubrica(
-            98, "OUTROS_DESC", "Outros (Desconto)", false, false, false, "MANUAL", false, 98
+            98, "OUTROS_DESC", "Outros", false, false, false, "MANUAL", false, 98
         )
         val est = estimarRecibo(contexto(agosto, dias(agosto, 22), rubricas = comOutrosDesc))
 

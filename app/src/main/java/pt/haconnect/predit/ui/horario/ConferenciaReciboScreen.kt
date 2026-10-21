@@ -298,6 +298,9 @@ fun ConferenciaReciboScreen(
                 modifier = Modifier.padding(12.dp)
             )
         } else {
+            // 2026-10-21: as rubricas de recurso ("Outros" e "Outros" dos descontos) ficam fora da
+            // lista enquanto estiverem a zero nas duas colunas — ver linhasVisiveis.
+            val visiveis = linhasVisiveis(uiState.linhas)
             // Column com scroll em vez de LazyColumn: são 20 rubricas, não vale a pena
             // virtualizar — e uma lista lazy dentro de uma Column condicional não estava a
             // desenhar os itens quando o ecrã era composto por um clique no separador.
@@ -315,7 +318,7 @@ fun ConferenciaReciboScreen(
                     NaturezaRubrica.DESCONTO,
                     NaturezaRubrica.INFORMATIVA
                 )) {
-                    val doGrupo = uiState.linhas.filter { it.natureza == natureza }
+                    val doGrupo = visiveis.filter { it.natureza == natureza }
                     if (doGrupo.isEmpty()) continue
                     Text(
                         text = when (natureza) {
@@ -430,9 +433,15 @@ fun ConferenciaReciboScreen(
         MapeamentoModal(
             pendente = pendente,
             // A lista mostra nomes; o código só serve para gravar. A ordem é a do catálogo.
+            // 2026-10-21: as duas rubricas de recurso chamam-se "Outros". Aqui o nome é uma escolha
+            // do utilizador, por isso o "(desconto)" volta na de descontos — escolher a de abonos
+            // somava ao líquido um valor que devia sair.
             rubricas = uiState.linhas
                 .sortedBy { it.ordem }
-                .map { it.nome to it.codigo }
+                .map { linha ->
+                    val nome = if (linha.codigo == RUBRICA_OUTROS_DESC) "Outros (desconto)" else linha.nome
+                    nome to linha.codigo
+                }
                 .distinctBy { it.second },
             onEscolha = viewModel::atualizarEscolhaMapeamento,
             onConfirmar = viewModel::confirmarMapeamento,

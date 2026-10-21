@@ -225,7 +225,11 @@ class PreditApplication : Application() {
             // 2026-10-21: descontos que o recibo traz e o catálogo não conhece (o D05 da Fundação,
             // "Desconto Subsídio Alimentação") vão para aqui em vez de bloquear a importação. É
             // manual como o "Outros", mas de desconto: entra nos totais a subtrair, nunca a somar.
-            RubricaEntity(0L, "OUTROS_DESC", "Outros (Desconto)", false, false, false, TipoCalculo.MANUAL, false, 98),
+            // 2026-10-21: o nome passou a ser só "Outros" (era "Outros (Desconto)"): as duas linhas
+            // de recurso chamam-se agora "Outros", e o grupo do ecrã (ABONOS/DESCONTOS) é que as
+            // distingue. Onde o nome é uma escolha do utilizador, o "(desconto)" volta (ver o modal
+            // de mapeamento em ConferenciaReciboScreen).
+            RubricaEntity(0L, "OUTROS_DESC", "Outros", false, false, false, TipoCalculo.MANUAL, false, 98),
             RubricaEntity(0L, "OUTROS", "Outros", true, true, true, TipoCalculo.MANUAL, false, 99)
         )
         iniciais.forEach { rubrica ->
@@ -235,6 +239,10 @@ class PreditApplication : Application() {
         // "Ausências"). Quem actualiza já tem a linha na BD e o seeder não a volta a inserir:
         // o rename vai por aqui, sem precisar de migração.
         dao.renomear("ATRASO", "Ausências")
+        // 2026-10-21: a rubrica dos descontos de recurso passou a chamar-se "Outros" (era "Outros
+        // (Desconto)"). Mesmo caso: quem já tem a linha na BD não a volta a semear, por isso o nome
+        // vai por UPDATE. É o mesmo `renomear` do ATRASO — só há um UPDATE de nome no DAO.
+        dao.renomear("OUTROS_DESC", "Outros")
         // 2026-10-21: o complemento de baixa deixou de ser isento — incide SS e IRS (o recibo real
         // de maio/2026 tem D01 = 31,51 € sobre 286,41 €). Mesmo caso do rename: a linha já existe
         // em quem actualiza, por isso os flags vão por UPDATE e não por uma migração Room (não há

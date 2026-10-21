@@ -262,8 +262,10 @@ class ReciboConferenciaTest {
         irParaRubrica("D04")
         composeTestRule.onNodeWithText("Sindicato (1%)").assertExists()
 
-        irParaRubrica("OUTROS")
-        composeTestRule.onNodeWithText("Outros").assertExists()
+        // 2026-10-21: as rubricas de recurso ("Outros" dos abonos e OUTROS_DESC, que se chama
+        // "Outros" desde a mesma data) só se desenham quando têm valor. Este mês não tem recibo
+        // importado nem nada escrito, por isso as duas estão a zero e não aparecem na lista.
+        composeTestRule.onNodeWithText("Outros").assertDoesNotExist()
 
         // Mês sem recibo: o cabeçalho di-lo e não há nada para apagar
         irParaRubrica("VENC")
