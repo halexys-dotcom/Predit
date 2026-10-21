@@ -9,7 +9,9 @@ import androidx.room.PrimaryKey
  * Unidades: 1/10000 € (igual a tudo o resto — ver domain/model/Dinheiro.kt).
  * taxaBasisPoints: taxa marginal máxima × 100000 (0,212 → 21200).
  * formulaComposta: true nos escalões em que a parcela a abater é a fórmula
- * taxa × k × (X − R) — o motor devolve 0 nesses escalões (o utilizador real não cai lá).
+ * taxa × k × (X − R) em vez de um valor fixo.
+ * coeficienteK: o k dessa fórmula × 10000 (2,6 → 26000); 0 nos escalões de parcela fixa.
+ * limiteX: o X dessa fórmula em 1/10000 € (1 273,85 € → 12_738_500); 0 fora da fórmula.
  *
  * Perfis das tabelas (metadado, não vai a coluna — vem dos XLSX oficiais):
  *   I  não casado sem dependentes OU casado 2 titulares
@@ -32,7 +34,9 @@ data class TabelaIRSEntity(
     val taxaBasisPoints: Int,        // 0,212 → 21200
     val parcelaAbater: Long,         // unidades 1/10000
     val parcelaAdicionalDep: Long,   // unidades 1/10000
-    val formulaComposta: Boolean     // true nos primeiros escalões com taxa × k × (X − R)
+    val formulaComposta: Boolean,    // true nos primeiros escalões com taxa × k × (X − R)
+    val coeficienteK: Long = 0L,     // k × 10000 (só nos escalões de fórmula composta)
+    val limiteX: Long = 0L           // X em 1/10000 € (só nos escalões de fórmula composta)
 )
 
 /** Categorias das tabelas de retenção. */

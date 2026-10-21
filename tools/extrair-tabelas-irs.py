@@ -7,6 +7,8 @@ Regras (do comando da Fase 8.2a):
   parcelaAbater        = coluna "Parcela a abater (e)" x 10000
   parcelaAdicionalDep  = coluna "... por dependente (e)" x 10000 (0 se nao existir)
   formulaComposta      = true quando a parcela a abater vem como taxa x k x (X - R)
+  coeficienteK         = k dessa formula x 10000 (2,6 -> 26000)
+  limiteX              = X dessa formula x 10000 (1 273,85 -> 12738500)
 """
 import json
 import os
@@ -133,7 +135,12 @@ def extrair(linhas, regiao, categoria):
         if atual is None or not linha:
             continue
 
-        if 'por dependente' in sem_acentos(texto).lower():
+        # Linha de cabecalho da tabela. Tem sempre "Remuneracao mensal"; nas tabelas com
+        # dependentes tem tambem "por dependente". Procurar so o "por dependente" deixava as
+        # tabelas sem essa coluna (IV a VII com deficiencia e VIII a XI pensoes) sem a coluna
+        # da parcela: todas as parcelas saiam a 0 e o IRS ficava alto de mais.
+        cabecalho = sem_acentos(texto).lower()
+        if 'remuneracao mensal' in cabecalho or 'por dependente' in cabecalho:
             col_parcela, col_adicional = cabecalho_indices(linha)
             atual['colParcela'] = col_parcela
             atual['colAdicional'] = col_adicional
@@ -157,6 +164,17 @@ def extrair(linhas, regiao, categoria):
         fim = atual['colAdicional'] if atual['colAdicional'] is not None else len(linha)
         composta = any('- R' in str(c) for c in linha[inicio:fim])
 
+        # Formula composta: as celulas trazem "0.125 | x | 2.6 | x ( | 1273.85 | - R )".
+        coeficiente_k = 0.0
+        limite_x = 0.0
+        if composta:
+            formula = re.search(
+                r'x\s*([\d.,]+)\s*x\s*\(\s*([\d.,]+)\s*-\s*R',
+                ' '.join(str(c) for c in linha))
+            if formula:
+                coeficiente_k = numero(formula.group(1)) or 0.0
+                limite_x = numero(formula.group(2)) or 0.0
+
         parcela = 0.0
         col_parcela = atual['colParcela']
         if not composta and col_parcela is not None and col_parcela < len(linha):
@@ -176,7 +194,9 @@ def extrair(linhas, regiao, categoria):
             'taxaBasisPoints': int(round(taxa * 100000)),
             'parcelaAbater': em_milhoes(parcela),
             'parcelaAdicionalDep': em_milhoes(adicional),
-            'formulaComposta': bool(composta)
+            'formulaComposta': bool(composta),
+            'coeficienteK': int(round(coeficiente_k * 10000)),
+            'limiteX': em_milhoes(limite_x)
         })
     if atual:
         tabelas.append(atual)
@@ -194,7 +214,8 @@ def gerar_kotlin(todas):
         ' *',
         ' * Argumentos por ordem: id (0 = autoGenerate), ano, regiao, categoria, tabelaNumero,',
         ' * ordemEscalao, limiteAte, taxaBasisPoints, parcelaAbater, parcelaAdicionalDep,',
-        ' * formulaComposta. Unidades: 1/10000 € (ver domain/model/Dinheiro.kt).',
+        ' * formulaComposta, coeficienteK (k x 10000), limiteX (1/10000 €).',
+        ' * Unidades: 1/10000 € (ver domain/model/Dinheiro.kt).',
         ' *',
         ' * Perfis (dos subtítulos dos XLSX): I não casado sem dependentes ou casado 2 titulares;',
         ' * II não casado com dependentes; III casado único titular; IV a VII os mesmos com',
@@ -207,11 +228,12 @@ def gerar_kotlin(todas):
             limite = 'Long.MAX_VALUE' if e['limiteAte'] == LIMITE_ABERTO else f"{e['limiteAte']}L"
             linhas.append(
                 '    TabelaIRSEntity(0L, 2026, "{regiao}", "{categoria}", {tab}, {ordem}, '
-                '{limite}, {taxa}, {parcela}L, {adicional}L, {composta}),'.format(
+                '{limite}, {taxa}, {parcela}L, {adicional}L, {composta}, {k}L, {x}L),'.format(
                     regiao=t['regiao'], categoria=t['categoria'], tab=t['tabelaNumero'],
                     ordem=e['ordemEscalao'], limite=limite, taxa=e['taxaBasisPoints'],
                     parcela=e['parcelaAbater'], adicional=e['parcelaAdicionalDep'],
-                    composta='true' if e['formulaComposta'] else 'false'))
+                    composta='true' if e['formulaComposta'] else 'false',
+                    k=e['coeficienteK'], x=e['limiteX']))
     linhas.append(')')
 
     raiz = os.path.dirname(os.path.abspath(__file__))

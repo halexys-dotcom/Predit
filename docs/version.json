@@ -1,7 +1,7 @@
 {
-  "versionCode": 26,
-  "versionName": "2.1.1",
+  "versionCode": 27,
+  "versionName": "2.1.2",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.1.1/app-github-release.apk",
-  "changelog": "Regras de visibilidade finais na conferência do recibo: Funcao, Sindicato, Complemento de Baixa, Natal, Ferias, Feriados e Outros so aparecem quando fazem sentido no mes ou no contrato. A rede de seguranca mostra sempre as linhas com valores importados do PDF ou superiores a zero, para nada se perder entre meses."
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.1.2/app-github-release.apk",
+  "changelog": "IRS estimado corrigido: os dois primeiros escalões usam fórmula composta (taxa x k x (X - base)) e a app passou a aplicá-la em vez de mostrar 0,00 €. O extrator das tabelas oficiais foi corrigido (deixou de zerar as tabelas IV a XI). No modo PDF mensal, a estimativa do recibo passa a usar os dias do próprio PDF. O botão Guardar do recibo deteta alterações ao cabeçalho (nota, data de fecho e IRS retido). A base de dados é migrada automaticamente para a versão 23."
 }

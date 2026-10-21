@@ -170,4 +170,46 @@ class EscalaModoPdfTest {
         // Sem nenhum tipo de trabalho na lista fica null: o chip aparece vazio, como antes.
         assertNull(tipoDerivadoDoPdf(diaPdf(4, 13 * 60, 21 * 60), listOf(tipos[1])))
     }
+
+    /**
+     * T4 e T5 (2026-10-21): a régua do estimador do recibo. No modo PDF a projeção tem de sair com
+     * o tipo derivado — o dia_real do PDF não o guarda — senão o estimador conta 0 dias de
+     * trabalho, não proporcionaliza o VENC e deixa os subsídios a 0,00 €.
+     */
+    @Test
+    fun `T4 - no modo PDF a projecao do recibo leva o tipo derivado`() {
+        val diasReais = listOf(diaPdf(1, 13 * 60, 21 * 60), diaPdf(2, 0, 0))
+
+        val projecao = projecaoParaEstimativa(
+            tipoEscala = TIPO_ESCALA_PDF_MENSAL,
+            diasReais = diasReais,
+            deEpochDay = LocalDate.of(2026, 9, 1).toEpochDay(),
+            ateEpochDay = LocalDate.of(2026, 9, 2).toEpochDay(),
+            aplicacoes = listOf(aplicacao),
+            tiposTurno = tipos
+        )
+
+        // 13h-21h é o T08H; dia sem horas é folga.
+        assertEquals(listOf<Long?>(T08H, FOLGA), projecao.map { it.tipoTurnoId })
+        // As datas são as do PDF — a rotação em vigor não entra nesta grelha.
+        assertEquals(diasReais.map { it.data }, projecao.map { it.epochDay })
+    }
+
+    @Test
+    fun `T5 - no modo rotacao a projecao do recibo continua a ser a da rotacao`() {
+        val projecao = projecaoParaEstimativa(
+            tipoEscala = TIPO_ESCALA_ROTACAO,
+            // Um dia de trabalho no PDF não pode contaminar a projeção da rotação.
+            diasReais = listOf(diaPdf(1, 13 * 60, 21 * 60)),
+            deEpochDay = de,
+            ateEpochDay = ate,
+            aplicacoes = listOf(aplicacao),
+            tiposTurno = tipos
+        )
+
+        assertEquals(projetarIntervalo(de, ate, listOf(aplicacao)), projecao)
+        // Dia 1 de setembro no ciclo (âncora 1 de janeiro, 2 posições) é folga: se o tipo
+        // derivado do PDF tivesse entrado, aqui aparecia o T08H.
+        assertEquals(FOLGA, projecao.first { it.epochDay == de }.tipoTurnoId)
+    }
 }

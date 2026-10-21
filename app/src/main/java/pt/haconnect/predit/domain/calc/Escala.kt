@@ -179,6 +179,40 @@ fun diasProjetadosPara(
 }
 
 /**
+ * A projeção que o estimador do recibo usa como régua, com o tipo de turno já resolvido.
+ *
+ * No modo PDF o dia importado guarda só horas e posto (`tipoTurnoId = null`) e o estimador só
+ * conta como dia de trabalho os dias com um tipo de categoria TRABALHO. Sem derivar o tipo
+ * aqui, um contrato PDF_MENSAL ficava com 0 dias úteis: o VENC não era proporcional aos dias
+ * efetivos, os subsídios saíam a 0,00 € e a régua dos atrasos e dos suplementos ficava vazia.
+ *
+ * Fora do modo PDF devolve a projeção da rotação sem lhe tocar — é o comportamento de sempre.
+ */
+fun projecaoParaEstimativa(
+    tipoEscala: String,
+    diasReais: List<DiaReal>,
+    deEpochDay: Long,
+    ateEpochDay: Long,
+    aplicacoes: List<AplicacaoVigente>,
+    tiposTurno: List<TipoTurno>
+): List<DiaProjetado> {
+    val projecao = diasProjetadosPara(tipoEscala, diasReais, deEpochDay, ateEpochDay, aplicacoes)
+    if (tipoEscala != TIPO_ESCALA_PDF_MENSAL) return projecao
+
+    val doPdf = diasReais.filter { it.origem == ORIGEM_PDF }.associateBy { it.data }
+    return projecao.map { dia ->
+        if (dia.tipoTurnoId != null) {
+            dia
+        } else {
+            doPdf[dia.epochDay]
+                ?.let { real -> tipoDerivadoDoPdf(real, tiposTurno) }
+                ?.let { tipo -> dia.copy(tipoTurnoId = tipo.id) }
+                ?: dia
+        }
+    }
+}
+
+/**
  * Há escala para mostrar neste mês? No modo PDF conta um dia importado do PDF dentro do mês
  * visível; no modo rotação, ter uma aplicação em vigor (é o que já era: a projeção vale para
  * todos os meses).

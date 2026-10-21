@@ -28,6 +28,7 @@ import pt.haconnect.predit.domain.calc.ContextoEstimativa
 import pt.haconnect.predit.domain.calc.NaturezaRubrica
 import pt.haconnect.predit.domain.calc.estimarRecibo
 import pt.haconnect.predit.domain.calc.janelaNoturna
+import pt.haconnect.predit.domain.calc.projecaoParaEstimativa
 import pt.haconnect.predit.domain.calc.projetarIntervalo
 import pt.haconnect.predit.domain.calc.temFeriadoNoMes
 import pt.haconnect.predit.domain.calc.temFeriasNoMesOuSeguinte
@@ -181,6 +182,36 @@ internal fun linhasVisiveis(
         linha.codigo == CODIGO_AUSENCIAS -> false
         else -> true
     }
+}
+
+/**
+ * O cabeçalho do recibo mudou face ao que está gravado?
+ *
+ * 2026-10-21: a nota, a data de fecho e o IRS retido no ano vivem no cabeçalho, não nas linhas —
+ * sem esta comparação, escrevê-los num mês já gravado não acendia o Guardar e a edição perdia-se
+ * ao sair do ecrã (as linhas não tinham mudado, logo `temAlteracoes` ficava falso).
+ *
+ * Texto inválido conta como "sem alteração": o campo mostra a mensagem de erro e não se grava
+ * um valor que não se conseguiu ler. Sem nada gravado, a referência da data de fecho é o fim do
+ * mês e a do IRS é 0 — é o que o ecrã mostra antes do primeiro Guardar.
+ *
+ * Os três argumentos são o que está *editado*: null quer dizer "campo não tocado" e usa-se a
+ * referência gravada. Na nota, "" (campo esvaziado) é uma alteração a sério quando havia nota.
+ */
+internal fun cabecalhoAlterado(
+    dataFechoTexto: String?,
+    irsRetidoAnoTexto: String?,
+    nota: String?,
+    dataFechoGuardada: Long,
+    irsRetidoGuardado: Long,
+    notaGuardada: String?
+): Boolean {
+    val dataFecho = dataFechoTexto?.let(::parseData) ?: dataFechoGuardada
+    val irsRetido = irsRetidoAnoTexto?.let(::parseTexto) ?: irsRetidoGuardado
+    val notaAtual = (nota ?: notaGuardada).orEmpty()
+    return dataFecho != dataFechoGuardada ||
+        irsRetido != irsRetidoGuardado ||
+        notaAtual != notaGuardada.orEmpty()
 }
 
 /**
@@ -571,10 +602,16 @@ class ReciboViewModel(
                     parametrosCCT = vigente,
                     rubricas = fontes.catalogo.rubricas,
                     diasReais = fontes.agendas.diasReais,
-                    projecao = projetarIntervalo(
-                        inicioProjecao,
-                        fimProjecao,
-                        fontes.agendas.aplicacoes
+                    // 2026-10-21: a régua do mês segue o modo de escala do contrato. Num contrato
+                    // PDF_MENSAL a rotação está (ou pode estar) vazia — usar projetarIntervalo
+                    // aqui dava 0 dias úteis, VENC sem proporção e subsídios a 0,00 €.
+                    projecao = projecaoParaEstimativa(
+                        tipoEscala = contrato.tipoEscala,
+                        diasReais = fontes.agendas.diasReais,
+                        deEpochDay = inicioProjecao,
+                        ateEpochDay = fimProjecao,
+                        aplicacoes = fontes.agendas.aplicacoes,
+                        tiposTurno = fontes.agendas.tiposTurno
                     ),
                     // Feriados: o motor calcula sozinho os nacionais do ano (fixos e móveis) e
                     // o municipal do contrato. Aqui só vão os que o utilizador marcar à mão
@@ -644,11 +681,21 @@ class ReciboViewModel(
 
         val abonosReal = linhas.filter { it.natureza == NaturezaRubrica.ABONO }.sumOf { it.valorReal }
         val descontosReal = linhas.filter { it.natureza == NaturezaRubrica.DESCONTO }.sumOf { it.valorReal }
-        val temAlteracoes = linhas.any { linha ->
+        val temAlteracoesLinhas = linhas.any { linha ->
             val guardada = guardadasPorId[linha.rubricaId]
             if (guardada != null) linha.valorReal != guardada.valorReal
             else linha.valorReal != linha.valorEstimado
         }
+        // 2026-10-21: o cabeçalho também conta como alteração (ver cabecalhoAlterado).
+        val temAlteracoes = temAlteracoesLinhas || cabecalhoAlterado(
+            dataFechoTexto = fontes.cabecalho.cabecalhoEditado?.dataFechoTexto,
+            irsRetidoAnoTexto = fontes.cabecalho.cabecalhoEditado?.irsRetidoAnoTexto,
+            nota = fontes.cabecalho.cabecalhoEditado?.nota,
+            dataFechoGuardada = mesGuardado?.dataFecho
+                ?: fontes.cabecalho.anoMes.atEndOfMonth().toEpochDay(),
+            irsRetidoGuardado = mesGuardado?.irsRetidoAno ?: 0L,
+            notaGuardada = mesGuardado?.nota
+        )
 
         return ReciboUiState(
             anoMes = anoMes,

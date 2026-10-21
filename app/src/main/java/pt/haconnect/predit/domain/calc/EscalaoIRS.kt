@@ -18,7 +18,11 @@ data class EscalaoIRS(
     val taxaBasisPoints: Int,
     val parcelaAbater: Long,
     val parcelaAdicionalDep: Long,
-    val formulaComposta: Boolean
+    val formulaComposta: Boolean,
+    /** k × 10000 da fórmula composta (2,6 → 26 000); 0 nos escalões de parcela fixa. */
+    val coeficienteK: Long = 0L,
+    /** X em 1/10000 € da fórmula composta (1 273,85 € → 12_738_500); 0 fora dela. */
+    val limiteX: Long = 0L
 )
 
 /**

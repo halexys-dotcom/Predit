@@ -182,4 +182,17 @@ class MigracaoTest {
         helper.createDatabase("teste-migracao-21-22", 21).apply { close() }
         helper.runMigrationsAndValidate("teste-migracao-21-22", 22, true, PreditDatabase.MIGRATION_21_22)
     }
+
+    /**
+     * 2026-10-21: a tabela_irs ganha o k e o X da fórmula composta dos primeiros escalões de 2026
+     * (parcela = taxa × k × (X − R)). O esquema é validado contra o 23.json: as duas colunas
+     * ficam INTEGER NOT NULL DEFAULT 0. As linhas antigas são apagadas de propósito — a tabela
+     * é derivada dos XLSX e o seeder volta a preenchê-la no arranque; mantê-las com k = X = 0
+     * faria o escalão composto voltar a reter 0,00 €.
+     */
+    @Test
+    fun migrar22Para23() {
+        helper.createDatabase("teste-migracao-22-23", 22).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-22-23", 23, true, PreditDatabase.MIGRATION_22_23)
+    }
 }

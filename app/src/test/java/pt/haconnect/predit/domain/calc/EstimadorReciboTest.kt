@@ -1126,6 +1126,57 @@ class EstimadorReciboTest {
         return (oitoHoras + noveHoras + seteHoras + dezHoras).sortedBy { it.data }
     }
 
+    /**
+     * T31 (2026-10-21): contrato em modo PDF_MENSAL, como o ReciboViewModel o passa desde a
+     * correção. A grelha do mês é a dos dias importados do PDF e o tipo de turno é derivado
+     * (o importador grava `tipoTurnoId = null`) — é isso que dá dias úteis ao estimador.
+     *
+     * Sem esta projeção, o mês ficava sem régua: o VENC não era proporcional aos dias efetivos,
+     * os atrasos e os suplementos não tinham contra o que ser medidos e o cabeçalho gravava
+     * 0 dias úteis.
+     */
+    @Test
+    fun `T31 - contrato PDF mensal estima o mes a partir dos dias do PDF`() {
+        val setembro = YearMonth.of(2026, 9)
+        // Os dias úteis do PDF: 13h-21h, sem registo manual. Setembro de 2026 tem 22.
+        val doPdf = (1..setembro.lengthOfMonth()).mapNotNull { numero ->
+            val data = setembro.atDay(numero)
+            if (data.dayOfWeek.value >= 6) {
+                null
+            } else {
+                DiaReal(
+                    data = data.toEpochDay(),
+                    tipoTurnoId = null,
+                    inicioMin = 13 * 60,
+                    fimMin = 21 * 60,
+                    pausaMin = 0,
+                    origem = ORIGEM_PDF
+                )
+            }
+        }
+
+        val projecao = projecaoParaEstimativa(
+            tipoEscala = TIPO_ESCALA_PDF_MENSAL,
+            diasReais = doPdf,
+            deEpochDay = setembro.atDay(1).toEpochDay(),
+            ateEpochDay = setembro.atEndOfMonth().toEpochDay(),
+            aplicacoes = emptyList(),      // contrato PDF não tem rotação nenhuma
+            tiposTurno = listOf(tipoTrabalho)
+        )
+
+        val est = estimarRecibo(
+            contexto(setembro, doPdf, projecao = projecao)
+                .copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        // 22 dias úteis × 7,85 € e o transporte do mês inteiro.
+        assertEquals(1_727_000L, est.valor("SUP_ALIM"))
+        assertEquals(520_900L, est.valor("SUP_TRAN"))
+        // Mês completo: VENC inteiro e IRS do 3.º escalão (base 1 190,07 €, 2 dependentes).
+        assertEquals(11_379_800L, est.valor("VENC"))
+        assertEquals(512_548L, est.valor("D02"))
+    }
+
     private fun EstimativaRecibo.valor(codigo: String): Long =
         rubricas.first { it.codigo == codigo }.valorMil
 }

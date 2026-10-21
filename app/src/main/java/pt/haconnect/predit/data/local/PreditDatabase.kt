@@ -25,7 +25,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MunicipioEntity::class,
         MapeamentoRubricaEntity::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = true
 )
 @TypeConverters(Conversores::class)
@@ -53,7 +53,7 @@ abstract class PreditDatabase : RoomDatabase() {
          * o valor vive duplicado lá em cima — o T1 do BackupManagerTest guarda a sincronia:
          * se um subir e o outro não, o teste falha.
          */
-        const val VERSAO_BD = 22
+        const val VERSAO_BD = 23
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -321,6 +321,25 @@ abstract class PreditDatabase : RoomDatabase() {
                         "`codigoInterno` TEXT NOT NULL, " +
                         "PRIMARY KEY(`empresa`, `codigoOriginal`))"
                 )
+            }
+        }
+
+        /**
+         * 2026-10-21: a tabela_irs passa a guardar o k e o X da fórmula composta
+         * (parcela = taxa × k × (X − R)) dos primeiros escalões de 2026. Sem eles o motor
+         * devolvia 0,00 € de retenção para qualquer base dentro desses escalões.
+         *
+         * As linhas já gravadas ficariam com 0 nas colunas novas — e o escalão voltaria a dar
+         * zero. A tabela é derivada dos XLSX oficiais (não é dado do utilizador): apaga-se e o
+         * [pt.haconnect.predit.PreditApplication.garantirTabelasIRS] volta a semeá-la no arranque.
+         * A migração também corrige as parcelas das tabelas IV a VII (deficiência) e VIII a XI
+         * (pensões), que o extrator deixava a 0 por não encontrar o cabeçalho sem "por dependente".
+         */
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tabela_irs ADD COLUMN coeficienteK INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tabela_irs ADD COLUMN limiteX INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("DELETE FROM tabela_irs")
             }
         }
     }

@@ -73,5 +73,7 @@ fun TabelaIRSEntity.paraEscalao(): EscalaoIRS = EscalaoIRS(
     taxaBasisPoints = taxaBasisPoints,
     parcelaAbater = parcelaAbater,
     parcelaAdicionalDep = parcelaAdicionalDep,
-    formulaComposta = formulaComposta
+    formulaComposta = formulaComposta,
+    coeficienteK = coeficienteK,
+    limiteX = limiteX
 )
