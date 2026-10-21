@@ -12,7 +12,8 @@ import pt.haconnect.predit.domain.model.Rubrica
  * A aplicação de um recibo importado às edições do mês: dois códigos do PDF podem cair na mesma
  * rubrica do catálogo — `RCR` e `RCRA` são ambos o subsídio de alimentação em cartão (o segundo
  * é o acerto) — e o valor da rubrica tem de ser a **soma** das linhas, não a última delas. O `R51`
- * deixou de partilhar "Outros" com o `R118` na 28i: tem rubrica própria (`COMP_BAIXA`, isenta).
+ * deixou de partilhar "Outros" com o `R118` na 28i: tem rubrica própria (`COMP_BAIXA`, que incide
+ * SS e IRS).
  *
  * Os valores são os dos recibos reais (ver ReciboPdfParserTest e os fixtures): Março 2026 e
  * Agosto 2025. Este caminho — importar para as edições — não é exercitado pelo parser nem pelo
@@ -69,9 +70,9 @@ class ReciboImportacaoTest {
     }
 
     /**
-     * `R51` (Março 2026) saiu de "Outros" na 28i: vai para `COMP_BAIXA`, que é isenta de SS e IRS.
-     * O `R118` (Julho 2026, média de horas noturnas) é tributado e continua em "Outros" — cada
-     * linha escreve só na sua rubrica.
+     * `R51` (Março 2026) saiu de "Outros" na 28i: vai para `COMP_BAIXA`, que incide SS e IRS.
+     * O `R118` (Julho 2026, média de horas noturnas) também é tributado e continua em "Outros" —
+     * cada linha escreve só na sua rubrica.
      */
     @Test
     fun `R51 vai para COMP_BAIXA e R118 fica em Outros`() {

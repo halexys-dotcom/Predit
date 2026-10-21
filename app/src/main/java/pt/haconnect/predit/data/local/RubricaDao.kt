@@ -32,6 +32,24 @@ interface RubricaDao {
     @Query("UPDATE rubrica SET nome = :nome WHERE codigo = :codigo AND nome <> :nome")
     suspend fun renomear(codigo: String, nome: String)
 
+    /**
+     * Actualiza as incidências de uma rubrica já semeada. Os flags podem mudar entre versões (o
+     * complemento de baixa, COMP_BAIXA, era isento na 28i e passou a incidir SS e IRS em
+     * 2026-10-21) e o seeder não volta a inserir a linha: sem isto, quem actualiza ficava com os
+     * flags antigos. Idempotente — só escreve quando algum dos três difere.
+     */
+    @Query(
+        "UPDATE rubrica SET incideSS = :incideSS, incideIRS = :incideIRS, " +
+            "incideSindicato = :incideSindicato WHERE codigo = :codigo AND " +
+            "(incideSS <> :incideSS OR incideIRS <> :incideIRS OR incideSindicato <> :incideSindicato)"
+    )
+    suspend fun atualizarIncidencia(
+        codigo: String,
+        incideSS: Boolean,
+        incideIRS: Boolean,
+        incideSindicato: Boolean
+    )
+
     /** Apagar por id — os testes do recibo provam aqui o FK RESTRICT de recibo_linha. */
     @Query("DELETE FROM rubrica WHERE id = :id")
     suspend fun apagar(id: Long)

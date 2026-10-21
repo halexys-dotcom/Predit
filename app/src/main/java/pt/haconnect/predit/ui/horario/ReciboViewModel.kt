@@ -382,6 +382,17 @@ class ReciboViewModel(
         // tem o dia/mês. Só depois de o catálogo estar carregado, para o contrato não ser nulo.
         val municipio = fontes.agendas.municipios.firstOrNull { it.id == contrato.municipioId }
 
+        // Complemento de baixa (COMP_BAIXA, R51): não se estima — é o valor que o recibo do mês
+        // traz (importado do PDF ou escrito à mão). Sem isto as bases de incidência ignoravam o
+        // complemento e o D01/D02 estimados não batiam com o recibo real de maio/2026, que
+        // desconta 31,51 € de SS sobre os 286,41 € do complemento.
+        val edicoesDoMes = fontes.cabecalho.edicoes[anoMes].orEmpty()
+        val complementoBaixaMil = complementoBaixaDoMes(
+            fontes.catalogo.rubricas,
+            edicoesDoMes,
+            linhasGuardadas
+        )
+
         // Se a semente ainda não chegou (tabelas de IRS vazias), o motor atira — e um fluxo
         // que morre deixava o ecrã vazio para sempre. Fica uma mensagem e o fluxo sobrevive,
         // que assim recupera sozinho quando as tabelas entram. A1: a falta de tabelas para o
@@ -416,7 +427,8 @@ class ReciboViewModel(
                     escaloesIRS = escaloes,
                     tiposTurno = fontes.agendas.tiposTurno,
                     ausencias = fontes.agendas.ausencias,
-                    desfasamentoPagamentoVariaveis = desfasamento
+                    desfasamentoPagamentoVariaveis = desfasamento,
+                    complementoBaixaMil = complementoBaixaMil
                 )
             )
         } catch (e: CancellationException) {
@@ -443,7 +455,6 @@ class ReciboViewModel(
 
         val estimadasPorId = estimativa.rubricas.associateBy { it.rubricaId }
         val guardadasPorId = linhasGuardadas.associateBy { it.rubricaId }
-        val edicoesDoMes = fontes.cabecalho.edicoes[anoMes].orEmpty()
 
         val linhas = fontes.catalogo.rubricas.sortedBy { it.ordem }.map { rubrica ->
             val estimada = estimadasPorId[rubrica.id]
@@ -511,6 +522,21 @@ class ReciboViewModel(
     private fun textoIrsRetido(fontes: Fontes, mesGuardado: ReciboMes?): String {
         fontes.cabecalho.cabecalhoEditado?.irsRetidoAnoTexto?.let { return it }
         return textoDe(mesGuardado?.irsRetidoAno ?: 0L)
+    }
+
+    /**
+     * Complemento de baixa (COMP_BAIXA, R51) do mês, em 1/10000 €. Não se estima: vem do recibo
+     * — o mesmo valor que o ecrã mostra como Real, com a mesma precedência (edição à mão/importação
+     * > gravado). Sem recibo do mês devolve 0, que é o caso de quem ainda não importou nada.
+     */
+    private fun complementoBaixaDoMes(
+        rubricas: List<Rubrica>,
+        edicoes: Map<Long, Edicao>,
+        linhasGuardadas: List<ReciboLinha>
+    ): Long {
+        val rubrica = rubricas.firstOrNull { it.codigo == CODIGO_COMPLEMENTO_BAIXA } ?: return 0L
+        val guardada = linhasGuardadas.firstOrNull { it.rubricaId == rubrica.id }
+        return edicoes[rubrica.id]?.valor ?: guardada?.valorReal ?: 0L
     }
 
     /**
@@ -637,7 +663,7 @@ class ReciboViewModel(
         // gozadas (F50), ausência parcial (F74) — vêm do parser sem código interno e não escrevem
         // valor; as de "Outros" (R118 média de horas noturnas) são pagamentos reais, trazem
         // Importância no recibo e escrevem. O R51 (complemento de baixa) saiu de "Outros" na 28i:
-        // tem rubrica própria (COMP_BAIXA), isenta, e escreve lá.
+        // tem rubrica própria (COMP_BAIXA), que incide SS e IRS, e escreve lá.
         val anoMes = chaveDe(_anoMesAtual.value)
         val catalogo = rubricasCatalogo.value.associateBy { it.codigo }
         val naoReconhecidas = mutableListOf<String>()
@@ -1011,6 +1037,12 @@ private fun formatarAnoMes(anoMes: YearMonth): String {
 
 /** Rubrica de recurso para os descontos que o mapa não sabe onde pôr (ver somarLinhasPorRubrica). */
 private const val RUBRICA_OUTROS_DESC = "OUTROS_DESC"
+
+/**
+ * Complemento de baixa (R51). Não se estima — o valor vem do recibo —, mas entra nas bases de
+ * incidência do estimador (ver [complementoBaixaDoMes] e [ContextoEstimativa.complementoBaixaMil]).
+ */
+private const val CODIGO_COMPLEMENTO_BAIXA = "COMP_BAIXA"
 
 /** Aviso que acompanha um desconto lançado na rubrica de recurso. */
 private const val AVISO_DESCONTO_OUTROS = "Desconto desconhecido foi para Outros (Desconto)"

@@ -100,16 +100,18 @@ private val CODIGOS_INFORMATIVOS = setOf(
  * Códigos que correspondem a OUTRA rubrica interna sem ser o código natural. Mapeados para
  * "OUTROS", mas com valor: ao contrário das linhas informativas, estes são pagamentos reais e
  * contam para o Total (trazem Importância no recibo). O R51 saiu daqui na 28i: tem rubrica
- * própria (COMP_BAIXA) porque é isento.
+ * própria (COMP_BAIXA), que a app mostra e edita em separado.
  */
 private val CODIGOS_PARA_OUTROS = setOf(
     "R118"   // Média de horas noturnas
 )
 
 /**
- * 28i: rubricas próprias que saíram de "Outros". O complemento de baixa (R51) é isento de SS e
- * IRS, e "Outros" incide — lançá-lo lá levava os descontos por cima de um valor que não os paga.
- * Fica fora de [CODIGOS_PARA_OUTROS] de propósito: se um dia voltar para lá, os descontos voltam.
+ * 28i: rubricas próprias que saíram de "Outros". O complemento de baixa (R51) tem rubrica própria
+ * (COMP_BAIXA) porque é uma linha própria do recibo, com valor e incidências próprias — incide SS
+ * e IRS (2026-10-21: o recibo real de maio/2026 desconta 11% sobre ele) mas não sindicato. Fica
+ * fora de [CODIGOS_PARA_OUTROS] de propósito: em "Outros" perdia a linha do ecrã (onde é editável)
+ * e juntava-se ao R118, que é outra coisa.
  */
 private const val RUBRICA_COMPLEMENTO_BAIXA = "COMP_BAIXA"
 
@@ -177,12 +179,12 @@ fun mapearCodigoRecibo(
             normalizado, normalizado, NaturezaRubrica.DESCONTO, null, OrigemMapeamento.DESCONTO
         )
     }
-    // 28i: o complemento de baixa (R51) tem rubrica própria e é isento. Tem de vir antes do mapa
-    // genérico porque a isenção não se lê do código — só o catálogo sabe que COMP_BAIXA não incide.
+    // 28i: o complemento de baixa (R51) tem rubrica própria. Tem de vir antes do mapa genérico
+    // porque o destino não é "Outros": é COMP_BAIXA, que incide SS e IRS (ver o catálogo).
     if (normalizado == "R51") {
         return MapeamentoRubrica(
             normalizado, RUBRICA_COMPLEMENTO_BAIXA, NaturezaRubrica.ABONO,
-            "Código R51: complemento de baixa, isento de SS e IRS", OrigemMapeamento.HARDCODED
+            "Código R51: complemento de baixa (incide SS e IRS)", OrigemMapeamento.HARDCODED
         )
     }
     if (RUBRICAS.containsKey(normalizado)) {

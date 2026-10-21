@@ -75,7 +75,15 @@ data class ContextoEstimativa(
      * 0 = mesmo mês (padrão). 1 = mês anterior (ex.: ICTS — SAC, R14, feriados e
      * suplementares refletem o mês anterior). O VENC não depende disto.
      */
-    val desfasamentoPagamentoVariaveis: Int = 0
+    val desfasamentoPagamentoVariaveis: Int = 0,
+    /**
+     * Complemento de baixa (rubrica COMP_BAIXA, código R51 do recibo) do mês, em 1/10000 €.
+     * Não se estima: vem do recibo — importado do PDF ou introduzido à mão — e por isso tem
+     * valor por omissão 0 (mês sem complemento). É um abono tributado: entra na base de SS e na
+     * de IRS quando o catálogo o disser (ver [estimarRecibo]), nunca na do sindicato, e é
+     * espelhado em [RubricaEstimada.valorMil] para o total de abonos estimado fechar.
+     */
+    val complementoBaixaMil: Long = 0L
 )
 
 /** Códigos que o estimador calcula. Tudo o resto sai com 0 (introduzido à mão). */
@@ -91,8 +99,9 @@ private val CODIGOS_DESCONTO = setOf("D01", "D02", "D04")
 
 /**
  * Rubrica das horas em falta (atrasos, saídas mais cedo). É INFORMATIVA: o valor é calculado e
- * mostrado, mas não sai do VENC nem do líquido (ver [estimarRecibo]). Fica no catálogo — e
- * editável no ecrã — para o utilizador ver as horas em falta do mês.
+ * mostrado, mas não entra nos descontos — o corte faz-se uma única vez, dentro do VENC (ver
+ * [estimarRecibo]). Fica no catálogo — e editável no ecrã — para o utilizador ver as horas em
+ * falta do mês.
  */
 private const val CODIGO_AUSENCIAS = "ATRASO"
 
@@ -101,6 +110,13 @@ private const val CODIGO_AUSENCIAS = "ATRASO"
  * É de DESCONTO, como as D0x — sem isto o valor entrava nos abonos e somava ao líquido.
  */
 private const val CODIGO_OUTROS_DESC = "OUTROS_DESC"
+
+/**
+ * Complemento de baixa (R51). Não é estimado — vem do recibo — mas é matéria coletável: usando
+ * [ContextoEstimativa.complementoBaixaMil] entra nas bases de SS e IRS, se o catálogo o disser, e
+ * é espelhado no abono da rubrica para o líquido estimado fechar (ver o fim de [estimarRecibo]).
+ */
+private const val CODIGO_COMPLEMENTO_BAIXA = "COMP_BAIXA"
 
 /** Jornada diária normal (8h) e mês comercial usado nos proporcionais. */
 private const val MINUTOS_JORNADA_DIA = 8 * 60
@@ -145,7 +161,9 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         dia.origem == "MANUAL" || !dentroDeAusencia(dia.data, ctx.ausencias)
     }
 
-    // Fronteira: mês sem dias reais e sem projeção não se estima.
+    // Fronteira: mês sem dias reais e sem projeção não se estima. O complemento de baixa também
+    // não é espelhado aqui: sem dias não há bases, logo não há D01/D02 a descontar e o líquido
+    // sairia inflado (o valor real continua na linha do recibo, na coluna Real).
     if (reaisDoMes.isEmpty() && projecaoDoMes.isEmpty()) {
         return EstimativaRecibo(
             anoMes = anoMes,
@@ -310,14 +328,47 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     val minutosAtraso = projecaoDoMesAtual.sumOf { minutosAtrasoDoDia(it) }
     val atrasoMil = minutosAtraso.toLong() * valorMinutoMil(contexto).toLong()
 
-    // Decisão do utilizador (2026-10-20): o VENC é o valor absoluto do contrato — o vencimento
-    // base da tabela do CCT. Nem as ausências (baixa, férias) nem os atrasos o alteram. A rubrica
-    // ATRASO (Ausências) continua a ser calculada e mostrada, mas é INFORMATIVA: não sai do VENC,
-    // não entra nos descontos e não mexe no líquido. Não voltar a "corrigir" para proporcional.
-    val venc = ctx.parametrosCCT.vencimentoBaseMil.toLong()
+    // VENC proporcional aos dias efetivos E líquido dos atrasos — regra do CCT validada em
+    // 2026-10-19 e reposta em 2026-10-21 (a auditoria tinha-o fixado no valor base do contrato,
+    // e o vencimento deixou de refletir a baixa):
+    //   - as FÉRIAS contam como dias pagos: não cortam o VENC;
+    //   - a BAIXA não conta: corta o VENC na proporção dos dias úteis que cobre;
+    //   - o ATRASO sai UMA vez, do próprio VENC (mais abaixo); a rubrica ATRASO fica INFORMATIVA,
+    //     a justificar o corte — não volta a sair nos descontos.
+    // Devolver o vencimento base do contrato é regressão: os testes T8/T11/23/24/25 fixam-no.
+    val diasUteisTotais = if (projecaoDoMesAtual.isNotEmpty()) {
+        projecaoDoMesAtual.count { ehTrabalhoProjetado(it, tipos) }
+    } else {
+        ctx.diasReais.filter { pertenceAoMes(it.data, ctx.anoMes) && ehTrabalho(it, tipos) }.size
+    }
+    val diasUteisBaixa = if (projecaoDoMesAtual.isNotEmpty()) {
+        projecaoDoMesAtual.count { dia ->
+            ehTrabalhoProjetado(dia, tipos) && dentroDeBaixa(dia.epochDay, ctx.ausencias, tipos)
+        }
+    } else {
+        ctx.diasReais.count { real ->
+            pertenceAoMes(real.data, ctx.anoMes) && ehTrabalho(real, tipos) &&
+                dentroDeBaixa(real.data, ctx.ausencias, tipos)
+        }
+    }
+    val diasEfetivos = (diasUteisTotais - diasUteisBaixa).coerceAtLeast(0)
+    // Sem dias nenhuns no mês não há proporção a fazer: fica o vencimento base do contrato.
+    val vencProporcional = if (diasUteisTotais > 0) {
+        dividirArredondando(
+            ctx.parametrosCCT.vencimentoBaseMil.toLong() * diasEfetivos,
+            diasUteisTotais.toLong()
+        )
+    } else {
+        ctx.parametrosCCT.vencimentoBaseMil.toLong()
+    }
+
+    // O atraso é deduzido aqui, no VENC que o recibo mostra (que assim já vem líquido das horas
+    // em falta). A rubrica ATRASO fica ao lado como justificação e é INFORMATIVA: se voltasse a
+    // entrar nos descontos, o mesmo valor saía duas vezes do líquido.
+    val vencFinal = (vencProporcional - atrasoMil).coerceAtLeast(0L)
 
     val valores = linkedMapOf(
-        "VENC" to venc,
+        "VENC" to vencFinal,
         "HNOT" to valorMinutos(minutosNoturnos, valorHora, TipoHora.NOTURNA_ACRESCIMO),
         "HSUP_DN" to valorMinutos(minSupDn, valorHora, TipoHora.SUP_DIURNO_NORMAL),
         "HSUP_NT" to valorMinutos(minSupNt, valorHora, TipoHora.SUP_NOTURNO_NORMAL),
@@ -333,14 +384,25 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         "ATRASO" to atrasoMil
     )
 
-    // Bases de incidência: só as rubricas estimadas que incidem (o cartão de refeição,
-    // SUP_ALIM, não incide SS nem IRS — é o que torna detetável o erro de agosto de 2026).
-    // O ATRASO é informativo e não incide (incideSS e incideIRS = false): não mexe nas bases.
+    // Bases de incidência: as rubricas estimadas que incidem (o cartão de refeição, SUP_ALIM, não
+    // incide SS nem IRS — é o que torna detetável o erro de agosto de 2026), mais o complemento
+    // de baixa. O ATRASO é informativo e não incide (incideSS e incideIRS = false): não mexe nas
+    // bases.
     fun incide(codigo: String, campo: (Rubrica) -> Boolean): Boolean =
         porCodigo[codigo]?.let(campo) ?: false
 
-    val baseSS = valores.filterKeys { incide(it) { r -> r.incideSS } }.values.sum()
-    val baseIRS = valores.filterKeys { incide(it) { r -> r.incideIRS } }.values.sum()
+    // O complemento de baixa não está em `valores` porque é MANUAL (vem do recibo, não se
+    // estima), mas é tributado: o recibo real de maio/2026 desconta D01 = 31,51 € sobre 286,41 €
+    // de complemento. Entra nas bases pela mão do catálogo (`incide`), não por um `if` fixo. No
+    // IRS idem: entra na base e é a tabela que decide (naquele mês deu 0 por o valor ficar abaixo
+    // do 1.º escalão — não por isenção). No sindicato não entra: o D04 incide só sobre o VENC.
+    val complementoBaseSS =
+        if (incide(CODIGO_COMPLEMENTO_BAIXA) { r -> r.incideSS }) ctx.complementoBaixaMil else 0L
+    val complementoBaseIRS =
+        if (incide(CODIGO_COMPLEMENTO_BAIXA) { r -> r.incideIRS }) ctx.complementoBaixaMil else 0L
+
+    val baseSS = valores.filterKeys { incide(it) { r -> r.incideSS } }.values.sum() + complementoBaseSS
+    val baseIRS = valores.filterKeys { incide(it) { r -> r.incideIRS } }.values.sum() + complementoBaseIRS
 
     valores["D01"] = dividirArredondando(baseSS * TAXA_SEGURANCA_SOCIAL_BPS, 10_000L)
     valores["D02"] = calcularIRS(
@@ -391,19 +453,29 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // Fase 25: o desconto sindical só incide nos contratos sindicalizados (campo do contrato,
     // ligado pelo switch no ecrã). Desligado, a rubrica fica a 0 — a base não muda (o D04 sempre
     // incidiu só sobre o VENC); o que muda é haver ou não desconto.
-    // 2026-10-20: o VENC é o valor absoluto do contrato (os atrasos não o cortam), e é essa a base.
+    // 2026-10-21: a base é o VENC já proporcional aos dias efetivos e líquido dos atrasos (a
+    // baixa corta-o; as férias não) — acompanha as restantes incidências, como antes da auditoria.
     valores["D04"] = if (ctx.contrato.sindicalizado) {
-        dividirArredondando(venc * TAXA_SINDICATO_BPS, 10_000L)
+        dividirArredondando(vencFinal * TAXA_SINDICATO_BPS, 10_000L)
     } else {
         0L
     }
 
+    // O complemento de baixa fica FORA de CODIGOS_ESTIMADOS (o motor não o calcula), mas o valor
+    // que o recibo traz tem de aparecer na coluna Estimado: é um espelho do real, não uma conta.
+    // Sem isto o abono ficava de fora do total e o líquido estimado saía negativo num mês de baixa
+    // (maio/2026: 286,41 € de complemento contra 31,51 € de D01). Decisão do utilizador em
+    // 2026-10-21 — o líquido tem de fechar.
     val estimadas = catalogo.map { r ->
         RubricaEstimada(
             rubricaId = r.id,
             codigo = r.codigo,
             nome = r.nome,
-            valorMil = if (r.codigo in CODIGOS_ESTIMADOS) valores[r.codigo] ?: 0L else 0L,
+            valorMil = when {
+                r.codigo in CODIGOS_ESTIMADOS -> valores[r.codigo] ?: 0L
+                r.codigo == CODIGO_COMPLEMENTO_BAIXA -> ctx.complementoBaixaMil
+                else -> 0L
+            },
             natureza = naturezaDe(r.codigo)
         )
     }
@@ -459,6 +531,24 @@ private fun pertenceAoMes(epochDay: Long, anoMes: YearMonth): Boolean =
 /** O dia cai dentro de alguma ausência registada? Datas inclusivas nas duas pontas. */
 private fun dentroDeAusencia(epochDay: Long, ausencias: List<Ausencia>): Boolean =
     ausencias.any { epochDay >= it.dataInicio && epochDay <= it.dataFim }
+
+/**
+ * O dia cai dentro de uma ausência que CORTA o vencimento? Só a BAIXA (CDD) corta: as férias
+ * (SDD) contam como dias efetivos/pagos e as folgas não são ausências registadas.
+ *
+ * A categoria vem do tipo de turno da ausência, não do dia: a [Ausencia] só guarda o
+ * `tipoTurnoId`, e é o tipo (Férias = [CategoriaTurno.FERIAS], Baixa médica =
+ * [CategoriaTurno.BAIXA]) que diz de que ausência se trata. Sem catálogo de tipos não se corta
+ * nada — melhor manter o vencimento do que cortá-lo por um id que não se sabe o que é.
+ */
+private fun dentroDeBaixa(
+    epochDay: Long,
+    ausencias: List<Ausencia>,
+    tipos: Map<Long, TipoTurno>
+): Boolean = ausencias.any { ausencia ->
+    epochDay >= ausencia.dataInicio && epochDay <= ausencia.dataFim &&
+        tipos[ausencia.tipoTurnoId]?.categoria == CategoriaTurno.BAIXA
+}
 
 private fun naturezaDe(codigo: String): NaturezaRubrica = when {
     codigo == CODIGO_AUSENCIAS -> NaturezaRubrica.INFORMATIVA

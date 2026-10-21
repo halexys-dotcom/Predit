@@ -200,7 +200,7 @@ class ReciboPdfParserTest {
         val primeira = recibos.first()
         assertEquals(11_379_800L, primeira.valorDe("R01"))    // 1 137,98 €
         assertEquals(0L, primeira.valorDe("R14"))             // 0,00 € (mês de baixa)
-        assertEquals("COMP_BAIXA", primeira.linha("R51").codigoInterno)   // complemento de baixa (isento)
+        assertEquals("COMP_BAIXA", primeira.linha("R51").codigoInterno)   // complemento de baixa (incide SS e IRS)
         assertEquals(2_587_000L, primeira.valorDe("R51"))     // 258,70 €
         assertEquals("SUP_ALIM", primeira.linha("RCR").codigoInterno)
 
@@ -294,9 +294,9 @@ class ReciboPdfParserTest {
         assertNull(subsidioDaBaixa.codigoInterno)
         assertTrue(subsidioDaBaixa.aviso!!.contains("F40"))
 
-        // R51 saiu de "Outros" na 28i: tem rubrica própria (COMP_BAIXA, isenta de SS e IRS) porque
-        // "Outros" incide e os descontos não podem cair sobre o complemento de baixa. O R118 (média
-        // de horas noturnas) é tributado e fica em Outros.
+        // R51 saiu de "Outros" na 28i: tem rubrica própria (COMP_BAIXA), que incide SS e IRS — o
+        // recibo real de maio/2026 desconta 11% sobre o complemento. "Outros" fica para o R118
+        // (média de horas noturnas), que também é tributado, mas é outra linha do recibo.
         val complemento = mapearCodigoRecibo("R51")
         assertEquals("COMP_BAIXA", complemento.codigoInterno)
         assertTrue(complemento.aviso!!.contains("R51"))

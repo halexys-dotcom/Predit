@@ -209,12 +209,18 @@ class PreditApplication : Application() {
             // 13a: subsídio de função. Só as categorias que o têm (hoje o Team Leader) o trazem
             // a valores; nas outras o valor é 0. Incide SS e IRS, não incide sindicato.
             RubricaEntity(0L, "SUP_FUNCAO", "Subsídio de função", true, true, false, TipoCalculo.DERIVADO, true, 23),
-            // 28i: complemento de baixa (R51 do recibo). É isento de SS e IRS, por isso não pode
-            // ser lançado em "Outros" — que incide, e continua a incidir porque lá fica o R118
-            // (média de horas noturnas), esse tributado. Não é estimado: vem do PDF ou à mão.
-            RubricaEntity(0L, "COMP_BAIXA", "Complemento de baixa", false, false, false, TipoCalculo.MANUAL, true, 24),
-            // 2026-10-20: não é desconto nem corta o VENC (que é o valor absoluto do contrato).
-            // A linha é informativa (mostra as horas em falta) e editável no ecrã do recibo.
+            // 28i: complemento de baixa (R51 do recibo). Tem rubrica própria — não vai para
+            // "Outros", que é o balde do R118 (média de horas noturnas) — porque é uma linha
+            // própria do recibo e a app mostra-a e edita-a à parte.
+            // 2026-10-21: NÃO é isento. O recibo real de maio/2026 traz D01 = 31,51 € sobre
+            // 286,41 € de complemento (286,41 × 11% = 31,505), por isso incide SS e IRS: entra
+            // nas duas bases e é a tabela de retenção que decide o IRS (em maio deu 0 por o
+            // valor ficar abaixo do 1.º escalão, não por isenção). Sindicato não: o D04 incide
+            // só sobre o VENC. Não é estimado: vem do PDF ou à mão.
+            RubricaEntity(0L, "COMP_BAIXA", "Complemento de baixa", true, true, false, TipoCalculo.MANUAL, true, 24),
+            // 2026-10-21: deduz-se UMA vez, no próprio VENC (proporcional aos dias efetivos e
+            // líquido das horas em falta). A linha é informativa — não é desconto, senão o mesmo
+            // valor saía duas vezes do líquido — e editável no ecrã do recibo.
             RubricaEntity(0L, "ATRASO", "Ausências", false, false, false, TipoCalculo.DERIVADO, true, 25),
             // 2026-10-21: descontos que o recibo traz e o catálogo não conhece (o D05 da Fundação,
             // "Desconto Subsídio Alimentação") vão para aqui em vez de bloquear a importação. É
@@ -229,6 +235,16 @@ class PreditApplication : Application() {
         // "Ausências"). Quem actualiza já tem a linha na BD e o seeder não a volta a inserir:
         // o rename vai por aqui, sem precisar de migração.
         dao.renomear("ATRASO", "Ausências")
+        // 2026-10-21: o complemento de baixa deixou de ser isento — incide SS e IRS (o recibo real
+        // de maio/2026 tem D01 = 31,51 € sobre 286,41 €). Mesmo caso do rename: a linha já existe
+        // em quem actualiza, por isso os flags vão por UPDATE e não por uma migração Room (não há
+        // coluna nem tabela nova — o schema não muda).
+        dao.atualizarIncidencia(
+            codigo = "COMP_BAIXA",
+            incideSS = true,
+            incideIRS = true,
+            incideSindicato = false
+        )
     }
 
     /**
