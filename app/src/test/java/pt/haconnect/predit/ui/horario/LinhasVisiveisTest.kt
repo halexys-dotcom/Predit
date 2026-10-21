@@ -14,7 +14,9 @@ import java.time.YearMonth
  * - o subsídio de férias (`FERIAS`) só quando há férias no mês ou no seguinte;
  * - o subsídio de função (`SUP_FUNCAO`) só nas categorias que o recebem — o Team Leader;
  * - o desconto sindical (`D04`) só nos contratos sindicalizados;
- * - o complemento de baixa (`COMP_BAIXA`) só com valor: a zero não se desenha.
+ * - o complemento de baixa (`COMP_BAIXA`) só com valor: a zero não se desenha;
+ * - as ausências (`ATRASO`) só com valor: são informativas — o corte já está no VENC — e a 0,00
+ *   não se desenham.
  *
  * Uma linha com valor nunca é escondida, seja qual for a regra — é a rede de segurança.
  *
@@ -324,6 +326,51 @@ class LinhasVisiveisTest {
                 mostrarSubsidioFuncao = false,
                 mostrarSindicato = false
             ).map { it.codigo }
+        )
+    }
+
+    /**
+     * A linha "Ausências" (ATRASO) é informativa — o corte das horas em falta já está dentro do VENC
+     * — e a 0,00 não diz nada. Sem atrasos no Horário e sem valor no recibo importado, não se
+     * desenha.
+     */
+    @Test
+    fun `ATRASO a zero fica oculto`() {
+        val linhas = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("ATRASO", estimado = 0L, real = 0L)
+        )
+
+        assertEquals(
+            listOf("VENC"),
+            visiveis(linhas, mes = YearMonth.of(2026, 9), temFeriado = false).map { it.codigo }
+        )
+    }
+
+    /**
+     * Rede de segurança das ausências: com atrasos registados no Horário (Estimado) ou com o valor
+     * que veio do recibo importado (Real) a linha aparece — é ela que justifica o VENC mais baixo,
+     * por isso o utilizador tem de a ver.
+     */
+    @Test
+    fun `ATRASO com atrasos no horario ou importado do PDF aparece`() {
+        val doHorario = listOf(
+            conferencia("VENC", 11_312_995L),
+            conferencia("ATRASO", estimado = 66_795L, real = 0L)
+        )
+        val doPdf = listOf(
+            conferencia("VENC", 11_379_800L),
+            conferencia("ATRASO", estimado = 0L, real = 26_280L)
+        )
+        val mes = YearMonth.of(2026, 9)
+
+        assertEquals(
+            listOf("VENC", "ATRASO"),
+            visiveis(doHorario, mes = mes, temFeriado = false).map { it.codigo }
+        )
+        assertEquals(
+            listOf("VENC", "ATRASO"),
+            visiveis(doPdf, mes = mes, temFeriado = false).map { it.codigo }
         )
     }
 

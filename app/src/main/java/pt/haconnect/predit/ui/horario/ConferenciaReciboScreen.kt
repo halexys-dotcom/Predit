@@ -300,8 +300,8 @@ fun ConferenciaReciboScreen(
         } else {
             // 2026-10-21: as rubricas de recurso ("Outros" e "Outros" dos descontos) ficam fora da
             // lista enquanto estiverem a zero nas duas colunas, as de feriado só aparecem nos
-            // meses com feriado e os subsídios só nos meses em que fazem sentido — ver
-            // linhasVisiveis.
+            // meses com feriado, os subsídios e o sindicato só quando o mês e o contrato o
+            // justificam, e as ausências só com valor — ver linhasVisiveis.
             val visiveis = linhasVisiveis(
                 uiState.linhas,
                 uiState.temFeriado,

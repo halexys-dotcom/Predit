@@ -115,6 +115,12 @@ private const val CATEGORIA_TEAM_LEADER = "TEAM_LEADER"
 private const val CODIGO_SINDICATO = "D04"
 
 /**
+ * Ausências ([CODIGO_AUSENCIAS]): as horas em falta apuradas no Horário. A rubrica é INFORMATIVA —
+ * o corte já foi feito dentro do VENC — e a 0,00 não justifica uma linha no ecrã.
+ */
+private const val CODIGO_AUSENCIAS = "ATRASO"
+
+/**
  * 2026-10-21: as linhas que o ecrã de conferência desenha.
  *
  * - Rubricas de recurso ([CODIGOS_OUTROS]) só aparecem quando têm valor: a zero não dizem nada e
@@ -129,6 +135,8 @@ private const val CODIGO_SINDICATO = "D04"
  * - O desconto sindical (v2.1.1, `D04`) só aparece nos contratos sindicalizados ([mostrarSindicato]).
  * - O complemento de baixa (v2.1.1, `COMP_BAIXA`) nunca se desenha a zero: não se estima, só existe
  *   quando o recibo do mês o traz — e aí quem o mostra é a rede de segurança.
+ * - As ausências (v2.1.1, `ATRASO`) só aparecem com valor: são informativas — o corte já está feito
+ *   dentro do VENC — e a 0,00 não dizem nada.
  * - Todas as outras aparecem sempre, mesmo a zero: são as linhas do recibo e é preciso vê-las
  *   para as conferir.
  *
@@ -142,7 +150,7 @@ private const val CODIGO_SINDICATO = "D04"
  * porque é dele que o "Guardar" escreve uma linha por rubrica e o modal de mapeamento tira as
  * escolhas. Consequência assumida: a zero a linha não tem campo onde escrever — um valor em
  * "Outros" (ou no complemento de baixa) entra pela importação do recibo, que escreve na mesma
- * rubrica.
+ * rubrica, e um valor nas ausências vem do Horário ou da importação.
  */
 internal fun linhasVisiveis(
     linhas: List<LinhaConferencia>,
@@ -169,6 +177,8 @@ internal fun linhasVisiveis(
         linha.codigo == CODIGO_SINDICATO -> mostrarSindicato
         // 8. Complemento de baixa: a zero não se desenha; com valor, a regra 1 já o mostrou.
         linha.codigo == CODIGO_COMPLEMENTO_BAIXA -> false
+        // 9. Ausências: informativas e a zero não dizem nada; com valor, a regra 1 já as mostrou.
+        linha.codigo == CODIGO_AUSENCIAS -> false
         else -> true
     }
 }
