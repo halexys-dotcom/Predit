@@ -29,6 +29,7 @@ import pt.haconnect.predit.domain.calc.NaturezaRubrica
 import pt.haconnect.predit.domain.calc.estimarRecibo
 import pt.haconnect.predit.domain.calc.janelaNoturna
 import pt.haconnect.predit.domain.calc.projetarIntervalo
+import pt.haconnect.predit.domain.calc.temFeriadoNoMes
 import pt.haconnect.predit.domain.calc.valorHoraMil
 import pt.haconnect.predit.domain.importacao.LinhaReciboImportada
 import pt.haconnect.predit.domain.importacao.ReciboImportado
@@ -87,20 +88,42 @@ data class LinhaConferencia(
 private val CODIGOS_OUTROS = setOf("OUTROS", RUBRICA_OUTROS_DESC)
 
 /**
- * 2026-10-21: as linhas que o ecrã de conferência desenha. As rubricas de recurso ([CODIGOS_OUTROS])
- * só aparecem quando têm valor — no Estimado ou no Real —, porque a zero não dizem nada e só faziam
- * crescer a lista. Todas as outras aparecem sempre, mesmo a zero: são as linhas do recibo e é
- * preciso vê-las para as conferir.
+ * Rubricas de feriado: horas suplementares em feriado (diurnas e noturnas), o dia feriado
+ * trabalhado e o acréscimo de noite de feriado. Num mês sem feriados nenhuns todas caem a 0,00.
+ */
+private val CODIGOS_FERIADO = setOf("HSUP_DN_FER", "HSUP_NT_FER", "DESC_FER", "ACR_NOT_FER")
+
+/**
+ * 2026-10-21: as linhas que o ecrã de conferência desenha.
+ *
+ * - Rubricas de recurso ([CODIGOS_OUTROS]) só aparecem quando têm valor: a zero não dizem nada e
+ *   só faziam crescer a lista.
+ * - Rubricas de feriado ([CODIGOS_FERIADO]) só aparecem nos meses com feriado ([temFeriado], ver
+ *   [temFeriadoNoMes]), a zero ou não: é o que o utilizador pediu para limpar o ecrã.
+ * - Todas as outras aparecem sempre, mesmo a zero: são as linhas do recibo e é preciso vê-las
+ *   para as conferir.
+ *
+ * Uma linha com valor — no Estimado ou no Real — nunca é escondida, seja de que rubrica for. É a
+ * rede de segurança das rubricas de feriado: com o pagamento das variáveis desfasado (M paga as
+ * variáveis de M-1) os valores de um mês com feriado podem aparecer num mês sem nenhum, e uma
+ * edição à mão também pode pôr lá um valor.
  *
  * É um filtro de desenho, não de estado: [ReciboUiState.linhas] continua com o catálogo inteiro,
  * porque é dele que o "Guardar" escreve uma linha por rubrica e o modal de mapeamento tira as
  * escolhas. Consequência assumida: a zero a linha não tem campo onde escrever — um valor em
  * "Outros" entra pela importação do recibo, que escreve na mesma rubrica.
  */
-internal fun linhasVisiveis(linhas: List<LinhaConferencia>): List<LinhaConferencia> =
-    linhas.filter { linha ->
-        linha.codigo !in CODIGOS_OUTROS || linha.valorEstimado != 0L || linha.valorReal != 0L
+internal fun linhasVisiveis(
+    linhas: List<LinhaConferencia>,
+    temFeriado: Boolean
+): List<LinhaConferencia> = linhas.filter { linha ->
+    when {
+        linha.valorEstimado != 0L || linha.valorReal != 0L -> true
+        linha.codigo in CODIGOS_OUTROS -> false
+        linha.codigo in CODIGOS_FERIADO -> temFeriado
+        else -> true
     }
+}
 
 /**
  * Um recibo detetado no PDF, para o seletor (Fase 27d). Sem códigos nem valores — só o mês
@@ -152,6 +175,11 @@ data class ReciboUiState(
     val anoMes: String = "",
     val anoMesFormatado: String = "",
     val linhas: List<LinhaConferencia> = emptyList(),
+    /**
+     * 2026-10-21: o mês visível tem pelo menos um feriado (nacional ou o municipal do contrato).
+     * Decide se as rubricas de feriado se desenham — ver [linhasVisiveis].
+     */
+    val temFeriado: Boolean = false,
     val totalAbonosEstimado: Long = 0L,
     val totalAbonosReal: Long = 0L,
     val totalDescontosEstimado: Long = 0L,
@@ -405,6 +433,15 @@ class ReciboViewModel(
         // tem o dia/mês. Só depois de o catálogo estar carregado, para o contrato não ser nulo.
         val municipio = fontes.agendas.municipios.firstOrNull { it.id == contrato.municipioId }
 
+        // 2026-10-21: feriados do mês visível (nacionais fixos e móveis + o municipal do contrato).
+        // É a mesma conta que o motor faz para as rubricas de feriado, aqui só para a UI decidir se
+        // as desenha: num mês sem feriado nenhum as quatro linhas ficavam todas a 0,00.
+        val temFeriado = temFeriadoNoMes(
+            fontes.cabecalho.anoMes,
+            municipio?.feriadoDia ?: 0,
+            municipio?.feriadoMes ?: 0
+        )
+
         // Complemento de baixa (COMP_BAIXA, R51): não se estima — é o valor que o recibo do mês
         // traz (importado do PDF ou escrito à mão). Sem isto as bases de incidência ignoravam o
         // complemento e o D01/D02 estimados não batiam com o recibo real de maio/2026, que
@@ -519,6 +556,7 @@ class ReciboViewModel(
             anoMes = anoMes,
             anoMesFormatado = formatado,
             linhas = linhas,
+            temFeriado = temFeriado,
             totalAbonosEstimado = estimativa.totalAbonos,
             totalAbonosReal = abonosReal,
             totalDescontosEstimado = estimativa.totalDescontos,

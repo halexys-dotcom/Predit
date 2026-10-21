@@ -1,10 +1,12 @@
 package pt.haconnect.predit.domain.calc
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
+import java.time.YearMonth
 
 /**
  * Feriados nacionais e municipais (Fase 10). As datas esperadas são as oficiais: Páscoa pelo
@@ -68,5 +70,36 @@ class FeriadosTest {
         assertNull(feriadoMunicipal(2026, 0, 0))
         // Data impossível (31 de fevereiro) também não rebenta: devolve null.
         assertNull(feriadoMunicipal(2026, 31, 2))
+    }
+
+    /**
+     * 2026-10-21: o mês tem feriado? É o que decide se as rubricas de feriado do recibo se
+     * desenham. Setembro e julho de 2026 não têm nenhum; outubro entra pelo 5, agosto pelo 15 e
+     * dezembro pelo 1, 8 e 25.
+     */
+    @Test
+    fun `T6 - meses sem feriado nacional nao tem feriado`() {
+        assertFalse(temFeriadoNoMes(YearMonth.of(2026, 7)))
+        assertFalse(temFeriadoNoMes(YearMonth.of(2026, 9)))
+
+        assertTrue(temFeriadoNoMes(YearMonth.of(2026, 6)))    // 4 jun (Corpo de Deus) e 10 jun
+        assertTrue(temFeriadoNoMes(YearMonth.of(2026, 8)))    // 15 ago, Assunção
+        assertTrue(temFeriadoNoMes(YearMonth.of(2026, 10)))   // 5 out, Implantação da República
+        assertTrue(temFeriadoNoMes(YearMonth.of(2026, 12)))   // 1, 8 e 25 dez
+    }
+
+    /**
+     * O municipal do contrato também conta: um mês só com o feriado da terra mostra as linhas de
+     * feriado, e o municipal de outro mês (ou um município sem dia definido) não mexe em nada.
+     */
+    @Test
+    fun `T7 - feriado municipal conta para o mes do municipio`() {
+        val setembro = YearMonth.of(2026, 9)
+        assertFalse(temFeriadoNoMes(setembro))
+
+        assertTrue(temFeriadoNoMes(setembro, municipioFeriadoDia = 7, municipioFeriadoMes = 9))
+        // Município sem feriado definido (dia/mês a 0) e municipal de outro mês não contam.
+        assertFalse(temFeriadoNoMes(setembro, municipioFeriadoDia = 0, municipioFeriadoMes = 0))
+        assertFalse(temFeriadoNoMes(setembro, municipioFeriadoDia = 13, municipioFeriadoMes = 6))
     }
 }

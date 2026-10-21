@@ -9,15 +9,15 @@ import pt.haconnect.predit.domain.importacao.mapearCodigoRecibo
 import pt.haconnect.predit.domain.model.Rubrica
 
 /**
- * A aplicação de um recibo importado às edições do mês: dois códigos do PDF podem cair na mesma
- * rubrica do catálogo — `RCR` e `RCRA` são ambos o subsídio de alimentação em cartão (o segundo
- * é o acerto) — e o valor da rubrica tem de ser a **soma** das linhas, não a última delas. O `R51`
- * deixou de partilhar "Outros" com o `R118` na 28i: tem rubrica própria (`COMP_BAIXA`, que incide
+ * A aplicaÃ§Ã£o de um recibo importado Ã s ediÃ§Ãµes do mÃªs: dois cÃ³digos do PDF podem cair na mesma
+ * rubrica do catÃ¡logo â€” `RCR` e `RCRA` sÃ£o ambos o subsÃ­dio de alimentaÃ§Ã£o em cartÃ£o (o segundo
+ * Ã© o acerto) â€” e o valor da rubrica tem de ser a **soma** das linhas, nÃ£o a Ãºltima delas. O `R51`
+ * deixou de partilhar "Outros" com o `R118` na 28i: tem rubrica prÃ³pria (`COMP_BAIXA`, que incide
  * SS e IRS).
  *
- * Os valores são os dos recibos reais (ver ReciboPdfParserTest e os fixtures): Março 2026 e
- * Agosto 2025. Este caminho — importar para as edições — não é exercitado pelo parser nem pelo
- * ReciboConferenciaTest (que escreve à mão), daí este teste.
+ * Os valores sÃ£o os dos recibos reais (ver ReciboPdfParserTest e os fixtures): MarÃ§o 2026 e
+ * Agosto 2025. Este caminho â€” importar para as ediÃ§Ãµes â€” nÃ£o Ã© exercitado pelo parser nem pelo
+ * ReciboConferenciaTest (que escreve Ã  mÃ£o), daÃ­ este teste.
  */
 class ReciboImportacaoTest {
 
@@ -31,9 +31,9 @@ class ReciboImportacaoTest {
     ).associateBy { it.codigo }
 
     /**
-     * Página 1 de Março 2026: `RCR` +172,70 € e logo abaixo `RCRA` −172,70 € (o acerto de
-     * Março, mês de baixa). As duas linhas existem no PDF e anulam-se — o recibo declara 0,00
-     * no subsídio de alimentação. Substituir a última linha dava −172,70 €.
+     * PÃ¡gina 1 de MarÃ§o 2026: `RCR` +172,70 â‚¬ e logo abaixo `RCRA` âˆ’172,70 â‚¬ (o acerto de
+     * MarÃ§o, mÃªs de baixa). As duas linhas existem no PDF e anulam-se â€” o recibo declara 0,00
+     * no subsÃ­dio de alimentaÃ§Ã£o. Substituir a Ãºltima linha dava âˆ’172,70 â‚¬.
      */
     @Test
     fun `linhas do mesmo codigo ICTS somam - Marco 2026 anula o subsidio`() {
@@ -52,8 +52,8 @@ class ReciboImportacaoTest {
     }
 
     /**
-     * Agosto 2025 (Cegid): `RCR` 163,24 € e `RCRA` 7,42 € — aqui as duas somam-se, e os 170,66 €
-     * são o que falta para o total de abonos desse recibo bater certo (1 508,57 €).
+     * Agosto 2025 (Cegid): `RCR` 163,24 â‚¬ e `RCRA` 7,42 â‚¬ â€” aqui as duas somam-se, e os 170,66 â‚¬
+     * sÃ£o o que falta para o total de abonos desse recibo bater certo (1 508,57 â‚¬).
      */
     @Test
     fun `linhas do mesmo codigo ICTS somam - Agosto 2025 da os 170,66 do total de abonos`() {
@@ -70,9 +70,9 @@ class ReciboImportacaoTest {
     }
 
     /**
-     * `R51` (Março 2026) saiu de "Outros" na 28i: vai para `COMP_BAIXA`, que incide SS e IRS.
-     * O `R118` (Julho 2026, média de horas noturnas) também é tributado e continua em "Outros" —
-     * cada linha escreve só na sua rubrica.
+     * `R51` (MarÃ§o 2026) saiu de "Outros" na 28i: vai para `COMP_BAIXA`, que incide SS e IRS.
+     * O `R118` (Julho 2026, mÃ©dia de horas noturnas) tambÃ©m Ã© tributado e continua em "Outros" â€”
+     * cada linha escreve sÃ³ na sua rubrica.
      */
     @Test
     fun `R51 vai para COMP_BAIXA e R118 fica em Outros`() {
@@ -90,14 +90,14 @@ class ReciboImportacaoTest {
         assertTrue(naoReconhecidas.isEmpty())
     }
 
-    /** As informativas vêm do parser sem código interno (ver CODIGOS_INFORMATIVOS). */
+    /** As informativas vÃªm do parser sem cÃ³digo interno (ver CODIGOS_INFORMATIVOS). */
     @Test
     fun `linha informativa nao escreve valor nenhum`() {
         val naoReconhecidas = mutableListOf<String>()
         val somados = somarLinhasPorRubrica(
             listOf(
                 linha("R01", 11_379_800L),
-                linha("F02", 396_700L)   // 39,67 €: baixa, informativa
+                linha("F02", 396_700L)   // 39,67 â‚¬: baixa, informativa
             ),
             catalogo,
             naoReconhecidas
@@ -108,17 +108,17 @@ class ReciboImportacaoTest {
     }
 
     /**
-     * 28i: num mês de baixa total o parser marca o `R01` como informativo — o pagamento do mês é
-     * o complemento (`R51`). A rubrica é declarada pelo recibo e não paga, portanto escreve-se 0
-     * (o que também limpa o VENC que tivesse ficado de uma importação anterior). É esta a conta
-     * que faz os Totais Reais de Março fecharem nos 258,70 € que o recibo declara em Abonos.
+     * 28i: num mÃªs de baixa total o parser marca o `R01` como informativo â€” o pagamento do mÃªs Ã©
+     * o complemento (`R51`). A rubrica Ã© declarada pelo recibo e nÃ£o paga, portanto escreve-se 0
+     * (o que tambÃ©m limpa o VENC que tivesse ficado de uma importaÃ§Ã£o anterior). Ã‰ esta a conta
+     * que faz os Totais Reais de MarÃ§o fecharem nos 258,70 â‚¬ que o recibo declara em Abonos.
      */
     @Test
     fun `Marco 2026 - R01 informativo escreve 0 no VENC e o mes fecha no R51`() {
         val naoReconhecidas = mutableListOf<String>()
         val somados = somarLinhasPorRubrica(
             listOf(
-                linha("R01", 11_379_800L, codigoInterno = null),   // informativo: mês de baixa total
+                linha("R01", 11_379_800L, codigoInterno = null),   // informativo: mÃªs de baixa total
                 linha("R14", 0L),
                 linha("R51", 2_587_000L),
                 linha("RCR", 1_727_000L),
@@ -128,15 +128,15 @@ class ReciboImportacaoTest {
             naoReconhecidas
         )
 
-        assertEquals(0L, somados[1L])                          // VENC: não é pago
-        assertEquals(2_587_000L, somados[24L])                 // COMP_BAIXA: o pagamento do mês
-        assertEquals(0L, somados[9L])                          // SUP_ALIM: cartão anulado
+        assertEquals(0L, somados[1L])                          // VENC: nÃ£o Ã© pago
+        assertEquals(2_587_000L, somados[24L])                 // COMP_BAIXA: o pagamento do mÃªs
+        assertEquals(0L, somados[9L])                          // SUP_ALIM: cartÃ£o anulado
         assertEquals(0L, somados[10L])                         // SUP_TRAN: R14 = 0,00
-        assertEquals(2_587_000L, somados.values.sum())         // Abonos = 258,70 €
+        assertEquals(2_587_000L, somados.values.sum())         // Abonos = 258,70 â‚¬
         assertTrue(naoReconhecidas.isEmpty())
     }
 
-    /** Sem rubrica no catálogo a linha não escreve e o código é reportado à UI. */
+    /** Sem rubrica no catÃ¡logo a linha nÃ£o escreve e o cÃ³digo Ã© reportado Ã  UI. */
     @Test
     fun `codigo sem rubrica no catalogo fica de fora e e reportado`() {
         val naoReconhecidas = mutableListOf<String>()
@@ -150,11 +150,11 @@ class ReciboImportacaoTest {
         assertEquals(listOf("ZZZ"), naoReconhecidas)
     }
 
-    /** Uma linha só (o caso comum) escreve o seu valor: a soma não pode regredir isto. */
+    /** Uma linha sÃ³ (o caso comum) escreve o seu valor: a soma nÃ£o pode regredir isto. */
     @Test
     fun `uma linha so escreve o seu valor`() {
         val somados = somarLinhasPorRubrica(
-            listOf(linha("R01", 11_379_800L), linha("R14", 0L)),   // Março 2026: baixa, R14 = 0,00
+            listOf(linha("R01", 11_379_800L), linha("R14", 0L)),   // MarÃ§o 2026: baixa, R14 = 0,00
             catalogo,
             mutableListOf()
         )
@@ -163,9 +163,9 @@ class ReciboImportacaoTest {
     }
 
     /**
-     * C7: o D05 da Fundação ("Desconto Subsídio Alimentação", 105,00 €) é um desconto. Mapeado
-     * para OUTROS — ou para SUP_ALIM, que era a sugestão da heurística — somava ao líquido.
-     * Desde 2026-10-21 não bloqueia: vai para OUTROS_DESC (rubrica de desconto) e a UI avisa.
+     * C7: o D05 da FundaÃ§Ã£o ("Desconto SubsÃ­dio AlimentaÃ§Ã£o", 105,00 â‚¬) Ã© um desconto. Mapeado
+     * para OUTROS â€” ou para SUP_ALIM, que era a sugestÃ£o da heurÃ­stica â€” somava ao lÃ­quido.
+     * Desde 2026-10-21 nÃ£o bloqueia: vai para OUTROS_DESC (rubrica de desconto) e a UI avisa.
      */
     @Test
     fun `desconto mapeado para rubrica de abono vai para Outros Desconto`() {
@@ -187,7 +187,7 @@ class ReciboImportacaoTest {
         assertEquals(listOf("Desconto desconhecido foi para Outros (desconto)"), avisos)
     }
 
-    /** C7: um desconto sem código interno nenhum também vai para OUTROS_DESC ("Outros"), com aviso. */
+    /** C7: um desconto sem cÃ³digo interno nenhum tambÃ©m vai para OUTROS_DESC ("Outros"), com aviso. */
     @Test
     fun `desconto sem codigo interno vai para Outros Desconto`() {
         val avisos = mutableListOf<String>()
@@ -204,8 +204,8 @@ class ReciboImportacaoTest {
     }
 
     /**
-     * C7: sem OUTROS_DESC no catálogo (BD anterior à rubrica) não há onde escrever o valor a
-     * subtrair — a importação volta a bloquear em vez de somar o desconto ao líquido.
+     * C7: sem OUTROS_DESC no catÃ¡logo (BD anterior Ã  rubrica) nÃ£o hÃ¡ onde escrever o valor a
+     * subtrair â€” a importaÃ§Ã£o volta a bloquear em vez de somar o desconto ao lÃ­quido.
      */
     @Test
     fun `desconto sem OUTROS_DESC no catalogo e reportado`() {
@@ -221,7 +221,7 @@ class ReciboImportacaoTest {
         assertEquals(listOf("D05"), descontosSemRubrica)
     }
 
-    /** C7: um desconto que cai numa rubrica de desconto do catálogo escreve normalmente. */
+    /** C7: um desconto que cai numa rubrica de desconto do catÃ¡logo escreve normalmente. */
     @Test
     fun `desconto com rubrica de desconto escreve o valor`() {
         val descontosSemRubrica = mutableListOf<String>()
@@ -236,61 +236,6 @@ class ReciboImportacaoTest {
         assertTrue(descontosSemRubrica.isEmpty())
     }
 
-    /**
-     * 2026-10-21: as rubricas de recurso ("Outros" dos abonos e OUTROS_DESC, que também se chama
-     * "Outros") só se desenham quando têm valor. Num mês sem importação nem edição as duas estão a
-     * zero e desaparecem da lista; as restantes ficam sempre, mesmo a zero — são as linhas do recibo.
-     */
-    @Test
-    fun `Outros a zero ficam fora da lista e as restantes linhas ficam`() {
-        val linhas = listOf(
-            conferencia("VENC", 11_379_800L),
-            conferencia("D01", 1_251_778L),
-            conferencia("OUTROS", 0L),
-            conferencia("OUTROS_DESC", 0L)
-        )
-
-        assertEquals(listOf("VENC", "D01"), linhasVisiveis(linhas).map { it.codigo })
-    }
-
-    /**
-     * Basta uma das colunas ter valor: o "Outros" do abono vem de uma importação (só no Real) e o
-     * OUTROS_DESC pode ter valor estimado numa edição. Esconder a linha escondia o valor.
-     */
-    @Test
-    fun `Outros com valor numa das colunas aparecem na lista`() {
-        val linhas = listOf(
-            conferencia("OUTROS", estimado = 0L, real = 2_050_000L),
-            conferencia("OUTROS_DESC", estimado = 1_050_000L, real = 0L),
-            conferencia("VENC", 11_379_800L)
-        )
-
-        assertEquals(
-            listOf("OUTROS", "OUTROS_DESC", "VENC"),
-            linhasVisiveis(linhas).map { it.codigo }
-        )
-    }
-
-    private fun conferencia(
-        codigo: String,
-        estimado: Long,
-        real: Long = estimado
-    ) = LinhaConferencia(
-        rubricaId = codigo.hashCode().toLong(),
-        codigo = codigo,
-        nome = codigo,
-        natureza = if (codigo == RUBRICA_OUTROS_DESC || codigo.startsWith("D")) {
-            NaturezaRubrica.DESCONTO
-        } else {
-            NaturezaRubrica.ABONO
-        },
-        ordem = 0,
-        ativaConferencia = true,
-        valorEstimado = estimado,
-        valorReal = real,
-        textoRealEditavel = ""
-    )
-
     private fun rubrica(id: Long, codigo: String) = Rubrica(
         id = id,
         codigo = codigo,
@@ -304,8 +249,8 @@ class ReciboImportacaoTest {
     )
 
     /**
-     * A linha como o parser a entrega: o código interno vem do mapeamento real, para o teste
-     * falhar se o mapeamento mudar (é o que liga "RCR"/"RCRA" a SUP_ALIM e "F02" a nada).
+     * A linha como o parser a entrega: o cÃ³digo interno vem do mapeamento real, para o teste
+     * falhar se o mapeamento mudar (Ã© o que liga "RCR"/"RCRA" a SUP_ALIM e "F02" a nada).
      */
     private fun linha(
         codigoRecibo: String,

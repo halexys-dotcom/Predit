@@ -1,6 +1,7 @@
 package pt.haconnect.predit.domain.calc
 
 import java.time.LocalDate
+import java.time.YearMonth
 
 /**
  * Feriados nacionais portugueses, fixos e móveis, por ano.
@@ -67,4 +68,25 @@ fun feriadoMunicipal(ano: Int, dia: Int, mes: Int): Long? {
     } catch (_: Exception) {
         null
     }
+}
+
+/**
+ * O mês tem pelo menos um feriado? Nacionais (fixos e móveis do ano) mais o municipal, quando o
+ * município do contrato tem um dia fixo ([feriadoMunicipal]).
+ *
+ * Serve ao ecrã do recibo: as rubricas de feriado (`HSUP_DN_FER`, `HSUP_NT_FER`, `DESC_FER`,
+ * `ACR_NOT_FER`) só se desenham nos meses com feriado — num mês sem nenhum não há horas de
+ * feriado nem descanso trabalhado em feriado, e as linhas ficavam todas a 0,00. Agosto e dezembro
+ * trazem sempre feriado (15 ago; 1 e 8 e 25 dez); outubro traz o 5.
+ */
+fun temFeriadoNoMes(
+    anoMes: YearMonth,
+    municipioFeriadoDia: Int = 0,
+    municipioFeriadoMes: Int = 0
+): Boolean {
+    val doAno = buildSet {
+        addAll(feriadosNacionais(anoMes.year))
+        feriadoMunicipal(anoMes.year, municipioFeriadoDia, municipioFeriadoMes)?.let { add(it) }
+    }
+    return doAno.any { LocalDate.ofEpochDay(it).month == anoMes.month }
 }
