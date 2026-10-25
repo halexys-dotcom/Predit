@@ -306,6 +306,33 @@ h1 {
 .visto { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-top: 0.15rem; border-radius: 50%; background: rgba(0, 128, 255, 0.16); color: var(--azul-claro); font-size: 0.72rem; font-weight: 800; }
 .passos strong { color: var(--txt); }
 
+/* --- Guia "Como usar" -------------------------------------------- */
+.guia { counter-reset: passo; margin: 2.4rem 0 0; padding: 0; list-style: none; }
+.guia > li { counter-increment: passo; }
+/* 3 colunas no ecra largo (6 passos = 2 linhas certas); min() evita
+   transbordar em telemoveis com menos de 300px uteis. */
+.guia.grelha { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
+.guia .cartao { position: relative; height: 100%; }
+.passo-num {
+  display: grid; place-items: center;
+  width: 44px; height: 44px; margin-bottom: 0.9rem;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 12px;
+  background: rgba(0, 128, 255, 0.14);
+  color: var(--azul-claro);
+  font-size: 1.05rem; font-weight: 800;
+}
+.passo-num::before { content: counter(passo); }
+.caminho {
+  display: inline-block; margin: 0 0 0.6rem;
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--azul-claro);
+}
+.guia .cartao ul { margin: 0.6rem 0 0; padding-left: 1.1rem; font-size: 0.88rem; color: var(--txt-2); }
+.guia .cartao li + li { margin-top: 0.3rem; }
+.dicas { margin-top: 1.6rem; }
+.dicas .passos { margin-top: 1rem; }
+
 /* --- Galeria de ecras -------------------------------------------- */
 .galeria { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: clamp(1.4rem, 4vw, 2.8rem); margin-top: 2.6rem; }
 .galeria figure { display: flex; flex-direction: column; align-items: center; gap: 0.9rem; margin: 0; }
@@ -410,6 +437,7 @@ h1 {
       <ul class="menu">
         <li><a href="#funcionalidades">Funcionalidades</a></li>
         <li><a href="#turnos">Turnos</a></li>
+        <li><a href="#como-usar">Como usar</a></li>
         <li><a href="#ecras">Ecrãs</a></li>
         <li><a href="privacy.html">Privacidade</a></li>
       </ul>
@@ -567,6 +595,103 @@ h1 {
         <li><span class="visto" aria-hidden="true">✓</span><span><strong>Planeamento importado.</strong> O PDF mensal da empresa é lido e sobrepõe-se à projeção, incluindo o posto de cada dia.</span></li>
         <li><span class="visto" aria-hidden="true">✓</span><span><strong>Cor e abreviatura suas.</strong> As cores acima são as recomendadas; na app pode escolher entre 24 cores e mudar o nome e a abreviatura de cada tipo de turno.</span></li>
         <li><span class="visto" aria-hidden="true">✓</span><span><strong>Feriados incluídos.</strong> Feriados nacionais e municipais marcados automaticamente, com base no município do seu contrato.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="wrap" id="como-usar">
+    <h2 class="titulo-seccao">Como usar o Predit</h2>
+    <p class="lead">Do primeiro arranque à conferência do recibo, em seis passos. A app tem quatro separadores — <strong>Escala</strong>, <strong>Horário</strong>, <strong>Turnos</strong> e <strong>Mais</strong> — e cada passo diz onde encontrar o que precisa.</p>
+
+    <ol class="guia grelha">
+      <li>
+        <article class="cartao">
+          <span class="passo-num" aria-hidden="true"></span>
+          <span class="caminho">Mais → Contrato de Trabalho</span>
+          <h3>Configure o contrato</h3>
+          <p>No primeiro arranque a app abre o contrato. É daqui que saem os cálculos e os feriados.</p>
+          <ul>
+            <li>Data de admissão e categoria / nível do CCT.</li>
+            <li>Município (feriados municipais) e região fiscal (Continente, Açores ou Madeira).</li>
+            <li>Regime de horário: <strong>Rotação fixa</strong> ou <strong>PDF mensal</strong>.</li>
+            <li>Dados de IRS: estado civil, dependentes e IRS Jovem.</li>
+          </ul>
+        </article>
+      </li>
+
+      <li>
+        <article class="cartao">
+          <span class="passo-num" aria-hidden="true"></span>
+          <span class="caminho">Turnos → Adicionar tipo de turno</span>
+          <h3>Crie os tipos de turno</h3>
+          <p>Defina cada tipo de dia que faz: nome, abreviatura, cor e horário (início, fim e pausa).</p>
+          <ul>
+            <li>24 cores à escolha; as recomendadas são as da legenda acima.</li>
+            <li>Um tipo que já não usa pode ser desativado sem perder o histórico.</li>
+          </ul>
+        </article>
+      </li>
+
+      <li>
+        <article class="cartao">
+          <span class="passo-num" aria-hidden="true"></span>
+          <span class="caminho">Turnos → Rotações · Mais → Importar Horário</span>
+          <h3>Monte a escala</h3>
+          <p>Escolha a via que corresponde ao regime do contrato:</p>
+          <ul>
+            <li><strong>Rotação fixa:</strong> crie a rotação tocando em cada dia do ciclo para o pintar com um turno; depois toque em Aplicar e indique o dia em que o ciclo começa e a data em que entra em vigor.</li>
+            <li><strong>PDF mensal:</strong> em Importar Horário, toque em «Escolher ficheiro PDF», escolha o planeamento da empresa e confirme em Importar.</li>
+          </ul>
+        </article>
+      </li>
+
+      <li>
+        <article class="cartao">
+          <span class="passo-num" aria-hidden="true"></span>
+          <span class="caminho">Escala → tocar num dia</span>
+          <h3>Marque as ausências</h3>
+          <p>Toque no dia e escolha «Marcar ausência» para registar férias, baixa médica ou feriado por período.</p>
+          <ul>
+            <li>A ausência substitui o turno projetado nesses dias.</li>
+            <li>A lista completa fica em Mais → Ausências Registadas.</li>
+          </ul>
+        </article>
+      </li>
+
+      <li>
+        <article class="cartao">
+          <span class="passo-num" aria-hidden="true"></span>
+          <span class="caminho">Escala → tocar num dia · Horário</span>
+          <h3>Registe as horas reais</h3>
+          <p>No fim de cada dia toque em «Registar horas»: tipo de turno, início, fim, pausa e, se quiser, o posto.</p>
+          <ul>
+            <li>Em Horário → Mês vê as horas reais contra as previstas e a diferença.</li>
+            <li>Em Horário → Conferência acompanha o ciclo semestral de jornada.</li>
+          </ul>
+        </article>
+      </li>
+
+      <li>
+        <article class="cartao">
+          <span class="passo-num" aria-hidden="true"></span>
+          <span class="caminho">Mais → Recibo de vencimento</span>
+          <h3>Confira o recibo</h3>
+          <p>Escolha o mês e introduza os valores do recibo — ou toque em «Importar recibo PDF» para os ler do ficheiro.</p>
+          <ul>
+            <li>Cada rubrica mostra o valor estimado pela app ao lado do real.</li>
+            <li>As diferenças ficam assinaladas, para saber o que reclamar.</li>
+          </ul>
+        </article>
+      </li>
+    </ol>
+
+    <div class="cartao dicas">
+      <h3>Dicas para o dia a dia</h3>
+      <ul class="passos">
+        <li><span class="visto" aria-hidden="true">✓</span><span><strong>Faça backups.</strong> A app guarda sozinha um backup interno em cada arranque (os últimos 10). Antes de mudar de telemóvel use Mais → Backups → «Criar backup para ficheiro» e, no novo, «Restaurar de ficheiro».</span></li>
+        <li><span class="visto" aria-hidden="true">✓</span><span><strong>Mantenha a app atualizada.</strong> Pelo Google Play as atualizações são automáticas; quem instalou o APK verifica em Mais → Atualizações.</span></li>
+        <li><span class="visto" aria-hidden="true">✓</span><span><strong>Simule o IRS.</strong> Em Mais → Simulador de IRS estima se vai pagar ou receber no acerto anual.</span></li>
+        <li><span class="visto" aria-hidden="true">✓</span><span><strong>Volte ao dia de hoje.</strong> Nos ecrãs com calendário, o botão «Hoje» leva-o de volta ao mês atual.</span></li>
       </ul>
     </div>
   </section>
