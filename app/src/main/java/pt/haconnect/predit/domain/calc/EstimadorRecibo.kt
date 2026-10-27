@@ -316,12 +316,16 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
 
     // Atrasos: minutos em falta por dia com turno projetado de trabalho e registo real
     // MANUAL, fora de ausencias. Cada minuto vale o valor/minuto (0,1095 EUR).
+    // A régua é a do dia: no modo PDF são as horas do turno impresso (minutosPrevistos), não a
+    // duração do tipo derivado — senão um turno de 12h medido contra um tipo de 8h inventava 4h
+    // de atraso, tal como inventava 4h de suplemento quando era o contrário.
     fun minutosAtrasoDoDia(dia: DiaProjetado): Int {
         val tipo = dia.tipoTurnoId?.let { tipos[it] } ?: return 0
         if (tipo.categoria != CategoriaTurno.TRABALHO) return 0
         if (dentroDeAusencia(dia.epochDay, ctx.ausencias)) return 0
         val real = ctx.diasReais.firstOrNull { it.data == dia.epochDay && it.origem == "MANUAL" } ?: return 0
-        val prevista = duracaoMinutos(tipo.inicioMin, tipo.fimMin, tipo.pausaMin)
+        val prevista = dia.minutosPrevistos?.takeIf { it > 0 }
+            ?: duracaoMinutos(tipo.inicioMin, tipo.fimMin, tipo.pausaMin)
         val realMin = duracaoMinutos(real.inicioMin, real.fimMin, real.pausaMin)
         return (prevista - realMin).coerceAtLeast(0)
     }
@@ -600,8 +604,10 @@ private fun ehTrabalhoProjetado(dia: DiaProjetado, tipos: Map<Long, TipoTurno>):
  *
  * Regra do CCT confirmada pelo utilizador (2026-10-19): o suplemento só existe quando as horas
  * reais passam as horas previstas **daquele dia**; um dia curto não se compensa com um dia
- * longo. A régua é, por ordem: o turno projetado pela rotação; o tipo do próprio registo (o
- * editor guarda o tipo escolhido); e, sem nenhum deles, a jornada normal de 8h — que é também a
+ * longo. A régua é, por ordem: as horas do próprio dia projetado quando a projeção as traz
+ * ([DiaProjetado.minutosPrevistos] — no modo PDF a escala é o turno impresso, mesmo que não haja
+ * nenhum tipo de turno com essas horas); o turno projetado pela rotação; o tipo do próprio registo
+ * (o editor guarda o tipo escolhido); e, sem nenhum deles, a jornada normal de 8h — que é também a
  * régua de quem trabalha uma folga (aí a folga vale 200% em DESC_DESC e o excedente sai pelas
  * HSUP_*_DESC).
  */
@@ -610,8 +616,10 @@ private fun jornadaPrevistaDoDia(
     projecaoDoMes: List<DiaProjetado>,
     tipos: Map<Long, TipoTurno>
 ): Int {
-    val projetado = projecaoDoMes.firstOrNull { it.epochDay == dia.data }
-        ?.tipoTurnoId?.let { tipos[it] }
+    val projetadoDoDia = projecaoDoMes.firstOrNull { it.epochDay == dia.data }
+    val minutosProjetados = projetadoDoDia?.minutosPrevistos ?: 0
+    if (minutosProjetados > 0) return minutosProjetados
+    val projetado = projetadoDoDia?.tipoTurnoId?.let { tipos[it] }
     if (projetado != null && projetado.categoria == CategoriaTurno.TRABALHO) {
         val previsto = duracaoMinutos(projetado.inicioMin, projetado.fimMin, projetado.pausaMin)
         if (previsto > 0) return previsto

@@ -14,8 +14,9 @@ import pt.haconnect.predit.data.repository.PlanejamentoMesRepository
 import pt.haconnect.predit.domain.importacao.AcaoImportacaoDia
 import pt.haconnect.predit.domain.importacao.PlanoImportado
 import pt.haconnect.predit.domain.importacao.decidirImportacaoDia
+import pt.haconnect.predit.domain.importacao.diaManualComPrevistoDoPdf
+import pt.haconnect.predit.domain.importacao.diaRealDoPdf
 import pt.haconnect.predit.domain.importacao.parsePdfPlanner
-import pt.haconnect.predit.domain.model.DiaReal
 import pt.haconnect.predit.domain.model.PlanejamentoMes
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -121,23 +122,17 @@ class ImportacaoViewModel(
                 val existente = existentesMap[diaImp.epochDay]
                 when (decidirImportacaoDia(existente)) {
                     AcaoImportacaoDia.INSERIR, AcaoImportacaoDia.ATUALIZAR -> {
-                        val idExistente = existente?.id ?: 0L
-                        diaRealRepository.guardar(
-                            DiaReal(
-                                id = idExistente,
-                                data = diaImp.epochDay,
-                                tipoTurnoId = null,
-                                inicioMin = diaImp.inicioMin,
-                                fimMin = diaImp.fimMin,
-                                pausaMin = diaImp.pausaMin,
-                                nota = null,
-                                origem = "PDF",
-                                posto = diaImp.posto
-                            )
-                        )
+                        // Fase 29: grava as horas do PDF também nas colunas previstas.
+                        diaRealRepository.guardar(diaRealDoPdf(diaImp, existente?.id ?: 0L))
                         contagemImportados++
                     }
                     AcaoImportacaoDia.MANTER_MANUAL -> {
+                        // O utilizador já corrigiu este dia: horas reais, tipo, nota e posto ficam
+                        // como estão. Só o previsto do PDF é reposto — é isto que devolve a escala
+                        // aos dias editados e preenche os importados antes da migração 23→24.
+                        if (existente != null) {
+                            diaRealRepository.guardar(diaManualComPrevistoDoPdf(existente, diaImp))
+                        }
                         contagemManuaisPreservados++
                     }
                 }

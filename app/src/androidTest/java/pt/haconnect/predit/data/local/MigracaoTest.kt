@@ -195,4 +195,16 @@ class MigracaoTest {
         helper.createDatabase("teste-migracao-22-23", 22).apply { close() }
         helper.runMigrationsAndValidate("teste-migracao-22-23", 23, true, PreditDatabase.MIGRATION_22_23)
     }
+
+    /**
+     * Fase 29: o dia_real ganha o turno que o PDF previa (início, fim e pausa) para sobreviver à
+     * edição do dia. O esquema é validado contra o 24.json: as três colunas ficam INTEGER nullable
+     * e sem DEFAULT — null é "não sei o previsto", e os dias importados antes desta fase ficam
+     * todos assim, logo continuam a usar as horas da própria linha como régua.
+     */
+    @Test
+    fun migrar23Para24() {
+        helper.createDatabase("teste-migracao-23-24", 23).apply { close() }
+        helper.runMigrationsAndValidate("teste-migracao-23-24", 24, true, PreditDatabase.MIGRATION_23_24)
+    }
 }

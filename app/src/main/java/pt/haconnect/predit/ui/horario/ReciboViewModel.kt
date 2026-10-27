@@ -26,10 +26,10 @@ import pt.haconnect.predit.domain.calc.AplicacaoVigente
 import pt.haconnect.predit.domain.calc.ContextoCalculo
 import pt.haconnect.predit.domain.calc.ContextoEstimativa
 import pt.haconnect.predit.domain.calc.NaturezaRubrica
+import pt.haconnect.predit.domain.calc.TIPO_ESCALA_ROTACAO
 import pt.haconnect.predit.domain.calc.estimarRecibo
 import pt.haconnect.predit.domain.calc.janelaNoturna
 import pt.haconnect.predit.domain.calc.projecaoParaEstimativa
-import pt.haconnect.predit.domain.calc.projetarIntervalo
 import pt.haconnect.predit.domain.calc.temFeriadoNoMes
 import pt.haconnect.predit.domain.calc.temFeriasNoMesOuSeguinte
 import pt.haconnect.predit.domain.calc.valorHoraMil
@@ -1161,12 +1161,19 @@ class ReciboViewModel(
             contrato?.categoriaCodigo ?: CATEGORIA_CCT_PADRAO,
             inicio
         )
-        val categorias = tipoTurnoRepository.observarTodos().first()
-            .associate { it.id to it.categoria }
-        val projetados = projetarIntervalo(
-            inicio,
-            anoMes.atEndOfMonth().toEpochDay(),
-            rotacaoRepository.obterTodasAplicacoes()
+        val tiposTurno = tipoTurnoRepository.observarTodos().first()
+        val categorias = tiposTurno.associate { it.id to it.categoria }
+        val fimDoMes = anoMes.atEndOfMonth().toEpochDay()
+        // v2.1.2: a régua do cabeçalho é a mesma do estimador. Com projetarIntervalo, um contrato
+        // PDF_MENSAL gravava 0 dias úteis (a rotação está vazia) enquanto a estimativa contava os
+        // dias do PDF — o cabeçalho e o recibo diziam números diferentes.
+        val projetados = projecaoParaEstimativa(
+            tipoEscala = contrato?.tipoEscala ?: TIPO_ESCALA_ROTACAO,
+            diasReais = diaRealRepository.obterNoIntervalo(inicio, fimDoMes),
+            deEpochDay = inicio,
+            ateEpochDay = fimDoMes,
+            aplicacoes = rotacaoRepository.obterTodasAplicacoes(),
+            tiposTurno = tiposTurno
         )
         val diasUteis = projetados.count { dia ->
             dia.tipoTurnoId?.let { categorias[it] } == CategoriaTurno.TRABALHO

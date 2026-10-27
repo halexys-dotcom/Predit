@@ -169,7 +169,14 @@ fun EditorDiaRealScreen(
                                             pausaMin = pausaMin,
                                             nota = nota.trim().ifEmpty { null },
                                             origem = "MANUAL",
-                                            posto = posto.trim().ifEmpty { null }
+                                            posto = posto.trim().ifEmpty { null },
+                                            // Fase 29: editar o dia não apaga a escala do PDF. O
+                                            // previsto vem do registo que já existia (o editor
+                                            // não o mostra nem deixa editar) e sobrevive à
+                                            // mudança de origem para MANUAL.
+                                            previstoInicioMin = registoExistente?.previstoInicioMin,
+                                            previstoFimMin = registoExistente?.previstoFimMin,
+                                            previstoPausaMin = registoExistente?.previstoPausaMin
                                         )
                                     )
                                     onVoltar()

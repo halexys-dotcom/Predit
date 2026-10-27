@@ -30,7 +30,11 @@ data class DiaRealEntity(
     val pausaMin: Int,
     val nota: String?,
     val origem: String,             // "PDF" | "MANUAL"
-    val posto: String? = null       // NOVO
+    val posto: String? = null,      // NOVO
+    // Fase 29: turno previsto pelo PDF, preservado quando o dia é editado para MANUAL.
+    val previstoInicioMin: Int? = null,
+    val previstoFimMin: Int? = null,
+    val previstoPausaMin: Int? = null
 )
 
 fun DiaRealEntity.paraModelo(): DiaReal = DiaReal(
@@ -42,7 +46,10 @@ fun DiaRealEntity.paraModelo(): DiaReal = DiaReal(
     pausaMin = pausaMin,
     nota = nota,
     origem = origem,
-    posto = posto
+    posto = posto,
+    previstoInicioMin = previstoInicioMin,
+    previstoFimMin = previstoFimMin,
+    previstoPausaMin = previstoPausaMin
 )
 
 fun DiaReal.paraEntidade(): DiaRealEntity = DiaRealEntity(
@@ -54,5 +61,8 @@ fun DiaReal.paraEntidade(): DiaRealEntity = DiaRealEntity(
     pausaMin = pausaMin,
     nota = nota,
     origem = origem,
-    posto = posto
+    posto = posto,
+    previstoInicioMin = previstoInicioMin,
+    previstoFimMin = previstoFimMin,
+    previstoPausaMin = previstoPausaMin
 )

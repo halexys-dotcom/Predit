@@ -14,7 +14,6 @@ import pt.haconnect.predit.data.repository.PlanejamentoMesRepository
 import pt.haconnect.predit.data.repository.RotacaoRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.AplicacaoVigente
-import pt.haconnect.predit.domain.calc.ORIGEM_PDF
 import pt.haconnect.predit.domain.calc.TIPO_ESCALA_PDF_MENSAL
 import pt.haconnect.predit.domain.calc.TIPO_ESCALA_ROTACAO
 import pt.haconnect.predit.domain.calc.aplicarAusencias
@@ -24,6 +23,7 @@ import pt.haconnect.predit.domain.calc.feriadoMunicipal
 import pt.haconnect.predit.domain.calc.feriadosNacionais
 import pt.haconnect.predit.domain.calc.temEscalaAplicada
 import pt.haconnect.predit.domain.calc.tipoDerivadoDoPdf
+import pt.haconnect.predit.domain.calc.veioDoPdf
 import pt.haconnect.predit.domain.model.Ausencia
 import pt.haconnect.predit.domain.model.CategoriaTurno
 import pt.haconnect.predit.domain.model.ContratoUtilizador
@@ -164,12 +164,18 @@ class EscalaViewModel(
             // chip deriva-se das horas do PDF; o texto continua a ser o posto (EscalaScreen).
             // FOLGA efetiva manda sobre tudo: mesmo em modo PDF com diaReal, o chip mostra Folga
             // (regra do utilizador). Os outros tipos de ausência mantêm o comportamento atual.
+            //
+            // Fase 29: os dias do PDF editados pelo utilizador (a linha passou a MANUAL mas guarda
+            // o previsto, [veioDoPdf]) continuam na grelha e mostram o tipo do próprio registo —
+            // é o turno que ele diz ter trabalhado. Sem tipo no registo, deriva-se das horas
+            // reais, como se fazia com os dias importados; o previsto só serve de régua ao
+            // estimador, nunca ao chip (uma folga do PDF trabalhada mostra o turno que se fez).
             val categoriaAus = ausenciaEfetiva?.tipoTurnoId?.let { categoriasPorTipo[it] }
             val tipoChip = when {
                 categoriaAus == CategoriaTurno.FOLGA ->
                     ausenciaEfetiva?.tipoTurnoId?.let { mapaTipos[it] }
-                tipoEscala == TIPO_ESCALA_PDF_MENSAL && diaReal?.origem == ORIGEM_PDF ->
-                    tipoDerivadoDoPdf(diaReal, tipos)
+                tipoEscala == TIPO_ESCALA_PDF_MENSAL && diaReal != null && diaReal.veioDoPdf() ->
+                    diaReal.tipoTurnoId?.let { mapaTipos[it] } ?: tipoDerivadoDoPdf(diaReal, tipos)
                 else -> estado?.tipoTurnoChipId?.let { mapaTipos[it] }
             }
 

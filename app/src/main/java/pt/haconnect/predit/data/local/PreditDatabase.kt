@@ -25,7 +25,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MunicipioEntity::class,
         MapeamentoRubricaEntity::class
     ],
-    version = 23,
+    version = 24,
     exportSchema = true
 )
 @TypeConverters(Conversores::class)
@@ -53,7 +53,7 @@ abstract class PreditDatabase : RoomDatabase() {
          * o valor vive duplicado lá em cima — o T1 do BackupManagerTest guarda a sincronia:
          * se um subir e o outro não, o teste falha.
          */
-        const val VERSAO_BD = 23
+        const val VERSAO_BD = 24
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -340,6 +340,21 @@ abstract class PreditDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE tabela_irs ADD COLUMN coeficienteK INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE tabela_irs ADD COLUMN limiteX INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("DELETE FROM tabela_irs")
+            }
+        }
+
+        /**
+         * Fase 29: o dia_real ganha o turno que o PDF previa, para sobreviver à edição do dia.
+         * O esquema é validado contra o 24.json: as três colunas ficam INTEGER nullable, sem
+         * default — null é "não sei o previsto" (dias importados antes desta fase), e nesse caso
+         * a régua volta a ser as horas da própria linha. Nada é reescrito na migração: quem já
+         * tinha BD mantém os valores exatamente como estavam.
+         */
+        val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE dia_real ADD COLUMN previstoInicioMin INTEGER")
+                db.execSQL("ALTER TABLE dia_real ADD COLUMN previstoFimMin INTEGER")
+                db.execSQL("ALTER TABLE dia_real ADD COLUMN previstoPausaMin INTEGER")
             }
         }
     }

@@ -1050,7 +1050,7 @@ class EstimadorReciboTest {
         )
 
         // O sábado trabalhado com folga projetada é DESC_DESC (2x o valor/hora)
-        // 8h x 65 700 x 2 = 525 600 x 2 = 1 051 200
+        // 8h x 65 700 x 2 = 525 600 x 2 = 1 051 200 (unidades de 1/10 000 EUR = 105,12 EUR)
         assertEquals(1_051_200L, estimativa.valor("DESC_DESC"))
         // A projeção é de agosto e não conta para setembro: sem dias efetivos em setembro, o
         // VENC fica no valor base.
@@ -1176,6 +1176,344 @@ class EstimadorReciboTest {
         assertEquals(11_379_800L, est.valor("VENC"))
         assertEquals(512_548L, est.valor("D02"))
     }
+
+    /**
+     * T32 (2026-10-21, auditoria ponto 2): sem nada editado no telemóvel, um dia do PDF de
+     * 08:00-20:00 (12h) não gera horas extra. O catálogo só tem o "Tarde 8h" (13h-21h), que é
+     * o tipo derivado do PDF; até aqui a régua era a duração desse tipo — 8h — e o estimador
+     * inventava 4h de HSUP_DN num mês em que o PDF é a própria escala.
+     */
+    @Test
+    fun `T32 - turno de 12h do PDF sem tipo correspondente nao inventa horas extra`() {
+        val setembro = YearMonth.of(2026, 9)
+        val dia = DiaReal(
+            data = setembro.atDay(1).toEpochDay(),
+            tipoTurnoId = null,             // o importador do PDF grava sempre null
+            inicioMin = 8 * 60,
+            fimMin = 20 * 60,
+            pausaMin = 0,
+            origem = ORIGEM_PDF
+        )
+        val projecao = projecaoParaEstimativa(
+            tipoEscala = TIPO_ESCALA_PDF_MENSAL,
+            diasReais = listOf(dia),
+            deEpochDay = dia.data,
+            ateEpochDay = dia.data,
+            aplicacoes = emptyList(),       // contrato PDF não tem rotação nenhuma
+            tiposTurno = listOf(tipoTrabalho)
+        )
+        // A régua é o turno impresso no PDF, não os 8h do "Tarde 8h".
+        assertEquals(12 * 60, projecao.single().minutosPrevistos)
+
+        val est = estimarRecibo(
+            contexto(setembro, listOf(dia), projecao = projecao)
+                .copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        assertEquals(0L, est.valor("HSUP_DN"))
+        assertEquals(0L, est.valor("HSUP_NT"))
+        assertEquals(0L, est.valor("HSUP_DN_FER"))
+        assertEquals(0L, est.valor("HNOT"))
+        // Sem registo MANUAL não há horas em falta nenhumas.
+        assertEquals(0L, est.valor("ATRASO"))
+    }
+
+    /**
+     * T33: o mesmo para um turno do PDF que atravessa a meia-noite (22:00-08:00). Não há horas
+     * extra — o dia rendeu exatamente o previsto — e o HNOT só apanha a janela noturna do turno,
+     * que aqui são as 8h das 22h às 6h (janela moderna, admissão em 2020).
+     */
+    @Test
+    fun `T33 - turno noturno de 10h do PDF nao da horas extra e o HNOT so conta a janela`() {
+        val setembro = YearMonth.of(2026, 9)
+        val dia = DiaReal(
+            data = setembro.atDay(1).toEpochDay(),
+            tipoTurnoId = null,
+            inicioMin = 22 * 60,
+            fimMin = 8 * 60,
+            pausaMin = 0,
+            origem = ORIGEM_PDF
+        )
+        val projecao = projecaoParaEstimativa(
+            tipoEscala = TIPO_ESCALA_PDF_MENSAL,
+            diasReais = listOf(dia),
+            deEpochDay = dia.data,
+            ateEpochDay = dia.data,
+            aplicacoes = emptyList(),
+            tiposTurno = listOf(tipoTrabalho)
+        )
+        // 22:00 -> 08:00 são 600 min; a pausa não entra, mas não há pausa.
+        assertEquals(10 * 60, projecao.single().minutosPrevistos)
+
+        val est = estimarRecibo(
+            contexto(setembro, listOf(dia), projecao = projecao)
+                .copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        assertEquals(0L, est.valor("HSUP_DN"))
+        assertEquals(0L, est.valor("HSUP_NT"))
+        // 480 min (22h-06h) x 6,57 EUR x 1/4 / 60 = 13,14 EUR.
+        assertEquals(131_400L, est.valor("HNOT"))
+    }
+
+    /**
+     * T34 (fase 29): um dia do PDF que o utilizador editou passa a linha MANUAL com as horas
+     * reais, mas a régua das horas extra e dos atrasos continua a ser o turno do PDF, agora nas
+     * colunas `previsto*`. O PDF previa 12h, fez 10h: zero horas extra e 2h em falta — e não as
+     * 8h do "Tarde 8h" que é o tipo derivado do dia.
+     */
+    @Test
+    fun `T34 - dia do PDF editado mede extras e atrasos pelo previsto`() {
+        val setembro = YearMonth.of(2026, 9)
+        val editado = DiaReal(
+            data = setembro.atDay(1).toEpochDay(),
+            tipoTurnoId = tipoTrabalho.id,   // o utilizador registou o turno da tarde
+            inicioMin = 8 * 60,
+            fimMin = 18 * 60,                // 10h reais
+            pausaMin = 0,
+            origem = "MANUAL",
+            previstoInicioMin = 8 * 60,
+            previstoFimMin = 20 * 60,        // o PDF previa 12h
+            previstoPausaMin = 0
+        )
+        val projecao = projecaoParaEstimativa(
+            tipoEscala = TIPO_ESCALA_PDF_MENSAL,
+            diasReais = listOf(editado),
+            deEpochDay = editado.data,
+            ateEpochDay = editado.data,
+            aplicacoes = emptyList(),
+            tiposTurno = listOf(tipoTrabalho)
+        )
+        assertEquals(12 * 60, projecao.single().minutosPrevistos)
+
+        val est = estimarRecibo(
+            contexto(setembro, listOf(editado), projecao = projecao)
+                .copy(tiposTurno = listOf(tipoTrabalho))
+        )
+
+        assertEquals(0L, est.valor("HSUP_DN"))
+        assertEquals(0L, est.valor("HSUP_NT"))
+        assertEquals(0L, est.valor("HNOT"))
+        // 2h em falta × 65 700 / 60 = 131 400 (a rubrica é informativa; o corte faz-se no VENC).
+        assertEquals(131_400L, est.valor("ATRASO"))
+        assertEquals(11_379_800L - 131_400L, est.valor("VENC"))
+    }
+
+    /**
+     * T35 (fase 29, auditoria ponto 2): folga do PDF trabalhada depois de editada. O registo diz
+     * que se trabalhou 8h num turno de trabalho, mas o previsto do PDF é 0h — logo o dia é
+     * descanso e paga DESC_DESC a 200% (8h × 65 700 × 2). A régua das HSUP_DESC não muda nesta
+     * tarefa: sem horas previstas, o teto continua a ser as 8h do tipo do registo.
+     */
+    @Test
+    fun `T35 - folga do PDF trabalhada e editada continua a pagar DESC_DESC`() {
+        val setembro = YearMonth.of(2026, 9)
+        val folgaTipo = TipoTurno(
+            id = 99L,
+            nome = "Folga",
+            abreviatura = "F",
+            cor = 0xFF7F8C8DL,
+            inicioMin = 0,
+            fimMin = 0,
+            pausaMin = 0,
+            categoria = CategoriaTurno.FOLGA,
+            ativo = true
+        )
+        val trabalhadoNaFolga = DiaReal(
+            data = setembro.atDay(5).toEpochDay(),
+            tipoTurnoId = tipoTrabalho.id,
+            inicioMin = 13 * 60,
+            fimMin = 21 * 60,
+            pausaMin = 0,
+            origem = "MANUAL",
+            previstoInicioMin = 0,
+            previstoFimMin = 0,
+            previstoPausaMin = 0
+        )
+        val tipos = listOf(tipoTrabalho, folgaTipo)
+        val projecao = projecaoParaEstimativa(
+            tipoEscala = TIPO_ESCALA_PDF_MENSAL,
+            diasReais = listOf(trabalhadoNaFolga),
+            deEpochDay = trabalhadoNaFolga.data,
+            ateEpochDay = trabalhadoNaFolga.data,
+            aplicacoes = emptyList(),
+            tiposTurno = tipos
+        )
+        assertEquals(
+            "previsto de 0h é folga, apesar do tipo de trabalho no registo",
+            folgaTipo.id,
+            projecao.single().tipoTurnoId
+        )
+
+        val est = estimarRecibo(
+            contexto(setembro, listOf(trabalhadoNaFolga), projecao = projecao)
+                .copy(tiposTurno = tipos)
+        )
+
+        // 8h × 65 700 × 2 = 1 051 200 unidades de 1/10 000 € — 105,12 €.
+        assertEquals(1_051_200L, est.valor("DESC_DESC"))
+        // Exatamente as 8h da jornada: nada passa para as HSUP de descanso.
+        assertEquals(0L, est.valor("HSUP_DN_DESC"))
+        assertEquals(0L, est.valor("HSUP_NT_DESC"))
+        assertEquals(0L, est.valor("ATRASO"))
+    }
+
+    /**
+     * T36 (fase 29, auditoria: as folgas do PDF não existem como linha no dia_real): mês do PDF
+     * com os dias de trabalho importados — e só esses, como a importação os produz — mais uma
+     * folga trabalhada registada de raiz no telemóvel, no sábado que o PDF não lista. Não há
+     * linha com `previsto*`: o único caso real de folga trabalhada é este. É a projeção que tem
+     * de dizer que o dia era folga, senão o registo não paga os 200% do DESC_DESC.
+     */
+    @Test
+    fun `T36 - folga trabalhada num dia que o PDF nao lista paga DESC_DESC`() {
+        val setembro = YearMonth.of(2026, 9)
+        val folgaTipo = tipoFolga()
+        val doPdf = turnosDoPdfNoMes(setembro)
+        // 5 de setembro de 2026 é sábado: o PDF não tem linha nenhuma para este dia.
+        val trabalhouNaFolga = DiaReal(
+            data = LocalDate.of(2026, 9, 5).toEpochDay(),
+            tipoTurnoId = null,              // registo de raiz: sem tipo, sem previsto
+            inicioMin = 13 * 60,
+            fimMin = 21 * 60,
+            pausaMin = 0,
+            origem = "MANUAL"
+        )
+        val tipos = listOf(tipoTrabalho, folgaTipo)
+
+        val projecao = projecaoParaEstimativa(
+            tipoEscala = TIPO_ESCALA_PDF_MENSAL,
+            diasReais = doPdf + trabalhouNaFolga,
+            deEpochDay = setembro.atDay(1).toEpochDay(),
+            ateEpochDay = setembro.atEndOfMonth().toEpochDay(),
+            aplicacoes = emptyList(),
+            tiposTurno = tipos
+        )
+        val folgaProjetada = projecao.first { it.epochDay == trabalhouNaFolga.data }
+        assertEquals("o dia sem linha do PDF é folga", folgaTipo.id, folgaProjetada.tipoTurnoId)
+        assertEquals(0, folgaProjetada.minutosPrevistos)
+
+        val est = estimarRecibo(
+            contexto(setembro, doPdf + trabalhouNaFolga, projecao = projecao)
+                .copy(tiposTurno = tipos)
+        )
+
+        // 8h × 65 700 × 2 = 1 051 200 unidades de 1/10 000 €, ou seja 105,12 €.
+        assertEquals(1_051_200L, est.valor("DESC_DESC"))
+        // A jornada é só as 8h da folga: nada passa para os suplementos de descanso.
+        assertEquals(0L, est.valor("HSUP_DN_DESC"))
+        assertEquals(0L, est.valor("HSUP_NT_DESC"))
+        assertEquals(0L, est.valor("HSUP_DN"))
+        assertEquals(0L, est.valor("HSUP_NT"))
+        assertEquals(0L, est.valor("ATRASO"))
+        // Os dias úteis continuam a ser os 22 do PDF: o subsídio não ganha um dia.
+        assertEquals(1_727_000L, est.valor("SUP_ALIM"))
+        assertEquals(11_379_800L, est.valor("VENC"))
+    }
+
+    /**
+     * T37: as mesmas folgas implícitas, sem ninguém as ter trabalhado, não mexem em nada. A
+     * projeção ganha dias (todos os que o PDF não lista), mas o recibo fica igual ao que saía
+     * quando só os dias com linha estavam na projeção — é isso que torna a correção segura.
+     */
+    @Test
+    fun `T37 - folgas implicitas do PDF nao mudam o recibo sem registo`() {
+        val setembro = YearMonth.of(2026, 9)
+        val folgaTipo = tipoFolga()
+        val doPdf = turnosDoPdfNoMes(setembro)
+        val tipos = listOf(tipoTrabalho, folgaTipo)
+
+        val projecao = projecaoParaEstimativa(
+            tipoEscala = TIPO_ESCALA_PDF_MENSAL,
+            diasReais = doPdf,
+            deEpochDay = setembro.atDay(1).toEpochDay(),
+            ateEpochDay = setembro.atEndOfMonth().toEpochDay(),
+            aplicacoes = emptyList(),
+            tiposTurno = tipos
+        )
+        // A projeção de antes desta correção: só os dias com linha do PDF.
+        val diasComLinha = doPdf.map { it.data }.toSet()
+        val projecaoAntiga = projecao.filter { it.epochDay in diasComLinha }
+
+        val comFolgas = estimarRecibo(
+            contexto(setembro, doPdf, projecao = projecao).copy(tiposTurno = tipos)
+        )
+        val antesDaCorrecao = estimarRecibo(
+            contexto(setembro, doPdf, projecao = projecaoAntiga).copy(tiposTurno = tipos)
+        )
+
+        assertEquals(
+            "nenhuma rubrica muda: as folgas não trabalham nem dão dias úteis",
+            antesDaCorrecao.rubricas.map { it.codigo to it.valorMil },
+            comFolgas.rubricas.map { it.codigo to it.valorMil }
+        )
+        assertEquals(1_727_000L, comFolgas.valor("SUP_ALIM"))
+        assertEquals(11_379_800L, comFolgas.valor("VENC"))
+        assertEquals(0L, comFolgas.valor("DESC_DESC"))
+        assertEquals(0L, comFolgas.valor("ATRASO"))
+    }
+
+    /** T38: sem uma única linha do PDF no mês não há folgas implícitas — projeção vazia. */
+    @Test
+    fun `T38 - mes sem linhas do PDF continua sem projecao`() {
+        val outubro = YearMonth.of(2026, 10)
+        val manual = DiaReal(
+            data = outubro.atDay(1).toEpochDay(),
+            tipoTurnoId = tipoTrabalho.id,
+            inicioMin = 13 * 60,
+            fimMin = 21 * 60,
+            pausaMin = 0,
+            origem = "MANUAL"
+        )
+
+        val projecao = projecaoParaEstimativa(
+            tipoEscala = TIPO_ESCALA_PDF_MENSAL,
+            diasReais = listOf(manual),
+            deEpochDay = outubro.atDay(1).toEpochDay(),
+            ateEpochDay = outubro.atEndOfMonth().toEpochDay(),
+            aplicacoes = emptyList(),
+            tiposTurno = listOf(tipoTrabalho, tipoFolga())
+        )
+        assertTrue("sem PDF não há escala para projetar", projecao.isEmpty())
+
+        // E o dia não é descanso nenhum: sem projeção não há DESC_DESC.
+        val est = estimarRecibo(contexto(outubro, listOf(manual), projecao = projecao))
+        assertEquals(0L, est.valor("DESC_DESC"))
+    }
+
+    /** Tipo de folga como a app o semeia, para a projeção poder marcar dias de descanso. */
+    private fun tipoFolga() = TipoTurno(
+        id = 99L,
+        nome = "Folga",
+        abreviatura = "F",
+        cor = 0xFF7F8C8DL,
+        inicioMin = 0,
+        fimMin = 0,
+        pausaMin = 0,
+        categoria = CategoriaTurno.FOLGA,
+        ativo = true
+    )
+
+    /**
+     * O que a importação do PDF produz num mês: uma linha por dia útil com horas (13h-21h, sem
+     * tipo e com origem PDF). As folgas não geram linha nenhuma — daí a correção de T36.
+     */
+    private fun turnosDoPdfNoMes(mes: YearMonth): List<DiaReal> =
+        (1..mes.lengthOfMonth()).mapNotNull { numero ->
+            val data = mes.atDay(numero)
+            if (data.dayOfWeek.value >= 6) {
+                null
+            } else {
+                DiaReal(
+                    data = data.toEpochDay(),
+                    tipoTurnoId = null,
+                    inicioMin = 13 * 60,
+                    fimMin = 21 * 60,
+                    pausaMin = 0,
+                    origem = ORIGEM_PDF
+                )
+            }
+        }
 
     private fun EstimativaRecibo.valor(codigo: String): Long =
         rubricas.first { it.codigo == codigo }.valorMil
