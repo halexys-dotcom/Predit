@@ -18,9 +18,9 @@ import pt.haconnect.predit.domain.calc.TIPO_ESCALA_PDF_MENSAL
 import pt.haconnect.predit.domain.calc.TIPO_ESCALA_ROTACAO
 import pt.haconnect.predit.domain.calc.aplicarAusencias
 import pt.haconnect.predit.domain.calc.diasProjetadosPara
-import pt.haconnect.predit.domain.calc.duracaoMinutos
 import pt.haconnect.predit.domain.calc.feriadoMunicipal
 import pt.haconnect.predit.domain.calc.feriadosNacionais
+import pt.haconnect.predit.domain.calc.minutosDoDiaNaEscala
 import pt.haconnect.predit.domain.calc.temEscalaAplicada
 import pt.haconnect.predit.domain.calc.tipoDerivadoDoPdf
 import pt.haconnect.predit.domain.calc.veioDoPdf
@@ -199,17 +199,15 @@ class EscalaViewModel(
         val diasDoMesAtual = listaDiasGrelha.filter { it.pertenceAoMesAtual }
 
         val totalMinutos = diasDoMesAtual.sumOf { dia ->
-            val efetivo = dia.tipoTurnoEfetivo
-            val real = dia.diaReal
-            when {
-                dia.ausenciaEfetiva != null -> {
-                    // Se for Folga, 0h. Se for Férias/Baixa, conta como 8h pagas.
-                    if (efetivo?.categoria == CategoriaTurno.FOLGA) 0 else 8 * 60
-                }
-                real != null -> duracaoMinutos(real.inicioMin, real.fimMin, real.pausaMin)
-                efetivo?.categoria == CategoriaTurno.TRABALHO -> duracaoMinutos(efetivo.inicioMin, efetivo.fimMin, efetivo.pausaMin)
-                else -> 0
-            }
+            // A conta de cada dia vive em minutosDoDiaNaEscala (domínio), testável à parte: aqui só
+            // se soma. Com a regra dentro do ViewModel, uma ausência marcada num dia que já era
+            // folga somava 8h ao total do rodapé.
+            minutosDoDiaNaEscala(
+                categoriaAusenciaEfetiva = dia.ausenciaEfetiva?.tipoTurnoId?.let { categoriasPorTipo[it] },
+                tipoProjetado = dia.tipoTurnoProjetado,
+                tipoEfetivo = dia.tipoTurnoEfetivo,
+                diaReal = dia.diaReal
+            )
         }
 
         val numTurnos = diasDoMesAtual.count {

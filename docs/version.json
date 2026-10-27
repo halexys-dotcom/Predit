@@ -1,7 +1,7 @@
 {
-  "versionCode": 28,
-  "versionName": "2.1.3",
+  "versionCode": 29,
+  "versionName": "2.1.4",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.1.3/app-github-release.apk",
-  "changelog": "Modo PDF mensal: a escala de cada dia passa a ser guardada em separado das horas reais, por isso corrigir um dia já não apaga o turno previsto (o chip, os dias úteis e o subsídio de alimentação mantêm-se) e reimportar o PDF repõe o previsto sem perder as horas reais, o tipo, a nota ou o posto. No recibo, o cabeçalho e a estimativa passam a usar a mesma régua do PDF, e uma folga do PDF trabalhada conta como descanso (DESC_DESC a 200%). A base de dados é migrada automaticamente para a versão 24."
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.1.4/app-github-release.apk",
+  "changelog": "Escala: marcar férias ou baixa num dia que já era folga deixa de somar 8h ao Total Horas do rodapé. Modo PDF mensal: a escala de cada dia passa a ser guardada em separado das horas reais, por isso corrigir um dia já não apaga o turno previsto (o chip, os dias úteis e o subsídio de alimentação mantêm-se) e reimportar o PDF repõe o previsto sem perder as horas reais, o tipo, a nota ou o posto. No recibo, o cabeçalho e a estimativa passam a usar a mesma régua do PDF, e uma folga do PDF trabalhada conta como descanso (DESC_DESC a 200%). A base de dados é migrada automaticamente para a versão 24."
 }

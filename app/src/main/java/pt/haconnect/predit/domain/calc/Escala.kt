@@ -142,6 +142,66 @@ fun aplicarAusencias(
     }
 }
 
+/**
+ * Minutos que uma ausência efetiva soma ao total do rodapé da Escala: uma jornada de 8h.
+ *
+ * É um valor fixo, e não a duração do turno, porque é assim que a app conta desde a primeira
+ * versão: férias e baixa valem um dia de trabalho, independentemente do turno que estava
+ * previsto. Mudar isto mexia nos totais dos meses já validados pelo utilizador.
+ */
+private const val MINUTOS_DIA_COM_AUSENCIA = 8 * 60
+
+/**
+ * Minutos que um dia conta no total de horas do rodapé da Escala.
+ *
+ * O total é um resumo do mês, não o recibo: um dia sem ausência conta as horas registadas (ou,
+ * sem registo, as do turno efetivo) e um dia com ausência efetiva vale uma jornada de 8h se era
+ * para trabalhar — e 0 se já era folga. A conta vive aqui, e não no ViewModel da Escala, para
+ * poder ser testada: o ViewModel só soma o que esta função devolve.
+ *
+ * [categoriaAusenciaEfetiva] é a categoria do tipo da ausência que [aplicarAusencias] deixou
+ * efetiva neste dia (null quando não há ausência efetiva). Uma ausência do tipo FOLGA vale 0 mesmo
+ * em cima de um dia de trabalho — é a regra "FOLGA manda sobre tudo".
+ *
+ * "Era para trabalhar" tem duas leituras, uma por modo de escala:
+ * - modo PDF ([DiaReal.veioDoPdf]): a linha do PDF prevê horas para o dia. As folgas do PDF não
+ *   têm linha nenhuma e um dia fora do PDF também não, por isso a ausência aí vale 0 em vez de
+ *   inventar 8h de trabalho que a escala nunca teve;
+ * - rotação, e dias sem linha do PDF no modo PDF: o tipo projetado é de categoria TRABALHO.
+ *
+ * Nos dias sem ausência efetiva nada muda: horas registadas, ou as do turno efetivo.
+ */
+fun minutosDoDiaNaEscala(
+    categoriaAusenciaEfetiva: CategoriaTurno?,
+    tipoProjetado: TipoTurno?,
+    tipoEfetivo: TipoTurno?,
+    diaReal: DiaReal?
+): Int {
+    if (categoriaAusenciaEfetiva != null) {
+        if (categoriaAusenciaEfetiva == CategoriaTurno.FOLGA) return 0
+        return if (eraDiaDeTrabalhoPrevisto(tipoProjetado, diaReal)) MINUTOS_DIA_COM_AUSENCIA else 0
+    }
+
+    return when {
+        diaReal != null -> duracaoMinutos(diaReal.inicioMin, diaReal.fimMin, diaReal.pausaMin)
+        tipoEfetivo?.categoria == CategoriaTurno.TRABALHO ->
+            duracaoMinutos(tipoEfetivo.inicioMin, tipoEfetivo.fimMin, tipoEfetivo.pausaMin)
+        else -> 0
+    }
+}
+
+/**
+ * A escala previa trabalho para este dia? A resposta está nas horas do PDF quando o dia veio de um
+ * PDF ([horasPrevistasDoDia] — o previsto, não as horas que se acabaram por fazer) e no tipo
+ * projetado nos restantes casos. Ver [minutosDoDiaNaEscala].
+ */
+private fun eraDiaDeTrabalhoPrevisto(tipoProjetado: TipoTurno?, diaReal: DiaReal?): Boolean =
+    if (diaReal != null && diaReal.veioDoPdf()) {
+        horasPrevistasDoDia(diaReal).duracaoMin > 0
+    } else {
+        tipoProjetado?.categoria == CategoriaTurno.TRABALHO
+    }
+
 // ---------------------------------------------------------------------------------------------
 // Fase 19 — modo de escala por PDF mensal
 // ---------------------------------------------------------------------------------------------
