@@ -97,9 +97,11 @@ passou para 2.1.4 e o `RELEASING.md` tem uma nota sobre isto.
   com o comando acima e pô-lo em `docs/videos/rotacao.mp4` (+ `.jpg`); depois
   trocar o botão do passo 3 em `docs/index.html` para o ficheiro local (como
   os outros: `href="videos/rotacao.mp4" data-titulo="Monte a escala por rotação"`).
-- O `recibo.mp4` mostra o nome da entidade empregadora e valores reais de um
-  recibo. Ponderar regravar com um recibo de exemplo (o rodapé do site diz
-  que o Predit não tem vínculo a entidades empregadoras).
+- ~~O `recibo.mp4` mostra o nome da entidade empregadora.~~ Feito (28/10):
+  o nome da empresa na linha "Recibo de Agosto 2026 (…) importado." está
+  desfocado a partir dos 39,2 s (quando a linha aparece) até ao fim; durante
+  a animação de entrada (39,15–39,45 s) desfoca-se a linha inteira. Os
+  valores do recibo ficam visíveis (decisão do dono).
 - Apagar o release `videos-tutorial` quando já não for preciso (o site não
   depende dele).
 
