@@ -475,7 +475,7 @@ h1 {
       <p class="texto">O Predit projeta a sua rotação a partir do ciclo de serviço, importa o planeamento mensal da empresa em PDF, regista as horas reais de cada dia e confere o recibo de vencimento contra os cálculos da app. Tudo no seu telemóvel, sem contas e sem servidores.</p>
       <div class="estado">
         <span class="selo"><span class="ponto"></span>Disponível no Google Play</span>
-        <span class="selo"><span class="ponto"></span>Versão 2.1.2</span>
+        <span class="selo"><span class="ponto"></span><span id="versao-app">Versão 2.1.4</span></span>
         <span class="selo"><span class="ponto"></span>100% offline</span>
       </div>
       <div class="acoes">
@@ -788,6 +788,20 @@ h1 {
   </div>
   <p class="wrap aviso-legal">O Predit é uma aplicação independente destinada à organização pessoal e gestão de horários de trabalho. Não possui qualquer vínculo, afiliação, patrocínio ou representação oficial de quaisquer entidades empregadoras ou entidades gestoras aeroportuárias.</p>
 </footer>
+
+<!-- O selo da versao segue docs/version.json (o mesmo manifesto que a app
+     consulta em Mais > Atualizacoes), por isso cada release atualiza o site
+     sozinho. O texto fixo no selo e so o fallback sem JavaScript. -->
+<script>
+(function () {
+  var selo = document.getElementById('versao-app');
+  if (!selo || !window.fetch) return;
+  fetch('version.json', { cache: 'no-cache' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (v) { if (v && v.versionName) selo.textContent = 'Versão ' + v.versionName; })
+    .catch(function () {});
+})();
+</script>
 
 </body>
 </html>

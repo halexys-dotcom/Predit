@@ -28,6 +28,8 @@
 
 3. Editar `docs/version.json` com o mesmo `versionCode`/`versionName` e com o
    `apkUrl` a apontar para a tag nova (ver a nota no topo).
+   O selo "Versão X.Y.Z" do site (`docs/index.html`) le este ficheiro, por
+   isso atualiza sozinho; o texto fixo no selo e so o fallback sem JavaScript.
 
 ## Build
 
