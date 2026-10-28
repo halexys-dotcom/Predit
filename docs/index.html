@@ -331,6 +331,46 @@ h1 {
 .guia .cartao ul { margin: 0.6rem 0 0; padding-left: 1.1rem; font-size: 0.88rem; color: var(--txt-2); }
 .guia .cartao li + li { margin-top: 0.3rem; }
 .dicas { margin-top: 1.6rem; }
+
+/* Botao de video de cada passo. Empurrado para o fundo do cartao, para os
+   botoes ficarem alinhados na mesma linha da grelha. */
+.guia .cartao { display: flex; flex-direction: column; }
+.videos { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: auto 0 0 !important; padding-top: 1.1rem; }
+.btn-video {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.42rem 0.85rem 0.42rem 0.7rem;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 999px;
+  background: rgba(0, 128, 255, 0.12);
+  color: var(--azul-claro);
+  font-size: 0.82rem; font-weight: 600; text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease;
+}
+.btn-video svg { width: 14px; height: 14px; flex: none; fill: currentColor; }
+.btn-video:hover { background: rgba(0, 128, 255, 0.22); border-color: rgba(56, 189, 248, 0.55); box-shadow: 0 0 18px rgba(0, 128, 255, 0.35); }
+
+/* Janela do video (leitor do Google Drive). Gravacoes de ecra do telemovel,
+   por isso o leitor e vertical; a altura fica limitada ao ecra. */
+.video-modal {
+  width: min(440px, 100% - 2rem); max-height: calc(100dvh - 2rem);
+  padding: 0; overflow: hidden;
+  border: 1px solid var(--linha-forte);
+  border-radius: calc(var(--raio) + 4px);
+  background: var(--bg-1); color: var(--txt);
+  box-shadow: 0 30px 80px -20px rgba(0, 128, 255, 0.45);
+}
+.video-modal::backdrop { background: rgba(5, 8, 15, 0.78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.video-topo { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 0.75rem 0.75rem 1.1rem; border-bottom: 1px solid var(--linha); }
+.video-topo h3 { margin: 0; font-size: 0.98rem; font-weight: 700; }
+.video-fechar {
+  display: grid; place-items: center; width: 36px; height: 36px; flex: none;
+  border: 1px solid var(--linha-forte); border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04); color: var(--txt);
+  font: inherit; font-size: 1.2rem; line-height: 1; cursor: pointer;
+}
+.video-fechar:hover { background: rgba(255, 255, 255, 0.1); }
+.video-ecra { display: block; width: 100%; height: min(70dvh, 720px); border: 0; background: #000; }
+.video-rodape { margin: 0; padding: 0.7rem 1.1rem; font-size: 0.8rem; color: var(--txt-3); text-align: center; }
 .dicas .passos { margin-top: 1rem; }
 
 /* --- Galeria de ecras -------------------------------------------- */
@@ -601,7 +641,7 @@ h1 {
 
   <section class="wrap" id="como-usar">
     <h2 class="titulo-seccao">Como usar o Predit</h2>
-    <p class="lead">Do primeiro arranque à conferência do recibo, em seis passos. A app tem quatro separadores — <strong>Escala</strong>, <strong>Horário</strong>, <strong>Turnos</strong> e <strong>Mais</strong> — e cada passo diz onde encontrar o que precisa.</p>
+    <p class="lead">Do primeiro arranque à conferência do recibo, em seis passos, cada um com um vídeo curto. A app tem quatro separadores — <strong>Escala</strong>, <strong>Horário</strong>, <strong>Turnos</strong> e <strong>Mais</strong> — e cada passo diz onde encontrar o que precisa.</p>
 
     <ol class="guia grelha">
       <li>
@@ -616,6 +656,7 @@ h1 {
             <li>Regime de horário: <strong>Rotação fixa</strong> ou <strong>PDF mensal</strong>.</li>
             <li>Dados de IRS: estado civil, dependentes e IRS Jovem.</li>
           </ul>
+          <p class="videos"><a class="btn-video" href="https://drive.google.com/file/d/1cQRi2CYyxzn1FmttrgQp0dbOkLtXI8SA/view" data-video="1cQRi2CYyxzn1FmttrgQp0dbOkLtXI8SA" data-titulo="Configure o contrato" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.8-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></svg>Ver vídeo</a></p>
         </article>
       </li>
 
@@ -629,6 +670,7 @@ h1 {
             <li>24 cores à escolha; as recomendadas são as da legenda acima.</li>
             <li>Um tipo que já não usa pode ser desativado sem perder o histórico.</li>
           </ul>
+          <p class="videos"><a class="btn-video" href="https://drive.google.com/file/d/1tFKjLZQ1JG9GFf4S24vIZpmCqvd28AoZ/view" data-video="1tFKjLZQ1JG9GFf4S24vIZpmCqvd28AoZ" data-titulo="Crie os tipos de turno" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.8-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></svg>Ver vídeo</a></p>
         </article>
       </li>
 
@@ -642,6 +684,7 @@ h1 {
             <li><strong>Rotação fixa:</strong> crie a rotação tocando em cada dia do ciclo para o pintar com um turno; depois toque em Aplicar e indique o dia em que o ciclo começa e a data em que entra em vigor.</li>
             <li><strong>PDF mensal:</strong> em Importar Horário, toque em «Escolher ficheiro PDF», escolha o planeamento da empresa e confirme em Importar.</li>
           </ul>
+          <p class="videos"><a class="btn-video" href="https://drive.google.com/file/d/12XfB0Ca78zPSADU6Q8QiD1K7xah8725E/view" data-video="12XfB0Ca78zPSADU6Q8QiD1K7xah8725E" data-titulo="Monte a escala por rotação" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.8-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></svg>Vídeo: rotação fixa</a><a class="btn-video" href="https://drive.google.com/file/d/16KwZuv5FS2pPuvQgeZ4qaj7zjpRCYZco/view" data-video="16KwZuv5FS2pPuvQgeZ4qaj7zjpRCYZco" data-titulo="Importe a escala em PDF" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.8-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></svg>Vídeo: importar PDF</a></p>
         </article>
       </li>
 
@@ -655,6 +698,7 @@ h1 {
             <li>A ausência substitui o turno projetado nesses dias.</li>
             <li>A lista completa fica em Mais → Ausências Registadas.</li>
           </ul>
+          <p class="videos"><a class="btn-video" href="https://drive.google.com/file/d/1b0h1lbAqBF-e8kvSC5VHmkaebzLHNoVN/view" data-video="1b0h1lbAqBF-e8kvSC5VHmkaebzLHNoVN" data-titulo="Marque as ausências" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.8-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></svg>Ver vídeo</a></p>
         </article>
       </li>
 
@@ -668,6 +712,7 @@ h1 {
             <li>Em Horário → Mês vê as horas reais contra as previstas e a diferença.</li>
             <li>Em Horário → Conferência acompanha o ciclo semestral de jornada.</li>
           </ul>
+          <p class="videos"><a class="btn-video" href="https://drive.google.com/file/d/1D7tdL9NsCWp_pvFU7n0W9jUy0uT9m5HF/view" data-video="1D7tdL9NsCWp_pvFU7n0W9jUy0uT9m5HF" data-titulo="Registe as horas reais" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.8-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></svg>Ver vídeo</a></p>
         </article>
       </li>
 
@@ -681,6 +726,7 @@ h1 {
             <li>Cada rubrica mostra o valor estimado pela app ao lado do real.</li>
             <li>As diferenças ficam assinaladas, para saber o que reclamar.</li>
           </ul>
+          <p class="videos"><a class="btn-video" href="https://drive.google.com/file/d/19MyTxfEOM8mVXzzlWCmIfAUFQXe296Jp/view" data-video="19MyTxfEOM8mVXzzlWCmIfAUFQXe296Jp" data-titulo="Confira o recibo" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.8-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></svg>Ver vídeo</a></p>
         </article>
       </li>
     </ol>
@@ -762,6 +808,44 @@ h1 {
   </div>
   <p class="wrap aviso-legal">O Predit é uma aplicação independente destinada à organização pessoal e gestão de horários de trabalho. Não possui qualquer vínculo, afiliação, patrocínio ou representação oficial de quaisquer entidades empregadoras ou entidades gestoras aeroportuárias.</p>
 </footer>
+
+<!-- Leitor dos videos do guia "Como usar". Os videos vivem no Google Drive
+     (partilhados como "qualquer pessoa com o link") e abrem no leitor
+     /preview do Drive. Sem JavaScript, os botoes sao links normais para o
+     Drive. Para trocar um video, mudar o id em data-video e no href. -->
+<dialog class="video-modal" id="video-modal" aria-labelledby="video-titulo">
+  <div class="video-topo">
+    <h3 id="video-titulo">Vídeo</h3>
+    <button class="video-fechar" type="button" aria-label="Fechar vídeo">×</button>
+  </div>
+  <iframe class="video-ecra" title="Vídeo do tutorial" allow="autoplay; fullscreen" allowfullscreen></iframe>
+  <p class="video-rodape"><a id="video-drive" href="#" target="_blank" rel="noopener noreferrer">Abrir no Google Drive</a></p>
+</dialog>
+<script>
+(function () {
+  var modal = document.getElementById('video-modal');
+  if (!modal || typeof modal.showModal !== 'function') return;
+  var ecra = modal.querySelector('iframe');
+  var titulo = document.getElementById('video-titulo');
+  var drive = document.getElementById('video-drive');
+
+  document.querySelectorAll('.btn-video[data-video]').forEach(function (botao) {
+    botao.addEventListener('click', function (e) {
+      e.preventDefault();
+      var id = botao.getAttribute('data-video');
+      titulo.textContent = botao.getAttribute('data-titulo');
+      drive.href = botao.href;
+      ecra.src = 'https://drive.google.com/file/d/' + id + '/preview';
+      modal.showModal();
+    });
+  });
+  // Ao fechar, limpar o src para o video parar de tocar.
+  modal.addEventListener('close', function () { ecra.src = 'about:blank'; });
+  modal.querySelector('.video-fechar').addEventListener('click', function () { modal.close(); });
+  // Clique fora da janela (no fundo escurecido) tambem fecha.
+  modal.addEventListener('click', function (e) { if (e.target === modal) modal.close(); });
+})();
+</script>
 
 </body>
 </html>
