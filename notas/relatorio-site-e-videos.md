@@ -101,6 +101,10 @@ passou para 2.1.4 e o `RELEASING.md` tem uma nota sobre isto.
   desfocado a partir dos 39,2 s (quando a linha aparece) até ao fim; durante
   a animação de entrada (39,15–39,45 s) desfoca-se a linha inteira. Os
   valores do recibo ficam visíveis (decisão do dono).
+- ~~Número "42 139" nos nomes dos PDFs do seletor de ficheiros (37–39 s do
+  `recibo.mp4`).~~ Feito (28/10): só o prefixo "42 139" das três linhas está
+  desfocado; durante a saída a deslizar (39,15–39,45 s) desfoca-se a lista
+  inteira.
 - Apagar o release `videos-tutorial` quando já não for preciso (o site não
   depende dele).
 
