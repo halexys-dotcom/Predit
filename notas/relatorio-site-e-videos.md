@@ -75,6 +75,7 @@ ffmpeg -i ORIGINAL.mp4 -an -vf "fps=30,scale=540:-2:flags=lanczos,format=yuv420p
 | `ausencias.mp4` | 4. Marque as ausências | 1:55 | 91 MB | 2,0 MB |
 | `horas-reais.mp4` | 5. Registe as horas reais | 0:40 | 32 MB | 0,8 MB |
 | `recibo.mp4` | 6. Confira o recibo | 1:35 | 58 MB | 1,7 MB |
+| `rotacao.mp4` | 3. Rotação fixa (adicionado depois) | 2:03 | 50 MB | 1,6 MB |
 
 Total: ~300 MB → 9,1 MB. Cada vídeo tem uma capa `.jpg` com o mesmo nome.
 Resolução final 540 × ~1200 (vertical), 30 fps, H.264, sem áudio.
@@ -93,10 +94,8 @@ passou para 2.1.4 e o `RELEASING.md` tem uma nota sobre isto.
 
 ### Pendentes
 
-- Juntar o vídeo da rotação fixa ao release `videos-tutorial`, comprimi-lo
-  com o comando acima e pô-lo em `docs/videos/rotacao.mp4` (+ `.jpg`); depois
-  trocar o botão do passo 3 em `docs/index.html` para o ficheiro local (como
-  os outros: `href="videos/rotacao.mp4" data-titulo="Monte a escala por rotação"`).
+- ~~Vídeo da rotação fixa.~~ Feito (28/10): `docs/videos/rotacao.mp4` (2:03,
+  50 MB → 1,6 MB) e o botão do passo 3 passou a tocar no site.
 - ~~O `recibo.mp4` mostra o nome da entidade empregadora.~~ Feito (28/10):
   o nome da empresa na linha "Recibo de Agosto 2026 (…) importado." está
   desfocado a partir dos 39,2 s (quando a linha aparece) até ao fim; durante
