@@ -7,8 +7,8 @@ Período: 25 a 28 de outubro de 2026. Todo o trabalho foi feito no branch
 Este ficheiro tem duas partes:
 
 1. **O que foi feito** — resumo para consulta.
-2. **Tarefa para o Cline** — instruções completas para pôr os vídeos dentro
-   da app, numa nova área em **Mais**.
+2. **Tarefa para o Cline** — instruções para pôr no ecrã **Acerca** um link
+   "Como usar o Predit" que abre o guia do site no browser.
 
 ---
 
@@ -105,107 +105,109 @@ passou para 2.1.4 e o `RELEASING.md` tem uma nota sobre isto.
 
 ---
 
-## Parte 2 — Tarefa para o Cline: vídeos do tutorial dentro da app
+## Parte 2 — Tarefa para o Cline: link "Como usar o Predit" no ecrã Acerca
 
 ### Objetivo
 
-Criar em **Mais** uma nova entrada **"Tutorial em vídeo"** que abre um ecrã
-com a lista dos passos do tutorial; tocar num passo reproduz o vídeo dentro
-da app, sem Internet.
+No ecrã **Mais → Acerca**, logo a seguir ao texto de descrição da app e antes
+de "Agradecimentos", pôr uma linha clicável **"Como usar o Predit"** que abre
+o guia do site no browser do telemóvel:
 
-### Contexto do código (verificado)
+`https://halexys-dotcom.github.io/Predit/#como-usar`
 
-- Ecrã Mais: `app/src/main/java/pt/haconnect/predit/ui/mais/MaisScreen.kt`.
-  Cada entrada é um `ElevatedCard` clicável com ícone, título
-  (`titleMedium`, bold) e subtítulo (`bodySmall`, `onSurfaceVariant`) e uma
-  seta `KeyboardArrowRight`. Os destinos chegam por callbacks
-  `onNavegarParaX: () -> Unit = {}`.
-- Navegação: `app/src/main/java/pt/haconnect/predit/ui/navigation/Navegacao.kt`.
-  As rotas de Mais seguem o padrão `composable("mais/<nome>") { XScreen(onVoltar = { navController.popBackStack() }) }`.
-- Ecrãs de exemplo com `onVoltar`: `ui/mais/AcercaScreen.kt`,
-  `ui/mais/BackupsScreen.kt`.
-- **Sem Internet no flavor `playstore`:** só
-  `app/src/github/AndroidManifest.xml` declara `INTERNET`. Por isso os vídeos
-  **têm de ir dentro da app** (`res/raw`), não podem ser lidos do site.
-- **Sem biblioteca de vídeo:** não há Media3/ExoPlayer nas dependências. Usar
-  `android.widget.VideoView` + `MediaController` dentro de `AndroidView`
-  (zero dependências novas). Media3 só se houver motivo forte.
-- `minSdk 26`; o H.264 dos vídeos toca em todos os Android suportados.
+### Decisão (28/10/2026): porque não vão vídeos dentro da app
+
+A primeira versão desta tarefa punha os 6 vídeos em `res/raw` com um leitor
+`VideoView`. Foi posta de parte:
+
+- O APK passaria de ~17 MB para ~26 MB.
+- Cada mudança de ecrã na app obrigaria a regravar os vídeos **e** a lançar
+  uma versão nova. No site, basta trocar o ficheiro em `docs/videos/`.
+- Abrir o site com um `Intent` não exige a permissão `INTERNET` (quem vai à
+  Internet é o browser), por isso funciona também no flavor `playstore`.
+
+**Não** copiar vídeos para `res/raw`, **não** criar ecrã de leitor e **não**
+criar entrada nova em Mais.
+
+### Contexto do código (verificado no `main`)
+
+- Ecrã: `app/src/main/java/pt/haconnect/predit/ui/mais/AcercaScreen.kt`.
+  É uma `Column` com `verticalScroll` e `spacedBy(16.dp)`. Ordem atual:
+  ícone → "Predit" → versão → divisor → "Diário de orientação pessoal…" →
+  "O Predit projeta a sua escala…" → **divisor** → "Agradecimentos" → … →
+  nota de privacidade (último bloco).
+- Cartões de Mais (`ui/mais/MaisScreen.kt`): `ElevatedCard` clicável →
+  `Row(padding 16.dp, SpaceBetween)` → ícone `primary` + `Column(spacedBy 2.dp)`
+  com título (`titleMedium`, bold) e subtítulo (`bodySmall`,
+  `onSurfaceVariant`) → seta `Icons.AutoMirrored.Filled.KeyboardArrowRight`.
+- **Ícones:** o projeto **não** tem `material-icons-extended`. Usar só ícones
+  do conjunto base (`Icons.Filled.PlayArrow`, `KeyboardArrowRight`). Não
+  acrescentar a dependência por causa de um ícone.
+- Só `app/src/github/AndroidManifest.xml` declara `INTERNET`; o flavor
+  `playstore` não tem, e assim deve continuar.
+- Já existe um `Intent(Intent.ACTION_VIEW)` em `data/update/ApkInstaller.kt`
+  (outro uso, só como referência de estilo).
 
 ### Passos
 
-1. **Copiar os vídeos** de `docs/videos/` para
-   `app/src/main/res/raw/`, com nomes válidos para recursos Android (só
-   minúsculas, dígitos e `_`; sem hífen):
-
-   | Origem | Destino | Recurso |
-   |---|---|---|
-   | `docs/videos/contrato.mp4` | `res/raw/tutorial_contrato.mp4` | `R.raw.tutorial_contrato` |
-   | `docs/videos/turnos.mp4` | `res/raw/tutorial_turnos.mp4` | `R.raw.tutorial_turnos` |
-   | `docs/videos/importar-horario.mp4` | `res/raw/tutorial_importar_horario.mp4` | `R.raw.tutorial_importar_horario` |
-   | `docs/videos/ausencias.mp4` | `res/raw/tutorial_ausencias.mp4` | `R.raw.tutorial_ausencias` |
-   | `docs/videos/horas-reais.mp4` | `res/raw/tutorial_horas_reais.mp4` | `R.raw.tutorial_horas_reais` |
-   | `docs/videos/recibo.mp4` | `res/raw/tutorial_recibo.mp4` | `R.raw.tutorial_recibo` |
-
-   Não copiar os `.jpg` (a lista usa ícones; o `VideoView` mostra o 1.º
-   frame). O APK cresce ~9 MB (o atual tem ~17 MB).
-
-2. **Catálogo** — novo ficheiro `ui/mais/tutorial/TutorialVideos.kt` com
-   uma lista estática, na ordem do guia do site:
+1. **Constante do link** — no `AcercaScreen.kt` (ou num `object` pequeno ao
+   lado), por exemplo:
 
    ```kotlin
-   data class VideoTutorial(val titulo: String, val descricao: String, @RawRes val recurso: Int)
+   private const val URL_COMO_USAR = "https://halexys-dotcom.github.io/Predit/#como-usar"
    ```
 
-   | Título | Descrição |
-   |---|---|
-   | Configure o contrato | Mais → Contrato de Trabalho |
-   | Crie os tipos de turno | Turnos → Adicionar tipo de turno |
-   | Importar Horário | Mais → Importar Horário (PDF mensal) |
-   | Marque as ausências | Escala → tocar num dia → Marcar ausência |
-   | Registe as horas reais | Escala → tocar num dia → Registar horas |
-   | Confira o recibo | Mais → Recibo de vencimento |
+2. **Linha "Como usar o Predit"** — inserir entre o parágrafo "O Predit
+   projeta a sua escala…" e o `HorizontalDivider` que antecede
+   "Agradecimentos". Usar um `ElevatedCard` com o mesmo layout dos cartões de
+   `MaisScreen`:
+   - ícone `Icons.Filled.PlayArrow`, `tint = primary`;
+   - título **"Como usar o Predit"**;
+   - subtítulo **"Guia e vídeos no site (abre no browser)"**;
+   - seta `KeyboardArrowRight` à direita;
+   - `Modifier.testTag("acerca-como-usar")`.
 
-   Deixar preparado (comentário) o lugar do vídeo "Monte a escala por
-   rotação", que ainda não existe — **não** criar entrada sem ficheiro.
+   Não usar texto azul solto: os nomes dos Agradecimentos já estão a azul
+   (`primary`) e não são links.
 
-3. **Ecrã de lista** — `ui/mais/tutorial/TutorialScreen.kt`
-   (`onVoltar`, `onAbrirVideo: (Int) -> Unit` com o índice). `TopAppBar` com
-   seta de voltar e título "Tutorial em vídeo"; cartões iguais aos de
-   `MaisScreen` (ícone `PlayArrow`, título, descrição, duração opcional).
+3. **Abrir o browser** — no `onClick`:
 
-4. **Ecrã do leitor** — `ui/mais/tutorial/VideoTutorialScreen.kt`:
-   - `TopAppBar` com voltar e o título do vídeo.
-   - `AndroidView` com `VideoView`; `setVideoURI(Uri.parse("android.resource://${context.packageName}/$recurso"))`,
-     `MediaController` ancorado ao `VideoView`, `start()` ao abrir.
-   - Vídeo vertical: ocupar a altura disponível, centrado, fundo preto.
-   - Parar e libertar ao sair (`DisposableEffect` → `stopPlayback()`);
-     pausar em `ON_PAUSE` do ciclo de vida.
-   - Manter o ecrã ligado enquanto toca (`keepScreenOn = true` no `VideoView`).
+   ```kotlin
+   val context = LocalContext.current
+   // ...
+   try {
+       context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(URL_COMO_USAR)))
+   } catch (e: ActivityNotFoundException) {
+       Toast.makeText(context, "Não foi encontrado nenhum browser para abrir o guia.", Toast.LENGTH_SHORT).show()
+   }
+   ```
 
-5. **Navegação** em `Navegacao.kt`:
-   - `composable("mais/tutorial") { TutorialScreen(onVoltar = …, onAbrirVideo = { i -> navController.navigate("mais/tutorial/$i") }) }`
-   - `composable("mais/tutorial/{indice}", arguments = listOf(navArgument("indice") { type = NavType.IntType })) { … VideoTutorialScreen(…) }`
-     (validar o índice; fora do intervalo → `popBackStack()`).
+   - Não é preciso `<queries>` no manifesto (não se consulta o
+     `PackageManager`, só se apanha a exceção).
+   - Não usar `WebView` (precisaria de `INTERNET` no flavor `playstore`).
 
-6. **Entrada em Mais** — em `MaisScreen.kt`, novo callback
-   `onNavegarParaTutorial: () -> Unit = {}` e novo `ElevatedCard`
-   "Tutorial em vídeo" / "Vídeos curtos de cada passo da app", com o mesmo
-   layout dos outros. Posição sugerida: logo antes de "Acerca do Predit".
-   Visível nos dois flavors (não depende de `OTA_ATIVO`).
+4. **Nota de privacidade** — manter o texto como está. O subtítulo "(abre no
+   browser)" já deixa claro que é o browser, não a app, que vai à Internet.
 
-7. **Testes e verificação**
-   - `.\gradlew.bat test` tem de continuar verde.
-   - Teste unitário simples ao catálogo: 6 entradas, títulos não vazios,
-     sem recursos repetidos.
-   - Testar no telemóvel **em modo avião** com os dois flavors
-     (`github` e `playstore`): abrir cada vídeo, pausar, avançar, rodar o
-     ecrã, voltar atrás a meio (o vídeo tem de parar).
-   - Confirmar o tamanho do APK/AAB de release.
+5. **Comentário/KDoc** — atualizar o KDoc de `AcercaScreen` para referir o
+   link do guia.
+
+### Testes e verificação
+
+- `.\gradlew.bat test` tem de continuar verde.
+- Compilar os dois flavors (`assembleGithubDebug` e `assemblePlaystoreDebug`).
+- No telemóvel, nos dois flavors:
+  - Mais → Acerca → tocar em "Como usar o Predit" → abre o browser na secção
+    "Como usar o Predit" do site.
+  - Voltar do browser regressa ao ecrã Acerca.
+  - Com Internet desligada: a app não fecha (o browser mostra o erro dele).
+- Confirmar que o `AndroidManifest.xml` do flavor `playstore` continua sem
+  `INTERNET` (APK de release → `aapt dump permissions` ou o Analyze APK do
+  Android Studio).
 
 ### Fora do âmbito
 
 - Não mexer em `docs/` (o site já está feito).
-- Não adicionar permissão de Internet ao flavor `playstore`.
+- Não adicionar vídeos à app nem permissão de Internet ao flavor `playstore`.
 - Não mudar `versionCode`/`versionName` nesta tarefa; isso fica para o
   release seguinte, conforme `RELEASING.md`.
