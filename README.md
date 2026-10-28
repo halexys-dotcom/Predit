@@ -5,7 +5,7 @@ App Android offline para planeamento de escalas de seguranca privada aeroportuar
 mensal com projecao da rotacao, registo de horas reais, conferencia do recibo e estimador
 salarial com o CCT.
 
-**Versao atual: [2.1.2](https://github.com/halexys-dotcom/Predit/releases/latest)** — requer Android 8.0 (API 26) ou superior.
+**Versao atual: [2.1.4](https://github.com/halexys-dotcom/Predit/releases/latest)** — requer Android 8.0 (API 26) ou superior.
 
 Disponivel no [Google Play](https://play.google.com/store/apps/details?id=pt.haconnect.predit) e no site [halexys-dotcom.github.io/Predit](https://halexys-dotcom.github.io/Predit/).
 
