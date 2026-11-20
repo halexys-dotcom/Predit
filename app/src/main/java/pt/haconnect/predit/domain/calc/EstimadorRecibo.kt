@@ -408,18 +408,35 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     val baseSS = valores.filterKeys { incide(it) { r -> r.incideSS } }.values.sum() + complementoBaseSS
     val baseIRS = valores.filterKeys { incide(it) { r -> r.incideIRS } }.values.sum() + complementoBaseIRS
 
+    val tabelaIRS = selecionarTabela(
+        estadoCivil = ctx.contrato.estadoCivil.name,
+        titulares = ctx.contrato.titulares,
+        numeroDependentes = ctx.contrato.numeroDependentes,
+        pessoaComDeficiencia = false
+    )
+
     valores["D01"] = dividirArredondando(baseSS * TAXA_SEGURANCA_SOCIAL_BPS, 10_000L)
-    valores["D02"] = calcularIRS(
+    val d02Normal = calcularIRS(
         baseTributavel = baseIRS,
-        tabelaNumero = selecionarTabela(
-            estadoCivil = ctx.contrato.estadoCivil.name,
-            titulares = ctx.contrato.titulares,
-            numeroDependentes = ctx.contrato.numeroDependentes,
-            pessoaComDeficiencia = false
-        ),
+        tabelaNumero = tabelaIRS,
         categoria = CATEGORIA_TRABALHO,
         numDependentes = ctx.contrato.numeroDependentes,
         ano = ctx.anoMes.year,
+        regiao = ctx.contrato.regiao,
+        tabelas = ctx.escaloesIRS
+    )
+
+    // Fase 31 — Despacho n.º 12523-A/2026: em Novembro de 2026, no Continente, a retenção
+    // apurada pelas tabelas normais é reduzida a 50 %, salvo se a base passar o limite do
+    // penúltimo escalão. O mês é o do PAGAMENTO (ctx.anoMes), não o das variáveis: com
+    // desfasamento de um mês as variáveis de Outubro são pagas em Novembro.
+    val d02ComReducao = aplicarReducaoNovembro2026(
+        retencaoNormal = d02Normal,
+        baseIRS = baseIRS,
+        tabelaNumero = tabelaIRS,
+        categoria = CATEGORIA_TRABALHO,
+        ano = ctx.anoMes.year,
+        mes = ctx.anoMes.monthValue,
         regiao = ctx.contrato.regiao,
         tabelas = ctx.escaloesIRS
     )
@@ -428,7 +445,8 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // a mesma que alimentou o cálculo normal (baseIRS) e a taxa efetiva é a do D02 normal;
     // [aplicarIrsJovem] aplica o teto mensal e devolve a retenção normal quando o jovem já não
     // se enquadra (percentagem null) ou quando falta um dos anos. Sem isto, tudo como antes.
-    val d02Normal = valores["D02"] ?: 0L
+    // Fase 31: a taxa efectiva já reflecte a redução de Novembro de 2026 — a ordem é
+    // tabelas normais → redução → IRS Jovem, porque é a retenção das tabelas que a lei reduz.
     val anoNascimento = ctx.contrato.anoNascimento
     val anoPrimeiroRendimento = ctx.contrato.anoPrimeiroRendimento
     val percentagemIrsJovem = if (
@@ -441,14 +459,16 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         )
     } else null
 
+    // Fase 31: o IRS Jovem aplica-se sobre a retenção já reduzida (d02ComReducao), não sobre a
+    // retenção normal — é a retenção que o trabalhador teria em Novembro que a isenção substitui.
     valores["D02"] = if (percentagemIrsJovem != null) {
         aplicarIrsJovem(
             baseMil = baseIRS,
-            retencaoNormalMil = d02Normal,
+            retencaoNormalMil = d02ComReducao,
             percentagem = percentagemIrsJovem,
             anoAtual = ctx.anoMes.year
         )
-    } else d02Normal
+    } else d02ComReducao
 
     // Decisão do utilizador (2026-09-16): o sindicato (1%) incide SÓ sobre o VENC — não
     // sobre as horas suplementares nem sobre o subsídio de transporte. Por isso esta conta

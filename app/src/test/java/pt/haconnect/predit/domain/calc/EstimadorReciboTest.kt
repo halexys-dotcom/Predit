@@ -1481,6 +1481,24 @@ class EstimadorReciboTest {
         assertEquals(0L, est.valor("DESC_DESC"))
     }
 
+    /**
+     * T39: a redução do Despacho n.º 12523-A/2026 chega ao D02 do recibo em Novembro de 2026
+     * e desaparece em Dezembro, com a mesma base de IRS (1 190,07 €: VENC + subsídio de
+     * transporte). Sem a chamada em [estimarRecibo], Novembro saía a 51,25 €.
+     */
+    @Test
+    fun `T39 - D02 de novembro 2026 e metade e em dezembro volta ao normal`() {
+        val novembro = YearMonth.of(2026, 11)
+        val estNov = estimarRecibo(contexto(novembro, dias(novembro, 22)))
+        // A base de IRS é VENC + subsídio de transporte: 1 137,98 € + 52,09 € = 1 190,07 €.
+        assertEquals(11_900_700L, estNov.valor("VENC") + estNov.valor("SUP_TRAN"))
+        assertEquals(256_274L, estNov.valor("D02"))     // metade dos 512 548 de sempre
+
+        val dezembro = YearMonth.of(2026, 12)
+        val estDez = estimarRecibo(contexto(dezembro, dias(dezembro, 22)))
+        assertEquals(512_548L, estDez.valor("D02"))     // fora de novembro, retenção normal
+    }
+
     /** Tipo de folga como a app o semeia, para a projeção poder marcar dias de descanso. */
     private fun tipoFolga() = TipoTurno(
         id = 99L,

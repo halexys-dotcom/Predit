@@ -1,7 +1,7 @@
 {
-  "versionCode": 29,
-  "versionName": "2.1.4",
+  "versionCode": 30,
+  "versionName": "2.1.5",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.1.4/app-github-release.apk",
-  "changelog": "Escala: marcar férias ou baixa num dia que já era folga deixa de somar 8h ao Total Horas do rodapé. Modo PDF mensal: a escala de cada dia passa a ser guardada em separado das horas reais, por isso corrigir um dia já não apaga o turno previsto (o chip, os dias úteis e o subsídio de alimentação mantêm-se) e reimportar o PDF repõe o previsto sem perder as horas reais, o tipo, a nota ou o posto. No recibo, o cabeçalho e a estimativa passam a usar a mesma régua do PDF, e uma folga do PDF trabalhada conta como descanso (DESC_DESC a 200%). A base de dados é migrada automaticamente para a versão 24."
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.1.5/app-github-release.apk",
+  "changelog": "IRS de novembro de 2026: a retenção na fonte passa a metade nos rendimentos pagos em novembro no Continente (Despacho n.º 12523-A/2026); a redução não se aplica acima do limite do penúltimo escalão nem nas Regiões Autónomas. Escala: férias ou baixa num dia que já era folga deixam de somar 8h ao Total Horas. Recibo: suporte a modo PDF."
 }

@@ -119,6 +119,70 @@ fun calcularIRS(
     return if (liquido < 0L) 0L else liquido
 }
 
+/** Divisor da redução excepcional de novembro de 2026: retenção a 50 %. */
+private const val DIVISOR_REDUCAO_NOVEMBRO_2026 = 2L
+
+/**
+ * Despacho n.º 12523-A/2026 — redução excepcional da retenção de IRS em novembro de 2026.
+ *
+ * Para rendimentos pagos entre 1 e 30 de novembro de 2026, a retenção apurada pelas tabelas
+ * normais (Despacho n.º 233-A/2026) é reduzida a 50 %. Excepções:
+ *   - rendimentos acima do limite superior do penúltimo escalão da tabela — sem redução;
+ *   - Açores e Madeira — sem redução;
+ *   - a partir de 1 de dezembro volta ao normal (mês ≠ 11 ou ano ≠ 2026).
+ *
+ * O limite do penúltimo escalão não é uma constante: varia com a tabela (I a VII) e com a
+ * região. Sai da mesma lista de escalões que o [calcularIRS] usa, com o mesmo filtro e a mesma
+ * ordenação por `limiteAte`. O último escalão termina em [Long.MAX_VALUE], por isso o penúltimo
+ * é o último limite finito — e as tabelas não têm todas o mesmo número de escalões (a I tem 12,
+ * a VII tem 6), pelo que o índice não pode ser fixo. Menos de dois escalões (tabela incompleta)
+ * devolve a retenção normal: o fail-safe é não reduzir, nunca rebentar o recibo.
+ *
+ * Ordem no recibo: depois do [calcularIRS] e antes do
+ * [pt.haconnect.predit.domain.calc.aplicarIrsJovem] — é a retenção das tabelas normais que a
+ * lei reduz, e a taxa efectiva do IRS Jovem passa a ser a desta retenção. O arredondamento
+ * segue a regra única do projecto ([dividirArredondando], half-up), aplicada só no fim.
+ *
+ * O mês é o do PAGAMENTO (o mês do recibo), não o das variáveis: com desfasamento de um mês as
+ * variáveis de outubro são pagas em novembro e é o pagamento que a lei alcança.
+ *
+ * Limitação conhecida: o subsídio de Natal não é estimado pelo motor (é uma linha FIXA vinda do
+ * recibo) nem entra na base de IRS, por isso a redução alcança apenas o D02 mensal.
+ */
+fun aplicarReducaoNovembro2026(
+    retencaoNormal: Long,
+    baseIRS: Long,
+    tabelaNumero: Int,
+    categoria: String,
+    ano: Int,
+    mes: Int,
+    regiao: RegiaoIRS,
+    tabelas: List<EscalaoIRS>
+): Long {
+    // A redução só se aplica em Novembro de 2026, no Continente.
+    if (ano != 2026 || mes != 11 || regiao != RegiaoIRS.CONTINENTE) {
+        return retencaoNormal
+    }
+
+    // Encontrar o limite do penúltimo escalão para a tabela.
+    val escaloes = tabelas
+        .filter {
+            it.ano == ano && it.regiao == regiao &&
+                it.categoria == categoria && it.tabelaNumero == tabelaNumero
+        }
+        .sortedBy { it.limiteAte }
+
+    if (escaloes.size < 2) return retencaoNormal // Fallback seguro
+
+    val limitePenultimo = escaloes[escaloes.size - 2].limiteAte
+
+    return if (baseIRS <= limitePenultimo) {
+        dividirArredondando(retencaoNormal, DIVISOR_REDUCAO_NOVEMBRO_2026) // Aplica os 50 %
+    } else {
+        retencaoNormal // Acima do limite, mantém
+    }
+}
+
 /**
  * Parcela a abater dos escalões de fórmula composta: **taxa × k × (X − R)**.
  *
