@@ -85,7 +85,8 @@ private val RUBRICAS: Map<String, String> = mapOf(
  * - F40: subsídio de alimentação durante a baixa (pago por engano pela empresa num mês,
  *   devolvido — não é pago)
  * - F50: gozo de férias (informativo)
- * - F74: ausência parcial (informativo)
+ * - F74: ausência parcial (informativo — ver [INFORMATIVAS_COM_VALOR]: só escreve valor quando
+ *   o recibo o declara na coluna Importância)
  *
  * Confirmação nos fixtures reais (`src/test/resources/fixtures/`): todas estas linhas trazem
  * Quantidade e Preço Unitário e **nenhum** valor na coluna Importância — não somam no Total do
@@ -95,6 +96,29 @@ private val RUBRICAS: Map<String, String> = mapOf(
 private val CODIGOS_INFORMATIVOS = setOf(
     "F01", "F02", "F40", "F50", "F74"
 )
+
+/**
+ * 2026-11-21: linhas informativas que **passam a escrever valor** quando o recibo declara uma
+ * Importância para elas (a coluna existe e o número mais à direita cai lá). Enquanto a coluna
+ * vier vazia — o que acontece nos recibos de setembro e março de 2026, em que a linha traz só
+ * Quantidade e Preço Unitário — continuam informativas, como antes.
+ *
+ * - `F74` (Ausência não remun. Parcial(H)): no recibo de outubro/2026 traz Importância de
+ *   11,30 €. É uma ausência já cortada no VENC, portanto a rubrica de destino é `ATRASO`
+ *   ("Ausências"), que é INFORMATIVA no catálogo — aparece na conferência e nos totais não soma
+ *   nem desconta. Marcar a linha como DESCONTO punha o mesmo dinheiro a sair duas vezes do
+ *   líquido (uma no VENC do recibo, outra no desconto).
+ */
+private val INFORMATIVAS_COM_VALOR: Map<String, String> = mapOf(
+    "F74" to "ATRASO"
+)
+
+/**
+ * A rubrica que recebe uma linha informativa quando o recibo lhe declara uma Importância, ou
+ * `null` se a linha é informativa em qualquer caso (ver [INFORMATIVAS_COM_VALOR]).
+ */
+internal fun rubricaDaInformativaComValor(codigo: String): String? =
+    INFORMATIVAS_COM_VALOR[codigo.trim().uppercase()]
 
 /**
  * Códigos que correspondem a OUTRA rubrica interna sem ser o código natural. Mapeados para

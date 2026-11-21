@@ -151,6 +151,34 @@ class ReciboPdfParserTest {
         assertTrue(recibo.avisos.any { it.contains("F74") })
     }
 
+    // ---------------------------------------------------------------- Outubro 2026
+
+    /**
+     * 2026-11-21: o F74 (ausência não remunerada parcial) só escreve quando o recibo lhe declara
+     * uma Importância. No de outubro são 11,30 € por 1,15 h; no de setembro a linha traz só
+     * Quantidade e Preço Unitário (0,50 h × 6,57 €/h = 3,29 €), que é preço e não pagamento.
+     *
+     * A coluna decide-se pela etiqueta "Importância" do cabeçalho da grelha, como as colunas de
+     * quantidade e de descontos: o número mais à direita da linha tem de cair lá. O valor vai para
+     * a rubrica que o mapeamento dá ao F74 — as ausências (ATRASO), informativa no catálogo.
+     */
+    @Test
+    fun `Outubro 2026 - F74 com Importancia vai para as ausencias`() {
+        val recibo = ler("recibo-outubro-2026.txt").first()
+
+        assertEquals(YearMonth.of(2026, 10), recibo.mesReferencia)
+
+        val ausencia = recibo.linha("F74")
+        assertEquals("ATRASO", ausencia.codigoInterno)
+        assertEquals(113_000L, ausencia.valor)      // 11,30 € na coluna Importância
+        assertEquals(11_500L, ausencia.quantidade)  // 1,15 h
+        assertNull(ausencia.aviso)
+        assertTrue("F74 não pode ficar desconhecido", "F74" !in recibo.codigosDesconhecidos)
+
+        // E o de setembro, sem Importância, continua informativo — o 3,29 € é o preço da hora.
+        assertNull(ler("recibo-setembro-2026.txt").first().linha("F74").codigoInterno)
+    }
+
     // ---------------------------------------------------------------- Julho 2026
 
     @Test

@@ -132,6 +132,25 @@ fun calcularSubsidioProporcional(
 }
 
 /**
+ * O subsídio de férias do ano considera-se **liquidado** quando já foi pago pelo menos metade do
+ * direito do ano civil ([calcularSubsidioProporcional] com o mês de dezembro).
+ *
+ * Regra do utilizador (2026-11-21), e o porquê: o subsídio de férias é um valor **fixo anual**.
+ * Quando a empresa o paga (de uma vez, em duas prestações ou em duodécimos) não anda depois a
+ * calcular um "direito acumulado" que cresce com os meses para pagar um remanescente — quem
+ * recebeu metade ou mais não vai receber mais nada no ano. Sem esta regra, o motor comparava o
+ * direito até ao mês visível com o já pago e inventava remanescentes que ninguém vai pagar (o
+ * caso real: subsídio pago em julho, férias em outubro, e a linha voltava a aparecer).
+ *
+ * O limiar é metade do direito do ano, não o valor já pago: quem recebeu 400 € de um subsídio de
+ * 1 137,98 € pode estar a receber em duodécimos e ainda tem algo a receber; quem recebeu 827,62 €
+ * (o valor que a empresa paga) já fechou o ano. Pagamento a zero nunca liquida — é um ano sem
+ * subsídio pago, e o estimador mostra o direito.
+ */
+fun subsidioFeriasLiquidado(pagoNoAnoMil: Long, direitoAnoMil: Long): Boolean =
+    pagoNoAnoMil > 0L && pagoNoAnoMil * 2L >= direitoAnoMil
+
+/**
  * Dias de calendário, entre [inicio] e [fim] (inclusive), cobertos por ausências que **não** contam
  * como tempo de serviço para o subsídio. Só a BAIXA ([CategoriaTurno.BAIXA]) desconta: as férias
  * são tempo de serviço pago — é assim que o VENC as trata — e as folgas não são ausências

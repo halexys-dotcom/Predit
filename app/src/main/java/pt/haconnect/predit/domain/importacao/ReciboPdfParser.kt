@@ -329,7 +329,14 @@ private data class Colunas(
      * linha de código desconhecido é um desconto e não um abono. `null` quando a grelha não traz
      * as duas etiquetas — aí a natureza fica a do mapeamento, como antes.
      */
-    val descontosMin: Float?
+    val descontosMin: Float?,
+    /**
+     * A partir deste x o valor está na coluna "Importância" dos abonos: é a diferença entre uma
+     * linha informativa que só traz Quantidade e Preço Unitário (setembro de 2026: F74 a 3,29 €,
+     * que é o preço da hora) e uma que declara um valor (outubro de 2026: F74 a 11,30 €). `null`
+     * quando a grelha não traz a etiqueta.
+     */
+    val importanciaMin: Float?
 )
 
 /**
@@ -364,6 +371,13 @@ private fun medirColunas(etiquetas: List<BlocoTexto>): Colunas? {
     val descontosMin =
         if (importancia != null && descontos != null && descontos > importancia) (importancia + descontos) / 2f
         else null
+    // O início da coluna "Importância": a meio caminho do preço unitário, quando ele está à
+    // esquerda (ICTS: 389 → 468, 428,55). Sem preço medido, a própria etiqueta serve de fronteira.
+    val importanciaMin = when {
+        importancia == null -> null
+        preco != null && preco < importancia -> (preco + importancia) / 2f
+        else -> importancia
+    }
 
     return Colunas(
         codigoMax = (data + descricao) / 2f,
@@ -371,7 +385,8 @@ private fun medirColunas(etiquetas: List<BlocoTexto>): Colunas? {
         descricaoMax = if (quantidade != null) (descricao + quantidade) / 2f else Float.MAX_VALUE,
         numeroMin = numeroMin,
         quantidadeMax = quantidadeMax,
-        descontosMin = descontosMin
+        descontosMin = descontosMin,
+        importanciaMin = importanciaMin
     )
 }
 
@@ -413,7 +428,7 @@ private fun lerLinhas(
 
     fun fechar() {
         val cod = codigo ?: return
-        val mapeamento = mapearCodigoRecibo(cod, mapaDaEmpresa)
+        val doMapeamento = mapearCodigoRecibo(cod, mapaDaEmpresa)
 
         val numeros = grupo
             .filter { it.x >= colunas.numeroMin }
@@ -424,6 +439,28 @@ private fun lerLinhas(
         val maisADireita = numeros.maxByOrNull { it.first }
         val valor = maisADireita?.second ?: 0L
         val quantidade = numeros.firstOrNull { it.first < colunas.quantidadeMax }?.second
+
+        // 2026-11-21: uma linha informativa que o recibo **declara** na coluna Importância passa
+        // a contar. O F74 de outubro de 2026 traz 11,30 € aí; o de setembro só traz 0,50 h ×
+        // 6,57 €/h, cujo 3,29 € é preço unitário e não pagamento. O valor não entra nos totais do
+        // recibo — a ausência já está cortada no VENC — mas escreve-se na rubrica que o
+        // MapeamentoRecibo indica para a linha (ATRASO/Ausências, informativa no catálogo).
+        val naColunaImportancia = colunas.importanciaMin != null && maisADireita != null &&
+            maisADireita.first >= colunas.importanciaMin
+        val rubricaDaInformativa =
+            if (naColunaImportancia) rubricaDaInformativaComValor(cod) else null
+        val mapeamento =
+            if (rubricaDaInformativa == null) {
+                doMapeamento
+            } else {
+                MapeamentoRubrica(
+                    codigoRecibo = doMapeamento.codigoRecibo,
+                    codigoInterno = rubricaDaInformativa,
+                    natureza = NaturezaRubrica.ABONO,
+                    aviso = null,
+                    origem = OrigemMapeamento.HARDCODED
+                )
+            }
 
         // C7: um valor na coluna "Descontos" é desconto, seja qual for o código. Sem isto, um
         // desconto que a app não conhece (o D05 da Fundação) entrava como abono e somava ao

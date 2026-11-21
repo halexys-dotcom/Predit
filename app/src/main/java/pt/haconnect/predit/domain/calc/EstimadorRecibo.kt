@@ -113,6 +113,19 @@ data class ContextoEstimativa(
      */
     val feriasMil: Long = 0L,
     /**
+     * O subsídio de férias deste ano civil **já pago** nos meses anteriores, em 1/10000 € — a soma
+     * do `valorReal` da rubrica FERIAS desses meses (ver `totalFeriasJaPagas` no `ReciboViewModel`).
+     *
+     * O subsídio é um valor fixo anual: paga-se todo de uma vez ou em duas metades (50 % + 50 %), e
+     * há empresas que o liquidam em duodécimos. Abaixo de **metade do direito do ano** o que se
+     * estima é o que **falta receber** (`direito até ao fim do mês − feriasJaPagoMil`, nunca abaixo
+     * de zero) — são as prestações e os duodécimos. A partir de metade o subsídio considera-se
+     * liquidado ([subsidioFeriasLiquidado]) e o estimado fica a 0,00: a empresa não anda a acumular
+     * um "direito" que cresce com os meses para pagar um remanescente em outubro. O valor do recibo
+     * deste mês prevalece sempre e não é tocado por esta conta ([feriasMil]).
+     */
+    val feriasJaPagoMil: Long = 0L,
+    /**
      * Data de admissão, para o proporcional dos subsídios (ver [calcularSubsidioProporcional]).
      * `null` quando não se conhece: nesse caso não se estima subsídio nenhum (ficam a 0) — melhor
      * não inventar do que assumir um ano inteiro de serviço. As ausências do ano entram por
@@ -177,6 +190,13 @@ private const val CODIGO_SUBSIDIO_FERIAS = "FERIAS"
  * .natalMil] —, que prevalece sobre a estimativa.
  */
 private const val MES_PAGAMENTO_NATAL = 12
+
+/**
+ * O fim do ano civil. Passado como mês de pagamento a [calcularSubsidioProporcional] dá o direito
+ * ao subsídio do **ano inteiro** — o valor fixo anual que decide se as férias já estão liquidadas
+ * ([subsidioFeriasLiquidado]).
+ */
+private const val MES_FECHO_DO_ANO = 12
 
 /**
  * Subsídios anuais. Têm retenção de IRS autónoma, por isso ficam FORA da base mensal (somá-los lá
@@ -448,22 +468,52 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // (`diasDeAusenciaQueNaoContam`): o catálogo é que diz que uma ausência é baixa.
     val categoriasPorTipo = ctx.tiposTurno.associate { it.id to it.categoria }
     val baseSubsidiosMil = ctx.parametrosCCT.vencimentoBaseMil.toLong()
-    fun subsidioEstimado(pagoNoMes: Boolean): Long {
-        val admissao = ctx.dataAdmissao
-        if (!pagoNoMes || admissao == null) return 0L
+
+    /**
+     * O **direito** ao subsídio até ao fim do mês indicado (por omissão, o mês visível), sem olhar
+     * a pagamentos nem à visibilidade: é o valor que o subsídio teria se fosse liquidado nesse mês.
+     * Serve os dois subsídios (Natal e férias). Com [mesPagamento] = dezembro dá o direito do ano
+     * inteiro — o "valor fixo anual" do subsídio, que decide se as férias já estão liquidadas
+     * ([subsidioFeriasLiquidado]).
+     */
+    fun direitoDoSubsidio(mesPagamento: Int = ctx.anoMes.monthValue): Long {
+        val admissao = ctx.dataAdmissao ?: return 0L
         return calcularSubsidioProporcional(
             baseMil = baseSubsidiosMil,
             dataAdmissao = admissao,
             ano = ctx.anoMes.year,
-            mesPagamento = ctx.anoMes.monthValue,
+            mesPagamento = mesPagamento,
             ausencias = ctx.ausencias,
             tiposTurno = ctx.tiposTurno
         )
     }
     val valorNatal = ctx.natalMil.takeIf { it > 0L }
-        ?: subsidioEstimado(ctx.anoMes.monthValue == MES_PAGAMENTO_NATAL)
+        ?: if (ctx.anoMes.monthValue == MES_PAGAMENTO_NATAL) direitoDoSubsidio() else 0L
+    // Férias: o valor do recibo prevalece. Sem ele, estima-se o que **falta receber**:
+    //   direito até ao fim do mês − já pago nos meses anteriores do ano  (nunca abaixo de zero)
+    // com uma paragem antes: o subsídio é um valor FIXO ANUAL e quem já recebeu metade ou mais não
+    // vai receber um "remanescente" no fim do ano ([subsidioFeriasLiquidado]). Sem ela, outubro de
+    // 2026 — subsídio pago todo em julho, férias marcadas no mês — voltava a mostrar a diferença
+    // entre o direito acumulado até outubro e o que já tinha sido pago: dinheiro que ninguém
+    // recebe. Abaixo de metade a conta mantém-se: são as prestações e os duodécimos.
+    // As férias que fazem aparecer a linha continuam a ser as marcadas no mês ou no seguinte.
     val valorFerias = ctx.feriasMil.takeIf { it > 0L }
-        ?: subsidioEstimado(temFeriasNoMesOuSeguinte(ctx.ausencias, categoriasPorTipo, ctx.anoMes))
+        ?: run {
+            val feriasLiquidadas = subsidioFeriasLiquidado(
+                pagoNoAnoMil = ctx.feriasJaPagoMil,
+                direitoAnoMil = direitoDoSubsidio(mesPagamento = MES_FECHO_DO_ANO)
+            )
+            val temFeriasNoMes = temFeriasNoMesOuSeguinte(
+                ctx.ausencias,
+                categoriasPorTipo,
+                ctx.anoMes
+            )
+            if (temFeriasNoMes && !feriasLiquidadas) {
+                (direitoDoSubsidio() - ctx.feriasJaPagoMil).coerceAtLeast(0L)
+            } else {
+                0L
+            }
+        }
 
     val valores = linkedMapOf(
         "VENC" to vencFinal,

@@ -83,6 +83,21 @@ class SubsidiosTest {
         assertFalse(temFeriasNoMesOuSeguinte(emptyList(), categorias, YearMonth.of(2026, 8)))
     }
 
+    /**
+     * A regra dos 50 % (2026-11-21): em Portugal o subsídio de férias paga-se todo de uma vez ou em
+     * duas metades (50 % + 50 %), por isso quem já recebeu metade ou mais não vai receber um
+     * remanescente — o subsídio fecha e o estimado fica a 0,00. Abaixo de metade ainda é o caso das
+     * prestações e dos duodécimos, e o estimador mostra o que falta.
+     */
+    @Test
+    fun `o subsidio de ferias fecha a partir de metade do direito do ano`() {
+        val direito = 11_379_800L    // 1 137,98 € — o vencimento base de 2026, um ano inteiro
+        assertFalse(subsidioFeriasLiquidado(0L, direito))           // nada pago: ainda não fecha
+        assertFalse(subsidioFeriasLiquidado(5_689_800L, direito))   // 568,98 € — um cêntimo abaixo
+        assertTrue(subsidioFeriasLiquidado(5_689_900L, direito))    // 568,99 € — metade exata
+        assertTrue(subsidioFeriasLiquidado(8_276_200L, direito))    // 827,62 € — o recibo de outubro
+    }
+
     private fun dia(ano: Int, mes: Int, dia: Int): Long =
         LocalDate.of(ano, mes, dia).toEpochDay()
 }

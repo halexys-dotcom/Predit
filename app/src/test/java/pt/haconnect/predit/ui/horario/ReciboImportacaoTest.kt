@@ -6,7 +6,9 @@ import org.junit.Test
 import pt.haconnect.predit.domain.calc.NaturezaRubrica
 import pt.haconnect.predit.domain.importacao.LinhaReciboImportada
 import pt.haconnect.predit.domain.importacao.mapearCodigoRecibo
+import pt.haconnect.predit.domain.model.ReciboLinha
 import pt.haconnect.predit.domain.model.Rubrica
+import java.time.YearMonth
 
 /**
  * A aplicaÃ§Ã£o de um recibo importado Ã s ediÃ§Ãµes do mÃªs: dois cÃ³digos do PDF podem cair na mesma
@@ -234,6 +236,119 @@ class ReciboImportacaoTest {
 
         assertEquals(mapOf(21L to 460_000L), somados)
         assertTrue(descontosSemRubrica.isEmpty())
+    }
+
+    /**
+     * 2026-11-21: o `F74` (ausencia nao remunerada parcial) passa a escrever quando o recibo lhe
+     * declara uma Importancia — o parser manda-o para `ATRASO` (as ausencias, uma rubrica
+     * informativa no catalogo), que e onde o utilizador o quer ver na conferencia. Quando o
+     * recibo nao tem Importancia, o parser entrega-o sem codigo interno e esta tabela nem o ve.
+     */
+    @Test
+    fun `F74 com Importancia vai para as ausencias`() {
+        val somados = somarLinhasPorRubrica(
+            listOf(linha("F74", 113_000L, codigoInterno = "ATRASO")),
+            catalogo + ("ATRASO" to rubrica(31L, "ATRASO")),
+            mutableListOf()
+        )
+
+        assertEquals(mapOf(31L to 113_000L), somados)
+    }
+
+    /**
+     * 2026-11-21: a importacao escreve uma edicao para **todas** as rubricas do catalogo. O que o
+     * recibo declara fica com o valor do PDF; o que ele nao traz passa a 0,00 — sem isto, o
+     * subsidio de ferias de outubro ficava com o valor da importacao anterior (ou com o estimado
+     * que o Guardar tinha gravado como real) e os totais reais nao fechavam no recibo.
+     */
+    @Test
+    fun `a importacao zera as rubricas que o PDF nao traz`() {
+        val valores = valoresDaImportacao(
+            valoresDoPdf = mapOf(1L to 11_576_800L, 31L to 113_000L),
+            rubricas = catalogo.values.toList() + rubrica(15L, "FERIAS") + rubrica(31L, "ATRASO")
+        )
+
+        assertEquals(8, valores.size)            // todas as rubricas do catalogo
+        assertEquals(11_576_800L, valores[1L])   // VENC: o que o PDF declara
+        assertEquals(113_000L, valores[31L])     // ATRASO: o F74 com Importancia
+        assertEquals(0L, valores[15L])           // FERIAS: o recibo deste mes nao o traz
+        assertEquals(0L, valores[98L])           // OUTROS_DESC
+    }
+
+    /**
+     * 2026-11-21: o subsídio de férias paga-se uma vez por ano, mas pode ser liquidado em
+     * prestações ou em duodécimos — por isso o que se soma é o `valorReal` do FERIAS de **todos**
+     * os meses anteriores do mesmo ano, e o estimador devolve `direito − este total`.
+     *
+     * Fica de fora o próprio mês visível (um FERIAS do recibo deste mês é o valor do recibo e
+     * prevalece no estimador), os meses seguintes e os de outro ano — o subsídio de 2026 não
+     * esconde o de 2027. Uma linha a zero soma zero, e outra rubrica não entra na conta.
+     */
+    @Test
+    fun `total de ferias ja pagas soma os meses anteriores do mesmo ano`() {
+        val feriasId = 15L
+        fun gravada(mes: String, valor: Long) = ReciboLinha(
+            reciboMesId = mes,
+            rubricaId = feriasId,
+            valorEstimado = 0L,
+            valorReal = valor,
+            natureza = NaturezaRubrica.ABONO,
+            ordem = 15
+        )
+
+        val outubro = YearMonth.of(2026, 10)
+        assertEquals(
+            "julho com 827,62 EUR: o subsídio foi pago todo",
+            8_276_200L,
+            totalFeriasJaPagas(listOf(gravada("2026-07", 8_276_200L)), feriasId, outubro)
+        )
+        assertEquals(
+            "duas prestacoes (julho 400,00 + setembro 427,62) somam o direito inteiro",
+            8_276_200L,
+            totalFeriasJaPagas(
+                listOf(gravada("2026-07", 4_000_000L), gravada("2026-09", 4_276_200L)),
+                feriasId,
+                outubro
+            )
+        )
+        assertEquals(
+            "o proprio mes nao conta",
+            0L,
+            totalFeriasJaPagas(listOf(gravada("2026-10", 8_276_200L)), feriasId, outubro)
+        )
+        assertEquals(
+            "um mes seguinte nao conta",
+            0L,
+            totalFeriasJaPagas(listOf(gravada("2026-12", 8_276_200L)), feriasId, outubro)
+        )
+        assertEquals(
+            "um mes a zero soma zero",
+            0L,
+            totalFeriasJaPagas(listOf(gravada("2026-07", 0L)), feriasId, outubro)
+        )
+        assertEquals(
+            "noutra rubrica nao conta",
+            0L,
+            totalFeriasJaPagas(
+                listOf(gravada("2026-07", 8_276_200L).copy(rubricaId = 1L)),
+                feriasId,
+                outubro
+            )
+        )
+        assertEquals(
+            "janeiro do ano seguinte e o subsidio de outro ano",
+            0L,
+            totalFeriasJaPagas(
+                listOf(gravada("2026-07", 8_276_200L)),
+                feriasId,
+                YearMonth.of(2027, 1)
+            )
+        )
+        assertEquals(
+            "sem a rubrica no catalogo nao ha nada a descontar",
+            0L,
+            totalFeriasJaPagas(listOf(gravada("2026-07", 8_276_200L)), null, outubro)
+        )
     }
 
     private fun rubrica(id: Long, codigo: String) = Rubrica(

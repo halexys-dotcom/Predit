@@ -420,6 +420,121 @@ class EstimadorReciboTest {
         assertEquals(113_798L, est.valor("D04"))        // 1% do VENC = 11,38 EUR
     }
 
+    /**
+     * T53 (2026-11-21, revisto duas vezes): em Portugal o subsídio de férias é um valor **fixo
+     * anual** — paga-se todo de uma vez ou em duas metades (50 % + 50 %), e há empresas que o dão em
+     * duodécimos. O motor estima **o que falta receber** (`direito até ao fim do mês − já pago nos
+     * meses anteriores`, nunca abaixo de zero) enquanto o pago estiver **abaixo de metade do direito
+     * do ano**; a partir de metade o subsídio considera-se liquidado e o estimado é 0,00
+     * ([subsidioFeriasLiquidado]). Sem essa paragem, outubro de 2026 — subsídio pago todo em julho,
+     * férias marcadas no mês — voltava a mostrar a diferença entre o direito acumulado até outubro e
+     * o que já tinha sido pago: um remanescente que ninguém vai receber.
+     *
+     * O cenário é o mesmo das férias de agosto de 2026 (T8): vencimento base do CCT de 1 137,98 €,
+     * admissão em 2020, férias de 10 a 24 marcadas. O **direito até ao fim de agosto** é o que a app
+     * estima para o subsídio pago nesse mês — 757,61 € (`calcularSubsidioProporcional`, 243 de 365
+     * dias) — e o direito do ano inteiro é o próprio vencimento base, 1 137,98 €, logo **metade são
+     * 568,99 €**. O recibo real de outubro de 2026 trazia 827,62 €, valor que a app aceita como real
+     * ([ContextoEstimativa.feriasMil]) em vez de o estimar.
+     *
+     * As férias continuam a cortar o subsídio de alimentação e o transporte em qualquer cenário —
+     * o pagamento do subsídio não mexe nisso.
+     */
+    private fun contextoDoSubsidioDeFerias(
+        jaPagoMil: Long,
+        feriasMil: Long = 0L
+    ): ContextoEstimativa {
+        val agosto = YearMonth.of(2026, 8)
+        val feriasDeAgosto = Ausencia(
+            id = 2,
+            tipoTurnoId = TIPO_FERIAS,
+            dataInicio = agosto.atDay(10).toEpochDay(),
+            dataFim = agosto.atDay(24).toEpochDay()
+        )
+        return contexto(
+            agosto,
+            diasReaisDeAgosto2026(),
+            projecao = projecaoDe(agosto),
+            ausencias = listOf(feriasDeAgosto)
+        ).copy(
+            tiposTurno = listOf(tipoTrabalho, tipoFerias),
+            feriasMil = feriasMil,
+            feriasJaPagoMil = jaPagoMil
+        )
+    }
+
+    /** Direito ao subsídio de férias até ao fim de agosto de 2026, em 1/10000 €: 757,61 € (T8). */
+    private val direitoFeriasAteAgosto = 7_576_141L
+
+    /** Metade do direito ao subsídio de um ano inteiro (1 137,98 € ÷ 2), em 1/10000 €: 568,99 €. */
+    private val metadeDoSubsidioAnual = 5_689_900L
+
+    @Test
+    fun `T53 - subsidio de ferias pago na totalidade nao tem nada a estimar`() {
+        val est = estimarRecibo(contextoDoSubsidioDeFerias(jaPagoMil = direitoFeriasAteAgosto))
+
+        // Direito 757,61 − já pago 757,61 = 0,00 — e 757,61 já passou de metade do subsídio anual,
+        // por isso o subsídio está liquidado de qualquer forma. Sem subsídio não há SS nem IRS
+        // autónomo dele.
+        assertEquals(0L, est.valor("FERIAS"))
+        // As férias continuam a cortar o cartão e o transporte.
+        assertEquals(863_500L, est.valor("SUP_ALIM"))   // (22 − 11) × 7,85 €
+        assertEquals(329_903L, est.valor("SUP_TRAN"))
+    }
+
+    @Test
+    fun `T54 - subsidio de ferias pago abaixo de metade estima o que falta`() {
+        val est = estimarRecibo(contextoDoSubsidioDeFerias(jaPagoMil = 4_000_000L))
+
+        // Primeira prestação paga em julho (400,00 € = 35 % do subsídio anual): ainda abaixo de
+        // metade, por isso o que falta é 757,61 − 400,00 = 357,61 €.
+        assertEquals(3_576_141L, est.valor("FERIAS"))
+        assertEquals(863_500L, est.valor("SUP_ALIM"))
+    }
+
+    @Test
+    fun `T55 - subsidio de ferias sem nada pago estima o direito do ano`() {
+        val est = estimarRecibo(contextoDoSubsidioDeFerias(jaPagoMil = 0L))
+
+        // Nada pago: o direito até ao fim do mês, como antes desta regra (T8).
+        assertEquals(direitoFeriasAteAgosto, est.valor("FERIAS"))
+    }
+
+    /**
+     * T56: a metade do subsídio anual chega para o fechar. Pago 568,99 € (50 %) ou 800,00 € (acima
+     * do direito até agosto), a estimativa é 0,00: em Portugal a segunda metade vem no mês seguinte e
+     * não no fim do ano, e um valor a mais não pode dar negativo. O valor do recibo do mês prevalece
+     * sempre: se o PDF traz o subsídio deste mês, é esse que se escreve, pague-se o que se pagar nos
+     * meses anteriores (o estimado não reescreve o real).
+     */
+    @Test
+    fun `T56 - metade ou mais do subsidio anual pago fica a zero e o valor do recibo prevalece`() {
+        val metade = estimarRecibo(
+            contextoDoSubsidioDeFerias(jaPagoMil = metadeDoSubsidioAnual)
+        )
+        assertEquals(0L, metade.valor("FERIAS"))
+
+        val acima = estimarRecibo(contextoDoSubsidioDeFerias(jaPagoMil = 8_000_000L))
+        assertEquals(0L, acima.valor("FERIAS"))
+
+        val doRecibo = estimarRecibo(
+            contextoDoSubsidioDeFerias(jaPagoMil = direitoFeriasAteAgosto, feriasMil = 320_000L)
+        )
+        assertEquals(320_000L, doRecibo.valor("FERIAS"))
+    }
+
+    /**
+     * T57: a fronteira dos 50 %, ao cêntimo. Um cêntimo abaixo de metade do subsídio anual ainda é
+     * uma prestação a meio e mostra o remanescente (757,61 − 568,98 = 188,63 €); em metade exata o
+     * subsídio fecha (T56). É o caso muito hipotético de quem recebeu menos de metade — a norma é
+     * metade-metade.
+     */
+    @Test
+    fun `T57 - um centimo abaixo de metade ainda mostra o remanescente`() {
+        val abaixo = estimarRecibo(contextoDoSubsidioDeFerias(jaPagoMil = 5_689_800L))
+        assertEquals(1_886_341L, abaixo.valor("FERIAS"))
+    }
+
     @Test
     fun `T9 - ausencia a cavalo de dois meses so corta os dias uteis de julho`() {
         val julho = YearMonth.of(2026, 7)

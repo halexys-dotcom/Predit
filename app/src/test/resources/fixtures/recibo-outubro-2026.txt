@@ -1,0 +1,73 @@
+1	63.9	90.0	NIF: 502800070
+1	63.9	100.5	Rua Cidade de Bissau Nº 55A, Escr. 29.0.0.01
+1	63.9	111.8	1800-075 Lisboa
+1	63.9	123.0	LISBOA
+1	62.4	147.8	Original
+1	62.4	176.6	Recibo de Vencimentos
+1	62.4	192.7	Nome
+1	267.1	192.7	N.º Mecan.
+1	369.4	192.7	N.º Benef.
+1	471.6	192.7	N.º Contrib.
+1	62.4	204.1	JOAO DA SILVA
+1	267.1	204.1	99 999
+1	369.4	204.1	99999999999
+1	471.6	204.1	999999999
+1	62.4	224.5	Período 
+1	164.9	224.5	Data Fecho
+1	267.1	224.5	Vencimento
+1	369.4	224.5	Venc. / Hora
+1	471.6	224.5	N.º Dias Úteis
+1	62.4	235.7	Outubro
+1	164.9	235.8	31/10/2026
+1	267.1	235.8	 1 137,98
+1	369.4	235.8	 6,57
+1	471.6	235.8	 22.00
+1	62.4	257.5	Seguro
+1	266.4	257.5	Departamento
+1	471.6	257.5	Categoria
+1	62.4	268.9	ALLIANZ 999999999
+1	266.4	269.5	OPERATIONAL
+1	471.6	269.5	VIGILANTE AEROPORTUÁRIO
+1	62.4	287.5	Faltas
+1	434.4	287.5	Retenção IRS
+1	62.4	299.5	Alim.
+1	104.4	299.5	Turno
+1	140.4	299.5	CDH
+1	182.4	299.5	CDD
+1	224.4	299.5	SDH
+1	260.4	299.5	SDD
+1	469.2	299.5	IRS Retido
+1	527.4	299.5	Total Remun.
+1	140.4	311.5	 0,50
+1	260.4	311.5	 11,00
+1	477.5	311.5	 250,00
+1	538.7	311.5	 7 300,00
+1	468.1	325.8	Importância
+1	335.7	325.9	Quantidade
+1	389.0	325.9	Preço Unitário
+1	62.4	326.2	Cód.
+1	114.1	326.2	Data
+1	539.0	326.2	Descontos
+1	157.6	326.6	Abonos
+1	62.4	339.4	R01
+1	157.6	339.4	Vencimento
+1	402.7	339.4	 1 157,98
+1	479.6	339.4	 1 145,68
+1	62.4	352.4	F74
+1	157.6	352.4	Ausencia não remun. Parcial(H)
+1	351.1	352.4	 1,15
+1	415.0	352.4	 7,55
+1	479.6	352.4	 11,30
+1	405.0	685.1	Total
+1	476.6	685.1	 1 145,68
+1	547.2	685.1	 250,00
+1	339.5	714.1	Total Pago ( EUR )
+1	527.0	714.1	 895,68
+1	62.8	770.1	Declaro que recebi a quantia constante neste recibo,
+1	293.6	771.1	Obs.
+1	293.2	783.9	Confira os seus dados pessoais e profissionais
+1	62.4	812.2	© PRIMAVERA BSS 
+1	100.9	812.2	/ Licença de: 
+1	127.1	812.2	ICTS PORTUGAL
+1	158.6	812.2	, 
+1	161.0	812.2	SA

@@ -132,7 +132,9 @@ private const val CODIGO_AUSENCIAS = "ATRASO"
  *   [temFeriadoNoMes]), a zero ou não: é o que o utilizador pediu para limpar o ecrã.
  * - O subsídio de Natal (v2.1.1) só aparece em dezembro ([mostrarNatal]).
  * - O subsídio de férias (v2.1.1) só aparece quando há férias no mês ou no seguinte
- *   ([mostrarFerias], ver [temFeriasNoMesOuSeguinte]).
+ *   ([mostrarFerias], ver [temFeriasNoMesOuSeguinte]) — e, desde 2026-11-21, só enquanto houver
+ *   algo a receber: o subsídio é um valor fixo anual e, pago em julho ou em duodécimos, não deixa
+ *   um remanescente a crescer nos meses seguintes ([mostrarSubsidioFerias]).
  *   Em ambos, a rede de segurança de [linhasVisiveis] mostra a linha se ela já tiver valor — é o
  *   que deixa ver o subsídio pago antecipadamente (Natal em novembro de 2026, férias fora da época).
  * - O subsídio de função (v2.1.1) só aparece nas categorias que o recebem — o Team Leader
@@ -174,7 +176,7 @@ internal fun linhasVisiveis(
         linha.codigo in CODIGOS_FERIADO -> temFeriado
         // 4. Natal: só em dezembro.
         linha.codigo == CODIGO_SUBSIDIO_NATAL -> mostrarNatal
-        // 5. Férias: só com férias no mês ou no seguinte.
+        // 5. Férias: só com férias no mês ou no seguinte — e com algo a receber (ver mostrarFerias).
         linha.codigo == CODIGO_SUBSIDIO_FERIAS -> mostrarFerias
         // 6. Subsídio de função: só nas categorias que o recebem.
         linha.codigo == CODIGO_SUBSIDIO_FUNCAO -> mostrarSubsidioFuncao
@@ -186,6 +188,80 @@ internal fun linhasVisiveis(
         linha.codigo == CODIGO_AUSENCIAS -> false
         else -> true
     }
+}
+
+/**
+ * A linha do subsídio de férias desenha-se neste mês? (2026-11-21)
+ *
+ * O subsídio de férias é um valor **fixo anual**: a empresa paga-o em julho, em duas prestações ou
+ * em duodécimos, e não anda depois a acumular um "direito" que cresce com os meses para pagar um
+ * remanescente em outubro. Por isso a linha não segue só o calendário das férias
+ * ([temFeriasNoMesOuSeguinte]); segue também o que já foi pago no ano:
+ *  - o recibo deste mês traz o subsídio (PDF, gravado ou escrito à mão) → **mostra-se sempre**,
+ *    com o valor do recibo;
+ *  - nada pago no ano → mostra-se o direito, como antes;
+ *  - já houve pagamento → só se ainda houver algo a receber. O estimador põe a estimativa a 0,00
+ *    quando metade ou mais do subsídio anual já foi pago
+ *    ([pt.haconnect.predit.domain.calc.subsidioFeriasLiquidado]) e a linha esconde-se; abaixo de
+ *    metade — prestações, duodécimos — mostra-se o remanescente
+ *    ([totalFeriasJaPagas]).
+ *
+ * É a estimativa que decide, e não uma segunda conta do direito aqui: o número que o ecrã desenha
+ * é o do motor, e um teste sobre ele (T56 em `EstimadorReciboTest`) já garante que meia vida de
+ * subsídio pago dá zero. Duplicar a conta daria duas verdades — e a do ecrã não é a que se soma.
+ *
+ * Função pura para o teste poder fixar a regra sem base de dados nem repositórios — como
+ * [linhasVisiveis].
+ */
+internal fun mostrarSubsidioFerias(
+    temFeriasNoCalendario: Boolean,
+    feriasMil: Long,
+    feriasJaPagasMil: Long,
+    feriasEstimadaMil: Long
+): Boolean {
+    if (!temFeriasNoCalendario) return false
+    if (feriasMil != 0L) return true
+    if (feriasJaPagasMil == 0L) return true
+    return feriasEstimadaMil != 0L
+}
+
+/**
+ * O subsídio de férias do ano já pago **antes** do mês visível, em 1/10000 €.
+ *
+ * O subsídio paga-se uma vez por ano, mas não sempre de uma vez: há empresas que o pagam em duas
+ * prestações ou em duodécimos. Somam-se os `valorReal` da rubrica FERIAS gravados nos meses
+ * anteriores do ano e o estimador fica com o que falta receber
+ * (`direito até ao fim do mês − este total`), nunca abaixo de zero. Em outubro de 2026 o subsídio
+ * tinha sido pago todo em julho: a soma dá o direito e a estimativa cai a 0,00 — e a linha esconde-se
+ * ([mostrarSubsidioFerias]). Com metade do subsídio anual pago, a estimativa já não cresce: o
+ * subsídio considera-se liquidado ([pt.haconnect.predit.domain.calc.subsidioFeriasLiquidado]) e fica
+ * a 0,00, para não inventar um remanescente que ninguém vai receber. Abaixo de metade — as
+ * prestações e os duodécimos — o estimador mostra o que falta.
+ *
+ * Olha para o que está **gravado**, não para o ecrã: [ReciboLinha.reciboMesId] é "aaaa-mm", logo
+ * a comparação de texto é a cronológica. Fica de fora o próprio mês visível — um FERIAS que o
+ * recibo deste mês traga é o valor do recibo e prevalece no estimador. O filtro pelo ano impede
+ * que o subsídio de 2026 conte para o de 2027.
+ *
+ * Função pura para o teste poder fixar a regra sem base de dados nem repositórios — como
+ * [linhasVisiveis].
+ */
+internal fun totalFeriasJaPagas(
+    linhasDoAno: List<ReciboLinha>,
+    rubricaId: Long?,
+    anoMes: YearMonth
+): Long {
+    if (rubricaId == null) return 0L
+    val chave = chaveDe(anoMes)
+    val prefixoDoAno = "${anoMes.year}-"
+    return linhasDoAno
+        .filter { linha ->
+            linha.rubricaId == rubricaId &&
+                linha.reciboMesId.startsWith(prefixoDoAno) && linha.reciboMesId < chave
+        }
+        // Soma simples: um estorno gravado a negativo no mês anterior desconta ao que foi pago,
+        // que é a verdade — o dinheiro voltou. O `coerceAtLeast(0)` fica no estimador.
+        .sumOf { it.valorReal }
 }
 
 /**
@@ -326,7 +402,8 @@ data class ReciboUiState(
      */
     val mostrarSubsidioNatal: Boolean = false,
     /**
-     * v2.1.1: há férias marcadas no mês visível ou no seguinte — [temFeriasNoMesOuSeguinte].
+     * v2.1.1: há férias marcadas no mês visível ou no seguinte — [temFeriasNoMesOuSeguinte] — e,
+     * se o subsídio do ano já tiver sido pago, ainda há algo a receber ([mostrarSubsidioFerias]).
      * Decide se a linha do subsídio de férias se desenha.
      */
     val mostrarSubsidioFerias: Boolean = false,
@@ -557,8 +634,14 @@ class ReciboViewModel(
         return combine(
             reciboRepository.observarMes(anoMes),
             reciboRepository.observarLinhas(anoMes),
-            tabelaIRSRepository.observarComRecurso(fontes.cabecalho.anoMes.year)
-        ) { mes, linhas, tabelas -> calcularEstado(fontes, mes, linhas, tabelas) }
+            tabelaIRSRepository.observarComRecurso(fontes.cabecalho.anoMes.year),
+            // 2026-11-21: as linhas do ano inteiro dizem se o subsídio de férias já foi pago num
+            // mês anterior (ver [subsidioFeriasJaPago]). É a mesma tabela, lida por ano — não há
+            // consulta nova nem migração.
+            reciboRepository.observarLinhasDoAno(fontes.cabecalho.anoMes.year)
+        ) { mes, linhas, tabelas, linhasDoAno ->
+            calcularEstado(fontes, mes, linhas, tabelas, linhasDoAno)
+        }
     }
 
     /**
@@ -569,7 +652,8 @@ class ReciboViewModel(
         fontes: Fontes,
         mesGuardado: ReciboMes?,
         linhasGuardadas: List<ReciboLinha>,
-        tabelasIRS: EscaloesIRSDoAno
+        tabelasIRS: EscaloesIRSDoAno,
+        linhasDoAno: List<ReciboLinha> = emptyList()
     ): ReciboUiState {
         val escaloes = tabelasIRS.escaloes
         val anoMes = chaveDe(fontes.cabecalho.anoMes)
@@ -618,7 +702,26 @@ class ReciboViewModel(
         //   marcadas (pagamento antecipado), a rede de segurança de [linhasVisiveis] mostra a linha
         //   assim que ela tenha valor — é o mesmo critério do Natal em novembro de 2026.
         val mostrarNatal = fontes.cabecalho.anoMes.monthValue == MES_DO_SUBSIDIO_NATAL
-        val mostrarFerias = temFeriasNoMesOuSeguinte(
+        // 2026-11-21: o subsídio de férias é um valor fixo anual — paga-se todo de uma vez ou em
+        // duas metades (50 % + 50 %), e há empresas que o dão em duodécimos. A soma do FERIAS
+        // gravado nos meses anteriores deste ano diz o que já foi liquidado e o estimador devolve o
+        // que falta receber — mas só abaixo de metade do direito do ano: a partir daí o subsídio
+        // considera-se liquidado (subsidioFeriasLiquidado) e o estimado fica a 0,00, para não
+        // inventar remanescentes a quem já o recebeu. Em outubro de 2026 o subsídio tinha sido pago
+        // todo em julho e a app voltava a estimá-lo só porque havia férias marcadas. O valor do
+        // próprio mês, se o recibo o trouxer, prevalece e escreve-se na mesma (ver
+        // ContextoEstimativa.feriasMil).
+        val rubricaFeriasId = fontes.catalogo.rubricas
+            .firstOrNull { it.codigo == CODIGO_SUBSIDIO_FERIAS }?.id
+        val feriasJaPagasMil = totalFeriasJaPagas(
+            linhasDoAno = linhasDoAno,
+            rubricaId = rubricaFeriasId,
+            anoMes = fontes.cabecalho.anoMes
+        )
+        // A linha só se desenha quando há férias marcadas no mês ou no seguinte — e, com o subsídio
+        // já pago no ano, só enquanto o recibo deste mês o trouxer ou ainda faltar receber
+        // ([mostrarSubsidioFerias], decidido depois da estimativa).
+        val temFeriasNoCalendario = temFeriasNoMesOuSeguinte(
             fontes.agendas.ausencias,
             fontes.agendas.tiposTurno.associate { it.id to it.categoria },
             fontes.cabecalho.anoMes
@@ -708,6 +811,7 @@ class ReciboViewModel(
                     complementoBaixaMil = complementoBaixaMil,
                     natalMil = natalMil,
                     feriasMil = feriasMil,
+                    feriasJaPagoMil = feriasJaPagasMil,
                     dataAdmissao = dataAdmissao
                 )
             )
@@ -735,6 +839,21 @@ class ReciboViewModel(
 
         val estimadasPorId = estimativa.rubricas.associateBy { it.rubricaId }
         val guardadasPorId = linhasGuardadas.associateBy { it.rubricaId }
+
+        // 2026-11-21: a linha das férias aparece quando há férias marcadas no mês ou no seguinte —
+        // e, se o subsídio do ano já foi (total ou parcialmente) pago em meses anteriores, só
+        // quando ainda há algo a receber ([mostrarSubsidioFerias]). O subsídio de férias é um valor
+        // fixo anual: quem o recebeu em julho ou em duodécimos não vê um remanescente crescer em
+        // outubro. Um FERIAS que o recibo deste mês traga nunca é escondido.
+        val feriasEstimadaMil = rubricaFeriasId
+            ?.let { id -> estimadasPorId[id]?.valorMil }
+            ?: 0L
+        val mostrarFerias = mostrarSubsidioFerias(
+            temFeriasNoCalendario = temFeriasNoCalendario,
+            feriasMil = feriasMil,
+            feriasJaPagasMil = feriasJaPagasMil,
+            feriasEstimadaMil = feriasEstimadaMil
+        )
 
         val linhas = fontes.catalogo.rubricas.sortedBy { it.ordem }.map { rubrica ->
             val edicao = edicoesDoMes[rubrica.id]
@@ -940,10 +1059,15 @@ class ReciboViewModel(
         // mesma rubrica somam-se (RCR + RCRA), que é o que o recibo declara.
         // Classificação das linhas do recibo (confirmada a 2026-10-16 com 5 recibos reais e os
         // fixtures): as informativas — baixas (F01/F02), subsídio durante a baixa (F40), férias
-        // gozadas (F50), ausência parcial (F74) — vêm do parser sem código interno e não escrevem
-        // valor; as de "Outros" (R118 média de horas noturnas) são pagamentos reais, trazem
-        // Importância no recibo e escrevem. O R51 (complemento de baixa) saiu de "Outros" na 28i:
-        // tem rubrica própria (COMP_BAIXA), que incide SS e IRS, e escreve lá.
+        // gozadas (F50) — vêm do parser sem código interno e não escrevem valor; as de "Outros"
+        // (R118 média de horas noturnas) são pagamentos reais, trazem Importância no recibo e
+        // escrevem. O R51 (complemento de baixa) saiu de "Outros" na 28i: tem rubrica própria
+        // (COMP_BAIXA), que incide SS e IRS, e escreve lá.
+        // 2026-11-21: a ausência parcial (F74) deixou de ser sempre informativa — quando o recibo
+        // lhe declara uma Importância (outubro/2026: 11,30 € por 1,15 h) o parser manda-a para as
+        // ausências (ATRASO, que é informativa no catálogo), para o valor ficar à vista. Quando
+        // traz só Quantidade e Preço Unitário (setembro/2026: 3,29 €, que é o preço da hora),
+        // continua a não escrever nada.
         val anoMes = chaveDe(_anoMesAtual.value)
         val catalogo = rubricasCatalogo.value.associateBy { it.codigo }
         val naoReconhecidas = mutableListOf<String>()
@@ -967,9 +1091,14 @@ class ReciboViewModel(
             return
         }
 
+        // 2026-11-21: o PDF é a verdade do mês. As edições que ficam são de **todas** as rubricas
+        // — o que o recibo declara e 0,00 nas que ele não traz (ver valoresDaImportacao). Antes
+        // só se escreviam as presentes e as restantes ficavam com o que tivesse ficado de uma
+        // importação anterior, incluindo o estimado que o Guardar tinha gravado como real.
+        val doPdf = valoresDaImportacao(somados, rubricasCatalogo.value)
         _edicoes.update { atual ->
             val doMes = atual[anoMes].orEmpty().toMutableMap()
-            for ((rubricaId, valorFinal) in somados) {
+            for ((rubricaId, valorFinal) in doPdf) {
                 doMes[rubricaId] = Edicao(textoDe(valorFinal), valorFinal)
             }
             atual + (anoMes to doMes)
@@ -1352,9 +1481,14 @@ private const val AVISO_DESCONTO_OUTROS = "Desconto desconhecido foi para Outros
  * - Agosto 2025: `RCR` 163,24 € e `RCRA` 7,42 € somam os 170,66 € que entram no total de abonos
  *   desse recibo.
  *
- * As linhas informativas (baixa, férias gozadas, ausência parcial, subsídio durante a baixa) vêm
- * do parser sem `codigoInterno` e são ignoradas — nunca escrevem valor, é o que já era o destino
- * delas. Os códigos que não existem no catálogo ficam em [naoReconhecidas] para a app avisar.
+ * As linhas informativas (baixa, férias gozadas, subsídio durante a baixa) vêm do parser sem
+ * `codigoInterno` e são ignoradas — nunca escrevem valor, é o que já era o destino delas. Os
+ * códigos que não existem no catálogo ficam em [naoReconhecidas] para a app avisar.
+ *
+ * 2026-11-21: a ausência parcial (`F74`) só chega aqui como informativa quando o recibo não lhe
+ * declara Importância (é o parser que decide, ver `rubricaDaInformativaComValor`). Quando declara,
+ * vem com `codigoInterno = "ATRASO"` e escreve-se como qualquer linha — a rubrica das ausências é
+ * informativa no catálogo, portanto o valor aparece sem mexer nos totais.
  *
  * A excepção é a linha que o **mapeamento** manda para uma rubrica mas o parser marcou de
  * informativa: aí a rubrica é declarada pelo recibo e não paga (28i: o `R01` num mês de baixa
@@ -1422,6 +1556,26 @@ internal fun somarLinhasPorRubrica(
         somados[rubrica.id] = (somados[rubrica.id] ?: 0L) + linha.valor
     }
     return somados
+}
+
+/**
+ * As edições que uma importação escreve no mês: **todas** as rubricas do catálogo, com o valor
+ * que o recibo declara e 0,00 nas que ele não traz.
+ *
+ * 2026-11-21: antes só se escreviam as rubricas presentes no PDF. As restantes ficavam com o que
+ * estivesse gravado ou editado antes, e o Real mostrava valores que o recibo daquele mês já não
+ * tem — reimportar o recibo de outubro deixava lá o subsídio de férias estimado (pago em julho)
+ * e os totais reais não fechavam no que o recibo declara. O Real é "o que a empresa pagou": uma
+ * rubrica que o recibo não traz é 0,00, e é isso que a conferência passa a mostrar.
+ *
+ * [valoresDoPdf] é o mapa de [somarLinhasPorRubrica] (só as rubricas com linha no PDF). Função
+ * pura para o teste fixar a regra sem base de dados, como [linhasVisiveis].
+ */
+internal fun valoresDaImportacao(
+    valoresDoPdf: Map<Long, Long>,
+    rubricas: List<Rubrica>
+): Map<Long, Long> = rubricas.associate { rubrica ->
+    rubrica.id to (valoresDoPdf[rubrica.id] ?: 0L)
 }
 
 /** Unidades -> texto do campo: "1 137,98" (sem o "€", que o rótulo já diz). */
