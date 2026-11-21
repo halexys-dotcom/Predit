@@ -46,12 +46,16 @@ import pt.haconnect.predit.data.repository.RubricaRepository
 import pt.haconnect.predit.data.repository.TabelaIRSRepository
 import pt.haconnect.predit.data.repository.TipoTurnoRepository
 import pt.haconnect.predit.domain.calc.NaturezaRubrica
+import pt.haconnect.predit.domain.calc.ResultadoIRS
 import pt.haconnect.predit.domain.model.milParaEuros
 import pt.haconnect.predit.ui.turnos.TextoSemQuebra
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 import kotlin.math.abs
+
+/** Código da rubrica de IRS: é a única linha com escalão e taxa a mostrar (v2.2.0). */
+private const val CODIGO_IRS = "D02"
 
 /**
  * Fase 8.2b.2b — conferência do recibo introduzido: por rubrica, o estimado ao lado do
@@ -349,7 +353,9 @@ fun ConferenciaReciboScreen(
                             linha = linha,
                             onTextoAlterado = { texto ->
                                 viewModel.atualizarValorReal(linha.rubricaId, texto)
-                            }
+                            },
+                            // v2.2.1: a taxa efetiva só entra no título da linha do IRS.
+                            detalheIrs = if (linha.codigo == CODIGO_IRS) uiState.detalheIrs else null
                         )
                         HorizontalDivider()
                     }
@@ -463,7 +469,8 @@ fun ConferenciaReciboScreen(
 @Composable
 private fun LinhaRubrica(
     linha: LinhaConferencia,
-    onTextoAlterado: (String) -> Unit
+    onTextoAlterado: (String) -> Unit,
+    detalheIrs: ResultadoIRS? = null
 ) {
     // O campo guarda o `TextFieldValue`, e não só o texto: ligado a uma String que volta do
     // ViewModel, cada tecla regressava com a seleção a zero e o cursor saltava para a esquerda
@@ -493,12 +500,29 @@ private fun LinhaRubrica(
     ) {
         Text(
             // Fase 18c: só o nome da rubrica (sem o código): o VENC/HNOT/D01... já não aparece.
-            text = linha.nome,
+            // v2.2.1: no IRS a taxa efetiva do mês entra no próprio título — "IRS (4,31%)", como a
+            // "Segurança Social (11%)" do catálogo — em vez de uma segunda linha "Escalão 5 · Taxa…".
+            text = tituloRubricaIrs(linha.nome, detalheIrs),
             maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
             // Fase 18c: título de rubrica a 14 sp (um degrau abaixo do título de cartão do Mais).
             style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp),
             fontWeight = FontWeight.Bold
         )
+        // v2.2.1: da antiga linha de detalhe ficam só as notas que explicam o número (IRS Jovem,
+        // redução de novembro, IRS autónomo dos subsídios, base fora da tabela). Num mês normal não
+        // há nota nenhuma e a linha do IRS pesa o mesmo que as outras.
+        notasIrs(detalheIrs)?.let { notas ->
+            Text(
+                text = notas,
+                // Num telefone estreito a nota mais longa ("inclui IRS autónomo de subsídios") não
+                // cabe numa linha — e truncada não explicava nada: duas, com as curtas a caber numa.
+                maxLines = 2, softWrap = true, overflow = TextOverflow.Ellipsis,
+                // Fase 18b: 11 sp (labels), na cor secundária — é informação, não uma rubrica.
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("notas-irs")
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

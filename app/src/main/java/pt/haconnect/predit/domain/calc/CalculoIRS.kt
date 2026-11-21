@@ -26,6 +26,19 @@ const val CATEGORIA_TRABALHO = "TRABALHO"
 const val CATEGORIA_PENSOES = "PENSOES"
 
 /**
+ * Despacho n.º 12523-A/2026: em **novembro de 2026**, no **Continente**, a retenção mensal de IRS
+ * desce a metade para quem fica até ao limite superior do penúltimo escalão da sua tabela.
+ *
+ * A redução não é uma taxa nova: é 50 % da retenção normal, arredondada ao meio para cima (a
+ * mesma regra de [dividirArredondando]). Quem está acima do penúltimo escalão mantém a retenção
+ * inteira, e Açores/Madeira não são abrangidos.
+ */
+private const val ANO_REDUCAO_EXCECIONAL_IRS = 2026
+private const val MES_REDUCAO_EXCECIONAL_IRS = 11
+private const val PERCENTAGEM_REDUCAO_EXCECIONAL_IRS = 50L
+private const val DENOMINADOR_PERCENTAGEM = 100L
+
+/**
  * Campos do contrato → número da tabela do trabalho dependente (1..7), pelos subtítulos
  * dos XLSX oficiais (o mesmo mapa que está em TabelaIRSEntity):
  *   I   não casado sem dependentes OU casado 2 titulares
@@ -96,6 +109,290 @@ fun calcularIRS(
     regiao: RegiaoIRS,
     tabelas: List<EscalaoIRS>
 ): Long {
+    return calcularIRSComDetalhe(
+        baseTributavel = baseTributavel,
+        tabelaNumero = tabelaNumero,
+        categoria = categoria,
+        numDependentes = numDependentes,
+        ano = ano,
+        regiao = regiao,
+        tabelas = tabelas
+    ).valorMil
+}
+
+/**
+ * Retenção de IRS com o escalão que a produziu — é o que a conferência do recibo mostra debaixo do
+ * D02 ("Escalão 5 · Taxa 21,2%"). Mesma conta de [calcularIRS], que agora delega aqui.
+ *
+ * [ResultadoIRS.valorMil] é a retenção da **base mensal**. A retenção autónoma dos subsídios
+ * (Natal/férias) fica de fora: tem base e escalão próprios e só se soma ao D02 no fim, no
+ * estimador.
+ */
+fun calcularIRSComDetalhe(
+    baseTributavel: Long,
+    tabelaNumero: Int,
+    categoria: String,
+    numDependentes: Int,
+    ano: Int,
+    regiao: RegiaoIRS,
+    tabelas: List<EscalaoIRS>
+): ResultadoIRS {
+    val escaloes = escaloesIRSDe(tabelas, ano, regiao, categoria, tabelaNumero)
+
+    // Base acima do último limite: a tabela não prevê retenção e não há escalão a mostrar.
+    val escalao = escaloes.firstOrNull { baseTributavel <= it.limiteAte }
+        ?: return ResultadoIRS(
+            valorMil = 0L, numeroEscalao = 0, taxaBasisPoints = 0, taxaEfetivaBasisPoints = 0
+        )
+
+    val bruto = dividirArredondando(baseTributavel * escalao.taxaBasisPoints, TAXA_DENOMINADOR)
+    val parcela = if (escalao.formulaComposta) {
+        parcelaDaFormulaComposta(baseTributavel, escalao)
+    } else {
+        escalao.parcelaAbater
+    }
+    val liquido = bruto - parcela - escalao.parcelaAdicionalDep * numDependentes
+    val valor = if (liquido < 0L) 0L else liquido
+    return ResultadoIRS(
+        valorMil = valor,
+        // ordemEscalao = 0 na semente é o 1.º escalão do XLSX (o de taxa 0): a numeração que o
+        // utilizador vê é 1-based. Ex.: ordemEscalao 5 (taxa 24,1 %) é o "Escalão 6" da tabela.
+        numeroEscalao = escalao.ordemEscalao + 1,
+        taxaBasisPoints = escalao.taxaBasisPoints,
+        taxaEfetivaBasisPoints = taxaEfetivaBasisPoints(valor, baseTributavel)
+    )
+}
+
+/**
+ * Retenção de IRS **e** o escalão que a produziu — o detalhe por trás do D02. Produzido por
+ * [calcularIRSComDetalhe] (retenção normal) e por [calcularIRSMensalComDetalhe] (retenção mensal, já
+ * com IRS Jovem e redução de novembro).
+ *
+ * [valorMil]: retenção em 1/10000 €, arredondada ao meio para cima e nunca negativa.
+ *
+ * [numeroEscalao]: numeração **1-based** do XLSX oficial, tal como o utilizador a vê nas tabelas
+ * (a linha `ordemEscalao = 0` da semente — a de taxa 0, "até 920,00 €" na tabela I de 2026 — é o
+ * escalão 1). `0` significa que a base passou o último limite da tabela: não há escalão, retenção
+ * 0,00 €.
+ *
+ * v2.2.1: a conferência do recibo deixou de mostrar o escalão (a UI dizia "Escalão 5 · Taxa…" e o
+ * número não ajudava a conferir nada); o campo fica porque distingue isenção (escalão de taxa 0) de
+ * "fora da tabela" (`0`), que a UI continua a anunciar em [pt.haconnect.predit.ui.horario.notasIrs].
+ *
+ * [taxaBasisPoints]: taxa **marginal** do escalão, na mesma unidade da tabela (21,2 % → 21 200, ou
+ * seja 1/100000 do valor). Não é a taxa efetiva da retenção: essa sai do valor final menos as
+ * parcelas a abater, e o utilizador vê-a no recibo.
+ *
+ * [taxaEfetivaBasisPoints]: taxa **efetiva** — a percentagem que a retenção representa sobre a base
+ * de cálculo, que é a que o recibo da empresa imprime ao lado da rubrica ("IRS (Venc. 4,29%)").
+ * Em basis points de 0,01 ponto percentual (4,14 % → 414), calculada por [taxaEfetivaBasisPoints].
+ * É a taxa que a conferência mostra no título da linha ("IRS (4,14%)"), com duas casas: anunciar a
+ * marginal confundia (24,1 % de escalão para um IRS que vale 4,1 % da base).
+ *
+ * [reducaoNovembro2026]: o Despacho n.º 12523-A/2026 aplicou-se (novembro de 2026, Continente, base
+ * até ao penúltimo escalão) — a retenção foi a metade. A UI diz "(Redução 50% Nov/2026)".
+ *
+ * [percentagemIrsJovem]: a percentagem de isenção do IRS Jovem que entrou na conta (100/75/50/25),
+ * ou `null` quando o regime não se aplica. A taxa mostrada continua a ser a do escalão: o regime
+ * isenta parte da retenção, não muda o escalão da base.
+ */
+data class ResultadoIRS(
+    val valorMil: Long,
+    val numeroEscalao: Int,
+    val taxaBasisPoints: Int,
+    /** 0,01 ponto percentual: 4,14 % → 414. Ver [taxaEfetivaBasisPoints]. */
+    val taxaEfetivaBasisPoints: Int,
+    val reducaoNovembro2026: Boolean = false,
+    val percentagemIrsJovem: Int? = null,
+    /**
+     * v2.2.0: IRS autónomo dos subsídios pagos no mês (Natal, férias), em 1/10000 €. Soma-se ao D02
+     * mas **não** a [valorMil] nem a [taxaEfetivaBasisPoints]: aqueles são os da base mensal, que é
+     * a que a tabela tributa. Sem subsídios (ou sem IRS sobre eles) fica 0.
+     *
+     * É o que explica a conferência quando o D02 do mês é maior do que a taxa efetiva × base — ver
+     * [pt.haconnect.predit.ui.horario.notasIrs].
+     */
+    val irsAutonomoSubsidiosMil: Long = 0L
+) {
+    /** A base caiu no escalão de taxa zero: a retenção é 0,00 € por isenção, não por conta. */
+    val isento: Boolean get() = taxaBasisPoints == 0
+}
+
+/**
+ * Taxa efetiva da retenção: quanto o IRS vale sobre a base de cálculo, em basis points de 0,01 ponto
+ * percentual (4,14 % → 414). `valorMil × 10000 ÷ base`, arredondado ao meio para cima.
+ *
+ * É a taxa que o recibo em papel mostra ("IRS (Venc. 4,29%)"), ao contrário da marginal do escalão
+ * — 24,1 % num escalão em que o IRS retido vale 7,23 % da base. Sem base (0) não há percentagem: 0.
+ *
+ * A unidade NÃO é a de [ResultadoIRS.taxaBasisPoints]: a tabela guarda as taxas em 1/100000 do valor
+ * (21,2 % → 21 200), e aqui a conta é a percentagem × 10000 (4,14 % → 414). A UI mostra esta no
+ * título da linha do IRS — ver [pt.haconnect.predit.ui.horario.tituloRubricaIrs].
+ */
+internal fun taxaEfetivaBasisPoints(valorMil: Long, baseTributavel: Long): Int {
+    if (baseTributavel <= 0L) return 0
+    return dividirArredondando(valorMil * ESCALA_TAXA_EFETIVA, baseTributavel).toInt()
+}
+
+/** 1/10000 do valor = 0,01 ponto percentual: 4,14 % → 414. */
+private const val ESCALA_TAXA_EFETIVA = 10_000L
+
+/**
+ * Retenção mensal de IRS, com a redução excecional do Despacho n.º 12523-A/2026 aplicada por
+ * cima da retenção normal. É este o ponto de entrada mensal do estimador.
+ *
+ * A ordem das duas correções é a decidida na investigação: **primeiro o IRS Jovem, depois a
+ * redução de 50 %**. O IRS Jovem isenta uma parte da retenção normal (com o seu limite mensal) e
+ * só o valor que sobra é reduzido a metade — por isso [percentagemIrsJovem] é opcional aqui em
+ * vez de ser aplicado depois, pelo chamador, sobre um valor já reduzido.
+ *
+ * @param mes mês do **pagamento** (o do recibo), não o mês das variáveis: é o pagamento que
+ *        determina se a retenção cai em novembro de 2026.
+ * @param percentagemIrsJovem percentagem do IRS Jovem a isentar (0–100), ou `null` quando o
+ *        contrato não tem direito. A isenção incide sobre a retenção normal e não altera a
+ *        elegibilidade à redução — esta compara a **base tributável** com o penúltimo escalão.
+ */
+fun calcularIRSMensal(
+    baseTributavel: Long,
+    tabelaNumero: Int,
+    categoria: String,
+    numDependentes: Int,
+    ano: Int,
+    regiao: RegiaoIRS,
+    tabelas: List<EscalaoIRS>,
+    mes: Int,
+    percentagemIrsJovem: Int? = null
+): Long {
+    return calcularIRSMensalComDetalhe(
+        baseTributavel = baseTributavel,
+        tabelaNumero = tabelaNumero,
+        categoria = categoria,
+        numDependentes = numDependentes,
+        ano = ano,
+        regiao = regiao,
+        tabelas = tabelas,
+        mes = mes,
+        percentagemIrsJovem = percentagemIrsJovem
+    ).valorMil
+}
+
+/**
+ * [calcularIRSMensal] com o escalão e a taxa à vista. O escalão é o da retenção **normal**: o IRS
+ * Jovem e a redução de novembro mexem no valor, não no sítio onde a base caiu — por isso viajam
+ * como bandeiras ([ResultadoIRS.percentagemIrsJovem], [ResultadoIRS.reducaoNovembro2026]) e não
+ * como um escalão diferente.
+ *
+ * O IRS Jovem entra antes da redução, como em [calcularIRSMensal]: isenta parte da retenção normal
+ * e só o que sobra é reduzido a metade.
+ */
+fun calcularIRSMensalComDetalhe(
+    baseTributavel: Long,
+    tabelaNumero: Int,
+    categoria: String,
+    numDependentes: Int,
+    ano: Int,
+    regiao: RegiaoIRS,
+    tabelas: List<EscalaoIRS>,
+    mes: Int,
+    percentagemIrsJovem: Int? = null
+): ResultadoIRS {
+    val normal = calcularIRSComDetalhe(
+        baseTributavel, tabelaNumero, categoria, numDependentes, ano, regiao, tabelas
+    )
+    val aposIrsJovem = if (percentagemIrsJovem != null) {
+        aplicarIrsJovem(
+            baseMil = baseTributavel,
+            retencaoNormalMil = normal.valorMil,
+            percentagem = percentagemIrsJovem,
+            anoAtual = ano
+        )
+    } else {
+        normal.valorMil
+    }
+    val valor = aplicarReducaoExcecionalNovembro2026(
+        irs = aposIrsJovem,
+        baseTributavel = baseTributavel,
+        tabelaNumero = tabelaNumero,
+        categoria = categoria,
+        ano = ano,
+        mes = mes,
+        regiao = regiao,
+        tabelas = tabelas
+    )
+    return normal.copy(
+        valorMil = valor,
+        // A taxa efetiva acompanha o valor: em novembro é metade da de dezembro para a mesma base.
+        taxaEfetivaBasisPoints = taxaEfetivaBasisPoints(valor, baseTributavel),
+        // A bandeira vem da elegibilidade, não de "o valor mudou": uma retenção de 0,0001 € fica
+        // igual depois de reduzida, mas a redução aplicou-se na mesma.
+        reducaoNovembro2026 = temReducaoExcecionalNovembro2026(
+            baseTributavel, tabelaNumero, categoria, ano, mes, regiao, tabelas
+        ),
+        percentagemIrsJovem = percentagemIrsJovem
+    )
+}
+
+/**
+ * Aplica a redução de 50 % do Despacho n.º 12523-A/2026 a uma retenção já calculada (e já com o
+ * IRS Jovem, se for o caso). Devolve [irs] intacto fora de novembro de 2026, fora do Continente
+ * ou quando a base tributável passa o limite do penúltimo escalão da tabela do contrato.
+ */
+fun aplicarReducaoExcecionalNovembro2026(
+    irs: Long,
+    baseTributavel: Long,
+    tabelaNumero: Int,
+    categoria: String,
+    ano: Int,
+    mes: Int,
+    regiao: RegiaoIRS,
+    tabelas: List<EscalaoIRS>
+): Long {
+    if (!temReducaoExcecionalNovembro2026(
+            baseTributavel, tabelaNumero, categoria, ano, mes, regiao, tabelas
+        )
+    ) {
+        return irs
+    }
+    return dividirArredondando(irs * PERCENTAGEM_REDUCAO_EXCECIONAL_IRS, DENOMINADOR_PERCENTAGEM)
+}
+
+/**
+ * Condições do Despacho n.º 12523-A/2026: novembro de 2026, Continente, e base tributável até ao
+ * **limite superior do penúltimo escalão** da tabela concreta do contrato.
+ *
+ * O limite não é constante: cada tabela (I a VII, e as de pensões) tem o seu penúltimo escalão.
+ * Vem dos escalões filtrados, por isso acompanha automaticamente uma tabela nova — não há aqui
+ * nenhum valor de 2026 escrito à mão.
+ */
+fun temReducaoExcecionalNovembro2026(
+    baseTributavel: Long,
+    tabelaNumero: Int,
+    categoria: String,
+    ano: Int,
+    mes: Int,
+    regiao: RegiaoIRS,
+    tabelas: List<EscalaoIRS>
+): Boolean {
+    if (ano != ANO_REDUCAO_EXCECIONAL_IRS ||
+        mes != MES_REDUCAO_EXCECIONAL_IRS ||
+        regiao != RegiaoIRS.CONTINENTE
+    ) {
+        return false
+    }
+    val escaloes = escaloesIRSDe(tabelas, ano, regiao, categoria, tabelaNumero)
+    // Com menos de dois escalões não há penúltimo: nunca se aplica.
+    if (escaloes.size < 2) return false
+    return baseTributavel <= escaloes[escaloes.size - 2].limiteAte
+}
+
+/** Escalões do ano/região/categoria/tabela, por [EscalaoIRS.limiteAte] crescente. */
+private fun escaloesIRSDe(
+    tabelas: List<EscalaoIRS>,
+    ano: Int,
+    regiao: RegiaoIRS,
+    categoria: String,
+    tabelaNumero: Int
+): List<EscalaoIRS> {
     val escaloes = tabelas
         .filter {
             it.ano == ano && it.regiao == regiao &&
@@ -106,81 +403,7 @@ fun calcularIRS(
     require(escaloes.isNotEmpty()) {
         "sem escalões para $ano/${regiao.name}/$categoria/tabela $tabelaNumero"
     }
-
-    val escalao = escaloes.firstOrNull { baseTributavel <= it.limiteAte } ?: return 0L
-
-    val bruto = dividirArredondando(baseTributavel * escalao.taxaBasisPoints, TAXA_DENOMINADOR)
-    val parcela = if (escalao.formulaComposta) {
-        parcelaDaFormulaComposta(baseTributavel, escalao)
-    } else {
-        escalao.parcelaAbater
-    }
-    val liquido = bruto - parcela - escalao.parcelaAdicionalDep * numDependentes
-    return if (liquido < 0L) 0L else liquido
-}
-
-/** Divisor da redução excepcional de novembro de 2026: retenção a 50 %. */
-private const val DIVISOR_REDUCAO_NOVEMBRO_2026 = 2L
-
-/**
- * Despacho n.º 12523-A/2026 — redução excepcional da retenção de IRS em novembro de 2026.
- *
- * Para rendimentos pagos entre 1 e 30 de novembro de 2026, a retenção apurada pelas tabelas
- * normais (Despacho n.º 233-A/2026) é reduzida a 50 %. Excepções:
- *   - rendimentos acima do limite superior do penúltimo escalão da tabela — sem redução;
- *   - Açores e Madeira — sem redução;
- *   - a partir de 1 de dezembro volta ao normal (mês ≠ 11 ou ano ≠ 2026).
- *
- * O limite do penúltimo escalão não é uma constante: varia com a tabela (I a VII) e com a
- * região. Sai da mesma lista de escalões que o [calcularIRS] usa, com o mesmo filtro e a mesma
- * ordenação por `limiteAte`. O último escalão termina em [Long.MAX_VALUE], por isso o penúltimo
- * é o último limite finito — e as tabelas não têm todas o mesmo número de escalões (a I tem 12,
- * a VII tem 6), pelo que o índice não pode ser fixo. Menos de dois escalões (tabela incompleta)
- * devolve a retenção normal: o fail-safe é não reduzir, nunca rebentar o recibo.
- *
- * Ordem no recibo: depois do [calcularIRS] e antes do
- * [pt.haconnect.predit.domain.calc.aplicarIrsJovem] — é a retenção das tabelas normais que a
- * lei reduz, e a taxa efectiva do IRS Jovem passa a ser a desta retenção. O arredondamento
- * segue a regra única do projecto ([dividirArredondando], half-up), aplicada só no fim.
- *
- * O mês é o do PAGAMENTO (o mês do recibo), não o das variáveis: com desfasamento de um mês as
- * variáveis de outubro são pagas em novembro e é o pagamento que a lei alcança.
- *
- * Limitação conhecida: o subsídio de Natal não é estimado pelo motor (é uma linha FIXA vinda do
- * recibo) nem entra na base de IRS, por isso a redução alcança apenas o D02 mensal.
- */
-fun aplicarReducaoNovembro2026(
-    retencaoNormal: Long,
-    baseIRS: Long,
-    tabelaNumero: Int,
-    categoria: String,
-    ano: Int,
-    mes: Int,
-    regiao: RegiaoIRS,
-    tabelas: List<EscalaoIRS>
-): Long {
-    // A redução só se aplica em Novembro de 2026, no Continente.
-    if (ano != 2026 || mes != 11 || regiao != RegiaoIRS.CONTINENTE) {
-        return retencaoNormal
-    }
-
-    // Encontrar o limite do penúltimo escalão para a tabela.
-    val escaloes = tabelas
-        .filter {
-            it.ano == ano && it.regiao == regiao &&
-                it.categoria == categoria && it.tabelaNumero == tabelaNumero
-        }
-        .sortedBy { it.limiteAte }
-
-    if (escaloes.size < 2) return retencaoNormal // Fallback seguro
-
-    val limitePenultimo = escaloes[escaloes.size - 2].limiteAte
-
-    return if (baseIRS <= limitePenultimo) {
-        dividirArredondando(retencaoNormal, DIVISOR_REDUCAO_NOVEMBRO_2026) // Aplica os 50 %
-    } else {
-        retencaoNormal // Acima do limite, mantém
-    }
+    return escaloes
 }
 
 /**

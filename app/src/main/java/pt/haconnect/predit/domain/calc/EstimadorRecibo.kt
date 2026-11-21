@@ -40,7 +40,17 @@ data class EstimativaRecibo(
     val rubricas: List<RubricaEstimada>,
     val totalAbonos: Long,
     val totalDescontos: Long,
-    val liquido: Long
+    val liquido: Long,
+    /**
+     * v2.2.0: o escalão e a taxa efetiva de IRS que produziram o D02 estimado (ver [ResultadoIRS]),
+     * de onde a conferência do recibo tira o "IRS (4,31%)" do título da rubrica. `null` quando o mês
+     * não é estimado — sem dias reais nem projeção não há base, logo não há taxa a anunciar.
+     *
+     * É o detalhe da **base mensal**: a retenção autónoma dos subsídios soma-se ao D02 sem mexer no
+     * escalão nem na taxa aqui guardados — o valor dela viaja em
+     * [ResultadoIRS.irsAutonomoSubsidiosMil], para a conferência poder explicar a diferença.
+     */
+    val detalheIrs: ResultadoIRS? = null
 )
 
 data class ContextoEstimativa(
@@ -83,7 +93,32 @@ data class ContextoEstimativa(
      * de IRS quando o catálogo o disser (ver [estimarRecibo]), nunca na do sindicato, e é
      * espelhado em [RubricaEstimada.valorMil] para o total de abonos estimado fechar.
      */
-    val complementoBaixaMil: Long = 0L
+    val complementoBaixaMil: Long = 0L,
+    /**
+     * Subsídio de Natal pago no mês, em 1/10000 €. **O valor do recibo prevalece**: quando vem
+     * preenchido (importado do PDF ou editado) é esse que é tributado e comparado. Sem valor — 0,
+     * o omisso — o motor estima-o em dezembro pelo tempo de serviço do ano: vencimento base, data
+     * de admissão e dias de baixa (ver [calcularSubsidioProporcional]). A partir do Despacho
+     * n.º 12523-A/2026 tem retenção autónoma — ver [estimarRecibo]: o IRS é calculado sobre este
+     * valor (e não sobre a base mensal), somado ao D02 e reduzido a 50 % quando o pagamento cai em
+     * novembro de 2026 no Continente. Entra na base de SS segundo o catálogo.
+     */
+    val natalMil: Long = 0L,
+    /**
+     * Subsídio de férias pago no mês, em 1/10000 €. Mesma mecânica de [natalMil]: o valor do recibo
+     * prevalece e, sem ele, o motor estima-o quando a regra de visibilidade das férias o mostra
+     * ([temFeriasNoMesOuSeguinte]). Desde 2026-11-21 é matéria coletável — o catálogo diz SS e IRS
+     * —, por isso entra na base de SS e tem retenção de IRS AUTÓNOMA somada ao D02, reduzida a
+     * 50 % quando o pagamento cai em novembro de 2026 no Continente (Despacho n.º 12523-A/2026).
+     */
+    val feriasMil: Long = 0L,
+    /**
+     * Data de admissão, para o proporcional dos subsídios (ver [calcularSubsidioProporcional]).
+     * `null` quando não se conhece: nesse caso não se estima subsídio nenhum (ficam a 0) — melhor
+     * não inventar do que assumir um ano inteiro de serviço. As ausências do ano entram por
+     * [ausencias] e pelo catálogo de [tiposTurno]: é a baixa que corta a proporção.
+     */
+    val dataAdmissao: LocalDate? = null
 )
 
 /** Códigos que o estimador calcula. Tudo o resto sai com 0 (introduzido à mão). */
@@ -91,6 +126,7 @@ private val CODIGOS_ESTIMADOS = setOf(
     "VENC", "SUP_ALIM", "SUP_TRAN", "SUP_FUNCAO", "HNOT",
     "HSUP_DN", "HSUP_NT", "HSUP_DN_FER", "HSUP_NT_FER", "HSUP_DN_DESC", "HSUP_NT_DESC",
     "DESC_FER", "DESC_DESC", "ATRASO",
+    CODIGO_SUBSIDIO_NATAL, CODIGO_SUBSIDIO_FERIAS,
     "D01", "D02", "D04"
 )
 
@@ -117,6 +153,37 @@ private const val CODIGO_OUTROS_DESC = "OUTROS_DESC"
  * é espelhado no abono da rubrica para o líquido estimado fechar (ver o fim de [estimarRecibo]).
  */
 private const val CODIGO_COMPLEMENTO_BAIXA = "COMP_BAIXA"
+
+/**
+ * Subsídio de Natal. Estimado em dezembro (ou espelhado do recibo, que prevalece), com retenção
+ * própria desde o Despacho n.º 12523-A/2026. O valor de [ContextoEstimativa.natalMil] — ou, sem
+ * ele, o proporcional calculado por `calcularSubsidioProporcional` — é tributado de forma
+ * AUTÓNOMA (ver [estimarRecibo]): entra na base de SS como os outros abonos, mas não na base de
+ * IRS mensal — o IRS do Natal é calculado à parte, sobre o próprio subsídio, e somado ao D02.
+ */
+private const val CODIGO_SUBSIDIO_NATAL = "NATAL"
+
+/**
+ * Subsídio de férias (R30/R97). Mesma mecânica do [CODIGO_SUBSIDIO_NATAL]: o valor do recibo
+ * prevalece e, sem ele, é estimado quando a linha é mostrada (férias no mês ou no seguinte).
+ * Desde a correção da semente em 2026-11-21 é matéria coletável em SS e IRS: entra na base de SS e
+ * tem retenção AUTÓNOMA somada ao D02 (ver [estimarRecibo]).
+ */
+private const val CODIGO_SUBSIDIO_FERIAS = "FERIAS"
+
+/**
+ * Mês em que o subsídio de Natal é estimado: dezembro, o mês em que se paga. A antecipação de
+ * novembro de 2026 (Despacho n.º 12523-A/2026) chega pelo valor do recibo — [ContextoEstimativa
+ * .natalMil] —, que prevalece sobre a estimativa.
+ */
+private const val MES_PAGAMENTO_NATAL = 12
+
+/**
+ * Subsídios anuais. Têm retenção de IRS autónoma, por isso ficam FORA da base mensal (somá-los lá
+ * tributava-os duas vezes, uma na tabela do mês e outra na retenção própria).
+ */
+private val CODIGOS_SUBSIDIOS = setOf(CODIGO_SUBSIDIO_NATAL, CODIGO_SUBSIDIO_FERIAS)
+
 
 /** Jornada diária normal (8h) e mês comercial usado nos proporcionais. */
 private const val MINUTOS_JORNADA_DIA = 8 * 60
@@ -371,6 +438,33 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // entrar nos descontos, o mesmo valor saía duas vezes do líquido.
     val vencFinal = (vencProporcional - atrasoMil).coerceAtLeast(0L)
 
+    // Subsídios de Natal e de férias: proporcionais aos DIAS de serviço no ano civil, com os dias
+    // de baixa descontados (ver `calcularSubsidioProporcional`) — um ano inteiro sem baixa vale o
+    // vencimento base, e cinco meses de baixa cortam quase metade. Estimam-se no mês em que são
+    // pagos: o Natal em dezembro, as férias quando a regra de visibilidade as mostra (o próprio mês
+    // das férias ou o anterior). O valor do recibo prevalece: quem já importou o recibo sabe quanto
+    // foi pago, e é esse valor que tem de ser tributado e comparado com o estimado. Sem data de
+    // admissão não se estima — e sem catálogo de tipos também não se desconta baixa nenhuma
+    // (`diasDeAusenciaQueNaoContam`): o catálogo é que diz que uma ausência é baixa.
+    val categoriasPorTipo = ctx.tiposTurno.associate { it.id to it.categoria }
+    val baseSubsidiosMil = ctx.parametrosCCT.vencimentoBaseMil.toLong()
+    fun subsidioEstimado(pagoNoMes: Boolean): Long {
+        val admissao = ctx.dataAdmissao
+        if (!pagoNoMes || admissao == null) return 0L
+        return calcularSubsidioProporcional(
+            baseMil = baseSubsidiosMil,
+            dataAdmissao = admissao,
+            ano = ctx.anoMes.year,
+            mesPagamento = ctx.anoMes.monthValue,
+            ausencias = ctx.ausencias,
+            tiposTurno = ctx.tiposTurno
+        )
+    }
+    val valorNatal = ctx.natalMil.takeIf { it > 0L }
+        ?: subsidioEstimado(ctx.anoMes.monthValue == MES_PAGAMENTO_NATAL)
+    val valorFerias = ctx.feriasMil.takeIf { it > 0L }
+        ?: subsidioEstimado(temFeriasNoMesOuSeguinte(ctx.ausencias, categoriasPorTipo, ctx.anoMes))
+
     val valores = linkedMapOf(
         "VENC" to vencFinal,
         "HNOT" to valorMinutos(minutosNoturnos, valorHora, TipoHora.NOTURNA_ACRESCIMO),
@@ -385,7 +479,9 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         "SUP_FUNCAO" to supFuncaoMil,
         "DESC_FER" to descFerMil,
         "DESC_DESC" to descDescMil,
-        "ATRASO" to atrasoMil
+        "ATRASO" to atrasoMil,
+        CODIGO_SUBSIDIO_NATAL to valorNatal,
+        CODIGO_SUBSIDIO_FERIAS to valorFerias
     )
 
     // Bases de incidência: as rubricas estimadas que incidem (o cartão de refeição, SUP_ALIM, não
@@ -405,48 +501,33 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     val complementoBaseIRS =
         if (incide(CODIGO_COMPLEMENTO_BAIXA) { r -> r.incideIRS }) ctx.complementoBaixaMil else 0L
 
-    val baseSS = valores.filterKeys { incide(it) { r -> r.incideSS } }.values.sum() + complementoBaseSS
-    val baseIRS = valores.filterKeys { incide(it) { r -> r.incideIRS } }.values.sum() + complementoBaseIRS
-
-    val tabelaIRS = selecionarTabela(
-        estadoCivil = ctx.contrato.estadoCivil.name,
-        titulares = ctx.contrato.titulares,
-        numeroDependentes = ctx.contrato.numeroDependentes,
-        pessoaComDeficiencia = false
+    // Os subsídios pagos no mês (Natal e férias) são matéria coletável. A Segurança Social não
+    // distingue retenções autónomas: cada um paga os 11 % no mês em que é pago, se o catálogo o
+    // disser. A base de IRS mensal fica SEM eles de propósito — somá-los aqui tributava-os duas
+    // vezes, uma na tabela mensal e outra na retenção autónoma logo abaixo. É por isso que a
+    // filtragem de `valores` os exclui por código, além do `incide` do catálogo.
+    val subsidiosDoMes = listOf(
+        CODIGO_SUBSIDIO_NATAL to valorNatal,
+        CODIGO_SUBSIDIO_FERIAS to valorFerias
     )
+    val subsidiosBaseSS = subsidiosDoMes
+        .filter { (codigo, _) -> incide(codigo) { r -> r.incideSS } }
+        .sumOf { (_, valorMil) -> valorMil }
+
+    val baseSS = valores
+        .filterKeys { codigo -> codigo !in CODIGOS_SUBSIDIOS && incide(codigo) { r -> r.incideSS } }
+        .values.sum() + complementoBaseSS + subsidiosBaseSS
+    val baseIRS = valores
+        .filterKeys { codigo -> codigo !in CODIGOS_SUBSIDIOS && incide(codigo) { r -> r.incideIRS } }
+        .values.sum() + complementoBaseIRS
 
     valores["D01"] = dividirArredondando(baseSS * TAXA_SEGURANCA_SOCIAL_BPS, 10_000L)
-    val d02Normal = calcularIRS(
-        baseTributavel = baseIRS,
-        tabelaNumero = tabelaIRS,
-        categoria = CATEGORIA_TRABALHO,
-        numDependentes = ctx.contrato.numeroDependentes,
-        ano = ctx.anoMes.year,
-        regiao = ctx.contrato.regiao,
-        tabelas = ctx.escaloesIRS
-    )
 
-    // Fase 31 — Despacho n.º 12523-A/2026: em Novembro de 2026, no Continente, a retenção
-    // apurada pelas tabelas normais é reduzida a 50 %, salvo se a base passar o limite do
-    // penúltimo escalão. O mês é o do PAGAMENTO (ctx.anoMes), não o das variáveis: com
-    // desfasamento de um mês as variáveis de Outubro são pagas em Novembro.
-    val d02ComReducao = aplicarReducaoNovembro2026(
-        retencaoNormal = d02Normal,
-        baseIRS = baseIRS,
-        tabelaNumero = tabelaIRS,
-        categoria = CATEGORIA_TRABALHO,
-        ano = ctx.anoMes.year,
-        mes = ctx.anoMes.monthValue,
-        regiao = ctx.contrato.regiao,
-        tabelas = ctx.escaloesIRS
-    )
-
-    // Fase 20 — IRS Jovem: o D02 passa a refletir a isenção quando o contrato a pede. A base é
-    // a mesma que alimentou o cálculo normal (baseIRS) e a taxa efetiva é a do D02 normal;
-    // [aplicarIrsJovem] aplica o teto mensal e devolve a retenção normal quando o jovem já não
-    // se enquadra (percentagem null) ou quando falta um dos anos. Sem isto, tudo como antes.
-    // Fase 31: a taxa efectiva já reflecte a redução de Novembro de 2026 — a ordem é
-    // tabelas normais → redução → IRS Jovem, porque é a retenção das tabelas que a lei reduz.
+    // Fase 20 — IRS Jovem: a percentagem é calculada antes do D02 porque a ordem das correções é
+    // IRS Jovem → redução de novembro. [calcularIRSMensal] aplica as duas pela ordem certa: isenta
+    // a retenção normal e só depois reduz a metade o que sobra (Despacho n.º 12523-A/2026). Sem
+    // IRS Jovem aplicável (percentagem null) o resultado é a tabela normal, eventualmente
+    // reduzida a 50 % em novembro de 2026 no Continente.
     val anoNascimento = ctx.contrato.anoNascimento
     val anoPrimeiroRendimento = ctx.contrato.anoPrimeiroRendimento
     val percentagemIrsJovem = if (
@@ -459,16 +540,45 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         )
     } else null
 
-    // Fase 31: o IRS Jovem aplica-se sobre a retenção já reduzida (d02ComReducao), não sobre a
-    // retenção normal — é a retenção que o trabalhador teria em Novembro que a isenção substitui.
-    valores["D02"] = if (percentagemIrsJovem != null) {
-        aplicarIrsJovem(
-            baseMil = baseIRS,
-            retencaoNormalMil = d02ComReducao,
-            percentagem = percentagemIrsJovem,
-            anoAtual = ctx.anoMes.year
-        )
-    } else d02ComReducao
+    val tabelaNumero = selecionarTabela(
+        estadoCivil = ctx.contrato.estadoCivil.name,
+        titulares = ctx.contrato.titulares,
+        numeroDependentes = ctx.contrato.numeroDependentes,
+        pessoaComDeficiencia = false
+    )
+
+    // v2.2.0: a mesma conta do D02, mas com o escalão e a taxa à vista — é daqui que a conferência
+    // do recibo tira o "Escalão 5 · Taxa 21,2%". A base de IRS e a tabela só existem aqui dentro;
+    // recalculá-las no ViewModel duplicava as incidências do catálogo.
+    val detalheIrs = calcularIRSMensalComDetalhe(
+        baseTributavel = baseIRS,
+        tabelaNumero = tabelaNumero,
+        categoria = CATEGORIA_TRABALHO,
+        numDependentes = ctx.contrato.numeroDependentes,
+        ano = ctx.anoMes.year,
+        regiao = ctx.contrato.regiao,
+        tabelas = ctx.escaloesIRS,
+        // O mês do PAGAMENTO manda: é o recibo de novembro que tem a redução, mesmo quando as
+        // variáveis vêm do mês anterior (desfasamento ICTS).
+        mes = ctx.anoMes.monthValue,
+        percentagemIrsJovem = percentagemIrsJovem
+    )
+    valores["D02"] = detalheIrs.valorMil
+
+    // Retenção autónoma dos subsídios (opção B da investigação, 2026-11-21): cada um tem base e
+    // tabela próprias, nunca se somam à base mensal. Em novembro de 2026 no Continente a redução de
+    // 50 % entra pela mesma função; em dezembro (ou fora do Continente) é a tabela normal. O IRS
+    // Jovem não é aplicado aqui: a isenção tem um teto mensal e aplicá-la outra vez aos subsídios
+    // duplicaria o benefício no mesmo mês.
+    val irsAutonomoDosSubsidios = subsidiosDoMes
+        .filter { (codigo, valorMil) -> valorMil > 0L && incide(codigo) { r -> r.incideIRS } }
+        .sumOf { (_, valorMil) -> irsAutonomoDoSubsidio(valorMil, tabelaNumero, ctx) }
+    // Soma ao D02: o recibo real traz uma única linha de IRS, já com a retenção dos subsídios. Uma
+    // rubrica D02_NATAL/D02_FERIAS à parte obrigaria a mexer no catálogo e a comparar várias linhas
+    // com uma só do lado do real; somando, a conferência é direta.
+    if (irsAutonomoDosSubsidios > 0L) {
+        valores["D02"] = (valores["D02"] ?: 0L) + irsAutonomoDosSubsidios
+    }
 
     // Decisão do utilizador (2026-09-16): o sindicato (1%) incide SÓ sobre o VENC — não
     // sobre as horas suplementares nem sobre o subsídio de transporte. Por isso esta conta
@@ -489,7 +599,8 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
     // que o recibo traz tem de aparecer na coluna Estimado: é um espelho do real, não uma conta.
     // Sem isto o abono ficava de fora do total e o líquido estimado saía negativo num mês de baixa
     // (maio/2026: 286,41 € de complemento contra 31,51 € de D01). Decisão do utilizador em
-    // 2026-10-21 — o líquido tem de fechar.
+    // 2026-10-21 — o líquido tem de fechar. O Natal e o subsídio de férias já não precisam deste
+    // ramo: são estimados (ou espelhados do recibo) e entram em `valores`.
     val estimadas = catalogo.map { r ->
         RubricaEstimada(
             rubricaId = r.id,
@@ -511,7 +622,38 @@ fun estimarRecibo(ctx: ContextoEstimativa): EstimativaRecibo {
         rubricas = estimadas,
         totalAbonos = abonos,
         totalDescontos = descontos,
-        liquido = abonos - descontos
+        liquido = abonos - descontos,
+        // v2.2.0: o IRS autónomo dos subsídios já está somado ao D02 (`valores["D02"]`), mas não na
+        // base mensal de onde saiu o detalhe. Levá-lo junto é o que permite à conferência dizer que
+        // o valor da linha inclui esse IRS (ver notasIrs).
+        detalheIrs = detalheIrs.copy(irsAutonomoSubsidiosMil = irsAutonomoDosSubsidios)
+    )
+}
+
+/**
+ * IRS de um subsídio pago no mês, retido de forma AUTÓNOMA: base e tabela próprias, nunca somado à
+ * base mensal. Passa por [calcularIRSMensal] para herdar a redução de 50 % de novembro de 2026 no
+ * Continente (Despacho n.º 12523-A/2026) sem repetir aqui essa regra. O IRS Jovem fica de fora de
+ * propósito: a isenção tem um teto mensal e voltar a aplicá-la duplicava o benefício no mesmo mês.
+ * Sem valor pago devolve 0.
+ */
+private fun irsAutonomoDoSubsidio(
+    valorMil: Long,
+    tabelaNumero: Int,
+    ctx: ContextoEstimativa
+): Long = if (valorMil <= 0L) {
+    0L
+} else {
+    calcularIRSMensal(
+        baseTributavel = valorMil,
+        tabelaNumero = tabelaNumero,
+        categoria = CATEGORIA_TRABALHO,
+        numDependentes = ctx.contrato.numeroDependentes,
+        ano = ctx.anoMes.year,
+        regiao = ctx.contrato.regiao,
+        tabelas = ctx.escaloesIRS,
+        // O mês do PAGAMENTO manda, como no D02 mensal: é o recibo de novembro que tem a redução.
+        mes = ctx.anoMes.monthValue
     )
 }
 

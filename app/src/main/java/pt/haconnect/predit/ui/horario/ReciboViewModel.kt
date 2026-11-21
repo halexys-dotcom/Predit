@@ -26,6 +26,8 @@ import pt.haconnect.predit.domain.calc.AplicacaoVigente
 import pt.haconnect.predit.domain.calc.ContextoCalculo
 import pt.haconnect.predit.domain.calc.ContextoEstimativa
 import pt.haconnect.predit.domain.calc.NaturezaRubrica
+import pt.haconnect.predit.domain.calc.ResultadoIRS
+import pt.haconnect.predit.domain.calc.RubricaEstimada
 import pt.haconnect.predit.domain.calc.TIPO_ESCALA_ROTACAO
 import pt.haconnect.predit.domain.calc.estimarRecibo
 import pt.haconnect.predit.domain.calc.janelaNoturna
@@ -131,6 +133,8 @@ private const val CODIGO_AUSENCIAS = "ATRASO"
  * - O subsídio de Natal (v2.1.1) só aparece em dezembro ([mostrarNatal]).
  * - O subsídio de férias (v2.1.1) só aparece quando há férias no mês ou no seguinte
  *   ([mostrarFerias], ver [temFeriasNoMesOuSeguinte]).
+ *   Em ambos, a rede de segurança de [linhasVisiveis] mostra a linha se ela já tiver valor — é o
+ *   que deixa ver o subsídio pago antecipadamente (Natal em novembro de 2026, férias fora da época).
  * - O subsídio de função (v2.1.1) só aparece nas categorias que o recebem — o Team Leader
  *   ([mostrarSubsidioFuncao]).
  * - O desconto sindical (v2.1.1, `D04`) só aparece nos contratos sindicalizados ([mostrarSindicato]).
@@ -182,6 +186,54 @@ internal fun linhasVisiveis(
         linha.codigo == CODIGO_AUSENCIAS -> false
         else -> true
     }
+}
+
+/**
+ * Uma linha da conferência a partir das três fontes: a estimativa fresca do motor, o que está
+ * gravado no mês e o que o utilizador escreveu agora.
+ *
+ * v2.2.0 — precedência, e o porquê de cada degrau:
+ * - o **Estimado é sempre o cálculo de hoje**. O snapshot gravado em `recibo_linha.valorEstimado`
+ *   nunca ganha à estimativa: se o contrato mudar (dependentes, estado civil, escalão) o ecrã tem de
+ *   mostrar a conta nova. Foi este o caso do D02 de setembro/2026, com 88,46 € gravados de quando o
+ *   contrato tinha 0 dependentes contra os 45,60 € que a tabela dá hoje com os dois;
+ * - o **Real** é o que o utilizador escreveu > o que está gravado > o estimado. O valor gravado é o
+ *   retrato do recibo daquele mês e não se reescreve ao abrir o ecrã: é o histórico. Só o "Guardar"
+ *   o actualiza, e aí grava o estimado fresco ao lado;
+ * - um texto que não se lê (lixo, ou um campo que nunca chegou a ter valor) deixa
+ *   [LinhaConferencia.textoInvalido] ligado e não mexe no real: cai para o gravado (ou o estimado,
+ *   num mês sem recibo). Esvaziar um campo que já tinha valor lido não perde esse valor — quem o
+ *   guarda é [ReciboViewModel.atualizarValorReal], na edição.
+ *
+ * Função pura para o teste poder fixar a regra sem base de dados nem repositórios — como
+ * [linhasVisiveis].
+ */
+internal fun linhaConferencia(
+    rubrica: Rubrica,
+    estimada: RubricaEstimada?,
+    guardada: ReciboLinha?,
+    textoEditado: String?,
+    valorEditado: Long?
+): LinhaConferencia {
+    val estimado = estimada?.valorMil ?: 0L
+    val valorReal = when {
+        valorEditado != null -> valorEditado
+        textoEditado != null -> guardada?.valorReal ?: estimado
+        guardada != null -> guardada.valorReal
+        else -> estimado
+    }
+    return LinhaConferencia(
+        rubricaId = rubrica.id,
+        codigo = rubrica.codigo,
+        nome = rubrica.nome,
+        natureza = estimada?.natureza ?: NaturezaRubrica.ABONO,
+        ordem = rubrica.ordem,
+        ativaConferencia = rubrica.ativaConferencia,
+        valorEstimado = estimado,
+        valorReal = valorReal,
+        textoRealEditavel = textoEditado ?: textoDe(valorReal),
+        textoInvalido = textoEditado != null && valorEditado == null
+    )
 }
 
 /**
@@ -325,6 +377,12 @@ data class ReciboUiState(
      * carregado. É aviso, não erro: o recibo estima-se na mesma, mas o D02 pode não bater.
      */
     val avisoTabelasIRS: String? = null,
+    /**
+     * v2.2.0: o escalão de IRS em que a base do mês caiu e a taxa marginal desse escalão, prontos
+     * para a linha do D02 ("Escalão 5 · Taxa 21,2%"). Vem do estimador ([ResultadoIRS]): é lá que a
+     * base de IRS e a tabela do contrato existem. `null` antes de haver estimativa.
+     */
+    val detalheIrs: ResultadoIRS? = null,
     /**
      * A3: o recibo importado não traz mês reconhecível. Enquanto for verdade, o ecrã pergunta se
      * é para aplicar ao mês visível — o recibo ainda não foi aplicado.
@@ -551,10 +609,14 @@ class ReciboViewModel(
         )
 
         // v2.1.1: os subsídios só se desenham quando fazem sentido no mês.
-        // - Natal: em dezembro, o mês em que se paga.
+        // - Natal: em dezembro, o mês em que se paga. Em novembro de 2026 o subsídio pode ser pago
+        //   antecipado (Despacho n.º 12523-A/2026): a linha não se desenha a zero, mas a rede de
+        //   segurança de [linhasVisiveis] mostra-a assim que o recibo traga um valor.
         // - Férias: quando há férias marcadas no mês ou no seguinte. Quem marca férias de 10 a 24
         //   de agosto quer o subsídio à vista em julho, para o prever, e continua a querê-lo em
-        //   agosto, o mês em que as goza.
+        //   agosto, o mês em que as goza. Se o recibo trouxer o subsídio num mês sem férias
+        //   marcadas (pagamento antecipado), a rede de segurança de [linhasVisiveis] mostra a linha
+        //   assim que ela tenha valor — é o mesmo critério do Natal em novembro de 2026.
         val mostrarNatal = fontes.cabecalho.anoMes.monthValue == MES_DO_SUBSIDIO_NATAL
         val mostrarFerias = temFeriasNoMesOuSeguinte(
             fontes.agendas.ausencias,
@@ -576,11 +638,31 @@ class ReciboViewModel(
         // complemento e o D01/D02 estimados não batiam com o recibo real de maio/2026, que
         // desconta 31,51 € de SS sobre os 286,41 € do complemento.
         val edicoesDoMes = fontes.cabecalho.edicoes[anoMes].orEmpty()
-        val complementoBaixaMil = complementoBaixaDoMes(
+        val complementoBaixaMil = valorDaRubricaDoMes(
             fontes.catalogo.rubricas,
             edicoesDoMes,
-            linhasGuardadas
+            linhasGuardadas,
+            CODIGO_COMPLEMENTO_BAIXA
         )
+        // O Natal e o subsídio de férias estimam-se a partir do vencimento base e da data de
+        // admissão quando o recibo ainda não traz o valor; quando traz, esse valor prevalece (ver
+        // ContextoEstimativa.natalMil/feriasMil). Em ambos os casos cada um alimenta a sua retenção
+        // autónoma (Despacho n.º 12523-A/2026 e correção da semente em 2026-11-21) e paga SS.
+        val natalMil = valorDaRubricaDoMes(
+            fontes.catalogo.rubricas,
+            edicoesDoMes,
+            linhasGuardadas,
+            CODIGO_SUBSIDIO_NATAL
+        )
+        val feriasMil = valorDaRubricaDoMes(
+            fontes.catalogo.rubricas,
+            edicoesDoMes,
+            linhasGuardadas,
+            CODIGO_SUBSIDIO_FERIAS
+        )
+        // Data de admissão para o proporcional dos subsídios (1 mês de base por ano completo).
+        // A BD guarda-a como epochDay e pode ser nula: nesse caso o motor não estima subsídio.
+        val dataAdmissao = contrato.dataAdmissao?.let(LocalDate::ofEpochDay)
 
         // Se a semente ainda não chegou (tabelas de IRS vazias), o motor atira — e um fluxo
         // que morre deixava o ecrã vazio para sempre. Fica uma mensagem e o fluxo sobrevive,
@@ -623,7 +705,10 @@ class ReciboViewModel(
                     tiposTurno = fontes.agendas.tiposTurno,
                     ausencias = fontes.agendas.ausencias,
                     desfasamentoPagamentoVariaveis = desfasamento,
-                    complementoBaixaMil = complementoBaixaMil
+                    complementoBaixaMil = complementoBaixaMil,
+                    natalMil = natalMil,
+                    feriasMil = feriasMil,
+                    dataAdmissao = dataAdmissao
                 )
             )
         } catch (e: CancellationException) {
@@ -652,30 +737,13 @@ class ReciboViewModel(
         val guardadasPorId = linhasGuardadas.associateBy { it.rubricaId }
 
         val linhas = fontes.catalogo.rubricas.sortedBy { it.ordem }.map { rubrica ->
-            val estimada = estimadasPorId[rubrica.id]
-            val estimado = estimada?.valorMil ?: 0L
-            val guardada = guardadasPorId[rubrica.id]
             val edicao = edicoesDoMes[rubrica.id]
-
-            // Precedência: o que o utilizador escreveu > o que está gravado > o estimado.
-            val valorReal = when {
-                edicao?.valor != null -> edicao.valor
-                edicao != null -> guardada?.valorReal ?: estimado
-                guardada != null -> guardada.valorReal
-                else -> estimado
-            }
-
-            LinhaConferencia(
-                rubricaId = rubrica.id,
-                codigo = rubrica.codigo,
-                nome = rubrica.nome,
-                natureza = estimada?.natureza ?: NaturezaRubrica.ABONO,
-                ordem = rubrica.ordem,
-                ativaConferencia = rubrica.ativaConferencia,
-                valorEstimado = estimado,
-                valorReal = valorReal,
-                textoRealEditavel = edicao?.texto ?: textoDe(valorReal),
-                textoInvalido = edicao != null && edicao.valor == null
+            linhaConferencia(
+                rubrica = rubrica,
+                estimada = estimadasPorId[rubrica.id],
+                guardada = guardadasPorId[rubrica.id],
+                textoEditado = edicao?.texto,
+                valorEditado = edicao?.valor
             )
         }
 
@@ -718,7 +786,8 @@ class ReciboViewModel(
             dataFechoTexto = textoDataFecho(fontes, mesGuardado),
             irsRetidoAnoTexto = textoIrsRetido(fontes, mesGuardado),
             nota = fontes.cabecalho.cabecalhoEditado?.nota ?: mesGuardado?.nota ?: "",
-            avisoTabelasIRS = avisoTabelasIRS
+            avisoTabelasIRS = avisoTabelasIRS,
+            detalheIrs = estimativa.detalheIrs
         )
     }
 
@@ -735,16 +804,17 @@ class ReciboViewModel(
     }
 
     /**
-     * Complemento de baixa (COMP_BAIXA, R51) do mês, em 1/10000 €. Não se estima: vem do recibo
-     * — o mesmo valor que o ecrã mostra como Real, com a mesma precedência (edição à mão/importação
-     * > gravado). Sem recibo do mês devolve 0, que é o caso de quem ainda não importou nada.
+     * Valor de uma rubrica que o motor não estima (COMP_BAIXA, NATAL), em 1/10000 €, a partir do
+     * recibo do mês — a mesma precedência que o ecrã mostra como Real: edição à mão/importação >
+     * gravado. Sem recibo do mês devolve 0, que é o caso de quem ainda não importou nada.
      */
-    private fun complementoBaixaDoMes(
+    private fun valorDaRubricaDoMes(
         rubricas: List<Rubrica>,
         edicoes: Map<Long, Edicao>,
-        linhasGuardadas: List<ReciboLinha>
+        linhasGuardadas: List<ReciboLinha>,
+        codigo: String
     ): Long {
-        val rubrica = rubricas.firstOrNull { it.codigo == CODIGO_COMPLEMENTO_BAIXA } ?: return 0L
+        val rubrica = rubricas.firstOrNull { it.codigo == codigo } ?: return 0L
         val guardada = linhasGuardadas.firstOrNull { it.rubricaId == rubrica.id }
         return edicoes[rubrica.id]?.valor ?: guardada?.valorReal ?: 0L
     }
@@ -1112,6 +1182,9 @@ class ReciboViewModel(
         val estado = uiState.value
         if (estado.anoMes.isEmpty()) return
         viewModelScope.launch {
+            // v2.2.0: o `valorEstimado` gravado sai sempre do estado, que é o cálculo fresco do motor
+            // (ver [linhaConferencia]). Gravar um mês com um snapshot antigo — de antes de o contrato
+            // mudar — volta a pôr a linha em dia, sem tocar no `valorReal`, que é o do recibo.
             val linhas = estado.linhas.map { linha ->
                 ReciboLinha(
                     reciboMesId = estado.anoMes,
@@ -1257,7 +1330,7 @@ internal const val RUBRICA_OUTROS_DESC = "OUTROS_DESC"
 
 /**
  * Complemento de baixa (R51). Não se estima — o valor vem do recibo —, mas entra nas bases de
- * incidência do estimador (ver [complementoBaixaDoMes] e [ContextoEstimativa.complementoBaixaMil]).
+ * incidência do estimador (ver [valorDaRubricaDoMes] e [ContextoEstimativa.complementoBaixaMil]).
  */
 private const val CODIGO_COMPLEMENTO_BAIXA = "COMP_BAIXA"
 

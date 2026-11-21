@@ -48,8 +48,10 @@ class EstimadorReciboTest {
         Rubrica(10, "SUP_TRAN", "Sub. transporte", true, true, false, "FIXO", true, 10),
         Rubrica(11, "DESC_FER", "Dia feriado trabalhado", true, true, true, "HORAS", true, 11),
         Rubrica(12, "DESC_DESC", "Dia descanso trabalhado", true, true, true, "HORAS", true, 12),
-        Rubrica(15, "FERIAS", "Subsídio de férias", true, false, false, "FIXO", false, 15),
-        Rubrica(16, "NATAL", "Subsídio de Natal", true, false, false, "FIXO", false, 16),
+        // 2026-11-21: os subsídios incidem SS e IRS. O IRS é retido à parte (base própria, somada
+        // ao D02), mas o catálogo diz a verdade: não são isentos.
+        Rubrica(15, "FERIAS", "Subsídio de férias", true, true, false, "FIXO", false, 15),
+        Rubrica(16, "NATAL", "Subsídio de Natal", true, true, false, "FIXO", false, 16),
         // Descontos: acrescentados ao catálogo semeado na Fase 8.2b.0, com tipoCalculo DERIVADO.
         Rubrica(20, "D01", "Segurança Social (11%)", false, false, false, "DERIVADO", true, 20),
         Rubrica(21, "D02", "IRS", false, false, false, "DERIVADO", true, 21),
@@ -156,22 +158,29 @@ class EstimadorReciboTest {
     private fun projecaoDe(anoMes: YearMonth, quantos: Int = 22): List<DiaProjetado> =
         (1..quantos).map { DiaProjetado(anoMes.atDay(it).toEpochDay(), tipoTurnoId = 1L) }
 
+    /**
+     * Contexto de um mês com a admissão do contrato do teste (2020-01-01) por omissão — ano
+     * completo, por isso o subsídio estimado é o vencimento base inteiro. Os testes dos
+     * proporcionais passam a data que querem ver.
+     */
     private fun contexto(
         anoMes: YearMonth,
         diasReais: List<DiaReal>,
         projecao: List<DiaProjetado> = emptyList(),
         rubricas: List<Rubrica> = catalogo,
-        ausencias: List<Ausencia> = emptyList()
+        ausencias: List<Ausencia> = emptyList(),
+        dataAdmissao: LocalDate = LocalDate.of(2020, 1, 1)
     ) = ContextoEstimativa(
         anoMes = anoMes,
-        contrato = contrato,
+        contrato = contrato.copy(dataAdmissao = dataAdmissao.toEpochDay()),
         parametrosCCT = parametros2026,
         rubricas = rubricas,
         diasReais = diasReais,
         projecao = projecao,
         feriados = emptySet(),
         escaloesIRS = tabelaI,
-        ausencias = ausencias
+        ausencias = ausencias,
+        dataAdmissao = dataAdmissao
     )
 
     /** Turno das 13h às 22h — 9h, das quais 1h na janela noturna (21h–22h). */
@@ -293,7 +302,7 @@ class EstimadorReciboTest {
     }
 
     @Test
-    fun `T5 - subsidio de ferias nao incide IRS e nao altera D02`() {
+    fun `T5 - rubrica manual de subsidio sem valor nao altera o D02`() {
         val agosto = YearMonth.of(2026, 8)
         val semFerias = estimarRecibo(contexto(agosto, dias(agosto, 22)))
         val comFerias = estimarRecibo(
@@ -301,13 +310,16 @@ class EstimadorReciboTest {
                 agosto,
                 dias(agosto, 22),
                 rubricas = catalogo + Rubrica(
-                    97, "R97", "Subsídio de férias", true, false, false, "FIXO", false, 97
+                    97, "R97", "Subsídio de férias", true, true, false, "FIXO", false, 97
                 )
             )
         )
 
+        // A rubrica extra não é estimada nem tem valor no contexto (feriasMil = 0): fica a 0,00 e
+        // não mexe no D02. O subsídio pago a sério entra por ContextoEstimativa.feriasMil — é o
+        // T41 que prova a retenção autónoma.
         assertEquals(semFerias.valor("D02"), comFerias.valor("D02"))
-        assertEquals(0L, comFerias.valor("R97"))   // não estimada: fica para o utilizador
+        assertEquals(0L, comFerias.valor("R97"))
     }
 
     @Test
@@ -393,8 +405,16 @@ class EstimadorReciboTest {
         // (so a baixa corta o VENC; aqui so ha ferias.)
         assertEquals(11_379_800L, est.valor("VENC"))
 
-        // Base de incidencia: 1 137,98 + 32,99 = 1 170,97 EUR (o cartao de refeicao nao incide).
-        assertEquals(1_288_067L, est.valor("D01"))      // 11% = 128,81 EUR
+        // Férias marcadas: o subsídio de férias passa a ser estimado. De 1 de janeiro a 31 de
+        // agosto vão 243 dias dos 365 do ano, e não há baixa nenhuma: 1 137,98 × 243 ÷ 365 =
+        // 757,6141 EUR. As FÉRIAS não descontam — são tempo de serviço pago, como no VENC.
+        assertEquals(7_576_141L, est.valor("FERIAS"))
+
+        // Base de incidencia: 1 137,98 + 32,99 = 1 170,97 EUR (o cartao de refeicao nao incide),
+        // mais o subsídio de férias, que paga SS no mês em que é pago.
+        assertEquals(2_121_443L, est.valor("D01"))      // 11% de 1 928,58 EUR = 212,14 EUR
+        // O IRS do subsídio é autónomo e 758,65 EUR fica abaixo do 1.º escalão da tabela I
+        // (920 EUR): o D02 é o do mês, sem subsídio, como em T1.
         // 1 170,97 EUR cai no 4. escalao da tabela I: 21,20% - 158,18 - 2 x 21,43 = 47,21 EUR.
         assertEquals(472_057L, est.valor("D02"))
         assertEquals(113_798L, est.valor("D04"))        // 1% do VENC = 11,38 EUR
@@ -1482,22 +1502,319 @@ class EstimadorReciboTest {
     }
 
     /**
-     * T39: a redução do Despacho n.º 12523-A/2026 chega ao D02 do recibo em Novembro de 2026
-     * e desaparece em Dezembro, com a mesma base de IRS (1 190,07 €: VENC + subsídio de
-     * transporte). Sem a chamada em [estimarRecibo], Novembro saía a 51,25 €.
+     * T39 a T41: Despacho n.º 12523-A/2026 no estimador. Novembro de 2026 no Continente reduz o
+     * D02 a metade; os subsídios de Natal e de férias pagos nesse mês incidem SS e têm retenção de
+     * IRS autónoma (base própria, somada ao D02), com o abono espelhado para o líquido fechar.
      */
     @Test
-    fun `T39 - D02 de novembro 2026 e metade e em dezembro volta ao normal`() {
+    fun `T39 - novembro de 2026 aplica a reducao de 50 por cento ao D02`() {
         val novembro = YearMonth.of(2026, 11)
-        val estNov = estimarRecibo(contexto(novembro, dias(novembro, 22)))
-        // A base de IRS é VENC + subsídio de transporte: 1 137,98 € + 52,09 € = 1 190,07 €.
-        assertEquals(11_900_700L, estNov.valor("VENC") + estNov.valor("SUP_TRAN"))
-        assertEquals(256_274L, estNov.valor("D02"))     // metade dos 512 548 de sempre
+        val est = estimarRecibo(contexto(novembro, dias(novembro, 21)))
 
-        val dezembro = YearMonth.of(2026, 12)
-        val estDez = estimarRecibo(contexto(dezembro, dias(dezembro, 22)))
-        assertEquals(512_548L, estDez.valor("D02"))     // fora de novembro, retenção normal
+        // Mês completo (21 dias úteis de novembro): base 1 190,07 €.
+        assertEquals(11_379_800L, est.valor("VENC"))
+        assertEquals(1_648_500L, est.valor("SUP_ALIM"))   // 21 × 7,85 €
+        assertEquals(520_900L, est.valor("SUP_TRAN"))
+        assertEquals(1_309_077L, est.valor("D01"))        // 11 % de 1 190,07 €
+        // Retenção normal 512 548 (T1), reduzida a metade pelo Despacho.
+        assertEquals(256_274L, est.valor("D02"))
+        assertEquals(113_798L, est.valor("D04"))
+        assertEquals(13_549_200L, est.totalAbonos)
+        assertEquals(1_679_149L, est.totalDescontos)
+        assertEquals(11_870_051L, est.liquido)
     }
+
+    @Test
+    fun `T40 - Natal e ferias pagos em novembro de 2026 incidem SS e IRS autonomo`() {
+        val novembro = YearMonth.of(2026, 11)
+        val subsidio = 11_379_800L
+        val est = estimarRecibo(
+            contexto(novembro, dias(novembro, 21)).copy(
+                natalMil = subsidio,
+                feriasMil = subsidio
+            )
+        )
+
+        // Os abonos aparecem na coluna Estimado: sem eles o líquido descontava um IRS e uma SS sem
+        // os subsídios. O catálogo agora diz que ambos incidem — é o que os põe nas bases.
+        assertEquals(subsidio, est.valor("NATAL"))
+        assertEquals(subsidio, est.valor("FERIAS"))
+        // SS do mês + SS dos dois subsídios: 11 % de (1 190,07 + 2 × 1 137,98).
+        assertEquals(3_812_633L, est.valor("D01"))
+        // D02 mensal 256 274 + IRS autónomo de cada subsídio 205 465
+        // (410 929 × 50 %, com os 2 dependentes do contrato).
+        assertEquals(667_204L, est.valor("D02"))
+        assertEquals(113_798L, est.valor("D04"))
+        assertEquals(36_308_800L, est.totalAbonos)
+        assertEquals(4_593_635L, est.totalDescontos)
+        assertEquals(31_715_165L, est.liquido)
+    }
+
+    @Test
+    fun `T41 - ferias pagas em novembro de 2026 tem IRS autonomo reduzido a metade`() {
+        val subsidio = 11_379_800L
+        val novembro = YearMonth.of(2026, 11)
+        val dezembro = YearMonth.of(2026, 12)
+
+        // O mesmo mês sem o subsídio é a régua: em dezembro o Natal estimado entra dos dois lados
+        // e desaparece na subtração.
+        val novembroSemSubsidio = estimarRecibo(contexto(novembro, dias(novembro, 21)))
+        val emNovembro = estimarRecibo(
+            contexto(novembro, dias(novembro, 21)).copy(feriasMil = subsidio)
+        )
+        val dezembroSemFerias = estimarRecibo(contexto(dezembro, dias(dezembro, 22)))
+        val emDezembro = estimarRecibo(
+            contexto(dezembro, dias(dezembro, 22)).copy(feriasMil = subsidio)
+        )
+
+        // O valor do recibo prevalece sobre a estimativa e aparece na coluna Estimado.
+        assertEquals(subsidio, emNovembro.valor("FERIAS"))
+        assertEquals(subsidio, emDezembro.valor("FERIAS"))
+
+        // SS do subsídio: 11 % de 1 137,98 (125,1778 EUR) nos dois meses — paga SS no mês em que é
+        // pago.
+        assertEquals(1_251_778L, emNovembro.valor("D01") - novembroSemSubsidio.valor("D01"))
+        assertEquals(1_251_778L, emDezembro.valor("D01") - dezembroSemFerias.valor("D01"))
+
+        // IRS autónomo do subsídio, isolado subtraindo o D02 do mês sem ele: 410 929 pela
+        // tabela normal e 205 465 com a redução de 50 % do Despacho n.º 12523-A/2026
+        // (410 929 × 50 % = 205 464,5, arredondado ao cêntimo para cima).
+        val irsFeriasNovembro = emNovembro.valor("D02") - novembroSemSubsidio.valor("D02")
+        val irsFeriasDezembro = emDezembro.valor("D02") - dezembroSemFerias.valor("D02")
+        assertEquals(410_929L, irsFeriasDezembro)
+        assertEquals(205_465L, irsFeriasNovembro)
+        assertTrue(
+            "novembro é metade do normal, a menos do arredondamento ao cêntimo",
+            abs(irsFeriasNovembro * 2 - irsFeriasDezembro) <= 1L
+        )
+    }
+
+    /**
+     * T42 a T48: o subsídio de Natal **estimado**. Regra do utilizador (2026-11-21): 1 mês de
+     * vencimento base para quem trabalhou o ano civil inteiro; fora disso, proporcional aos DIAS de
+     * serviço no ano (365 ou 366), com os dias de BAIXA descontados
+     * (`calcularSubsidioProporcional`). Base = vencimento base do CCT, sem diuturnidades,
+     * alimentação nem horas extra.
+     */
+    @Test
+    fun `T42 - Natal de dezembro de quem trabalhou o ano todo e o vencimento base`() {
+        val dezembro = YearMonth.of(2026, 12)
+        val est = estimarRecibo(contexto(dezembro, dias(dezembro, 22)))
+
+        // 365 dias de serviço em 365: 1 mês de vencimento base. Sem baixa, o ano inteiro não passa
+        // pela divisão.
+        assertEquals(11_379_800L, est.valor("NATAL"))
+        // Paga SS no mês em que é pago: 11 % de (1 137,98 + 52,09 + 1 137,98).
+        assertEquals(2_560_855L, est.valor("D01"))
+        // IRS autónomo: 512 548 do mês + 410 929 do subsídio (tabela normal em dezembro).
+        assertEquals(923_477L, est.valor("D02"))
+        assertEquals(113_798L, est.valor("D04"))
+        // O abono entra no total: 1 137,98 + 172,70 + 52,09 + 1 137,98.
+        assertEquals(25_007_500L, est.totalAbonos)
+    }
+
+    @Test
+    fun `T43 - admitido a 1 de julho recebe cerca de metade do Natal em dezembro`() {
+        val dezembro = YearMonth.of(2026, 12)
+        val est = estimarRecibo(
+            contexto(dezembro, dias(dezembro, 22), dataAdmissao = LocalDate.of(2026, 7, 1))
+        )
+
+        // 1 de julho a 31 de dezembro são 184 dias dos 365 do ano: 1 137,98 × 184 ÷ 365 = 573,6666
+        // EUR — um pouco acima da metade, que seriam 182,5 dias.
+        assertEquals(5_736_666L, est.valor("NATAL"))
+        assertEquals(1_940_110L, est.valor("D01"))   // 11 % de (1 137,98 + 52,09 + 573,67)
+        // 573,67 EUR fica abaixo do 1.º escalão da tabela I (920 EUR): sem retenção no subsídio.
+        assertEquals(512_548L, est.valor("D02"))
+        assertEquals(113_798L, est.valor("D04"))
+        // 1 137,98 + 172,70 + 52,09 + 573,67.
+        assertEquals(19_364_366L, est.totalAbonos)
+    }
+
+    @Test
+    fun `T44 - admissao a meio de julho conta os dias a partir da admissao`() {
+        val dezembro = YearMonth.of(2026, 12)
+        val est = estimarRecibo(
+            contexto(dezembro, dias(dezembro, 22), dataAdmissao = LocalDate.of(2026, 7, 15))
+        )
+
+        // De 15 de julho a 31 de dezembro são 170 dias: 1 137,98 × 170 ÷ 365 = 530,0181 EUR.
+        assertEquals(5_300_181L, est.valor("NATAL"))
+        assertEquals(1_892_097L, est.valor("D01"))
+        // Sem data de admissão não se inventa um subsídio (o mesmo mês, contexto sem data).
+        val semData = estimarRecibo(
+            contexto(dezembro, dias(dezembro, 22)).copy(dataAdmissao = null)
+        )
+        assertEquals(0L, semData.valor("NATAL"))
+        assertEquals(1_309_077L, semData.valor("D01"))   // só o mês: 11 % de 1 190,07
+    }
+
+    /**
+     * O caso que motivou a regra: cinco meses de baixa cortam quase metade do Natal. De 1 de
+     * janeiro a 31 de maio são 151 dias de calendário; sobram 214 dos 365 do ano.
+     */
+    @Test
+    fun `T45 - baixa de janeiro a maio deixa o Natal em cerca de sete doze avos`() {
+        val dezembro = YearMonth.of(2026, 12)
+        val baixa = Ausencia(
+            id = 45,
+            tipoTurnoId = TIPO_BAIXA,
+            dataInicio = LocalDate.of(2026, 1, 1).toEpochDay(),
+            dataFim = LocalDate.of(2026, 5, 31).toEpochDay()
+        )
+        val est = estimarRecibo(
+            contexto(dezembro, dias(dezembro, 22), ausencias = listOf(baixa))
+                .copy(tiposTurno = listOf(tipoTrabalho, tipoBaixa))
+        )
+
+        // 214 ÷ 365 = 58,63 % de 1 137,98 € = 667,1992 € (os 7/12 seriam 663,82 €: a contagem por
+        // dias é a que a empresa usa).
+        assertEquals(6_671_992L, est.valor("NATAL"))
+        assertEquals(2_042_996L, est.valor("D01"))   // 11 % de (1 137,98 + 52,09 + 667,20)
+        // 667,20 EUR abaixo do 1.º escalão: o D02 é só o do mês.
+        assertEquals(512_548L, est.valor("D02"))
+        assertEquals(20_299_692L, est.totalAbonos)
+    }
+
+    /**
+     * O caso real do utilizador: baixa de 18/07/2025 a 19/05/2026. Em 2026 a baixa cobre 1 de
+     * janeiro a 19 de maio (139 dias) e sobram 226 dos 365 — o resto do ano é serviço normal.
+     */
+    @Test
+    fun `T46 - baixa a cavalo de dois anos so pesa no ano a que pertence`() {
+        val dezembro = YearMonth.of(2026, 12)
+        val baixa = Ausencia(
+            id = 46,
+            tipoTurnoId = TIPO_BAIXA,
+            dataInicio = LocalDate.of(2025, 7, 18).toEpochDay(),
+            dataFim = LocalDate.of(2026, 5, 19).toEpochDay()
+        )
+        val est = estimarRecibo(
+            contexto(dezembro, dias(dezembro, 22), ausencias = listOf(baixa))
+                .copy(tiposTurno = listOf(tipoTrabalho, tipoBaixa))
+        )
+
+        // 226 ÷ 365 = 61,92 % de 1 137,98 € = 704,6123 € — e não os 1 137,98 € do ano inteiro.
+        assertEquals(7_046_123L, est.valor("NATAL"))
+        assertEquals(2_084_151L, est.valor("D01"))   // 11 % de (1 137,98 + 52,09 + 704,61)
+        assertEquals(512_548L, est.valor("D02"))
+    }
+
+    /**
+     * As férias do ano contam como serviço — é assim que o VENC as trata e é o que a lei manda —,
+     * por isso não cortam o subsídio. E duas baixas sobrepostas contam os dias uma vez só.
+     */
+    @Test
+    fun `T47 - ferias nao cortam o subsidio e baixas sobrepostas contam uma vez`() {
+        val dezembro = YearMonth.of(2026, 12)
+        val feriasDeAgosto = Ausencia(
+            id = 47,
+            tipoTurnoId = TIPO_FERIAS,
+            dataInicio = LocalDate.of(2026, 8, 10).toEpochDay(),
+            dataFim = LocalDate.of(2026, 8, 24).toEpochDay()
+        )
+        val soFerias = estimarRecibo(
+            contexto(dezembro, dias(dezembro, 22), ausencias = listOf(feriasDeAgosto))
+                .copy(tiposTurno = listOf(tipoTrabalho, tipoFerias, tipoBaixa))
+        )
+        // 22 dias de férias não tiram um cêntimo ao Natal: continua o ano inteiro.
+        assertEquals(11_379_800L, soFerias.valor("NATAL"))
+
+        // Duas baixas que se sobrepõem de 15 a 31 de março contam como uma só: 151 dias, como no T45.
+        val primeira = Ausencia(
+            id = 48,
+            tipoTurnoId = TIPO_BAIXA,
+            dataInicio = LocalDate.of(2026, 1, 1).toEpochDay(),
+            dataFim = LocalDate.of(2026, 3, 31).toEpochDay()
+        )
+        val segunda = Ausencia(
+            id = 49,
+            tipoTurnoId = TIPO_BAIXA,
+            dataInicio = LocalDate.of(2026, 3, 15).toEpochDay(),
+            dataFim = LocalDate.of(2026, 5, 31).toEpochDay()
+        )
+        val comBaixas = estimarRecibo(
+            contexto(dezembro, dias(dezembro, 22), ausencias = listOf(primeira, segunda))
+                .copy(tiposTurno = listOf(tipoTrabalho, tipoBaixa))
+        )
+        assertEquals(6_671_992L, comBaixas.valor("NATAL"))
+    }
+
+    /**
+     * Ano bissexto: o divisor é 366. Sem baixa continua a ser o vencimento base; com os mesmos
+     * cinco meses de baixa sobram 214 dias, mas em 2028 a baixa cobre 152 (fevereiro tem 29) e
+     * 214/366 dá menos do que 214/365.
+     */
+    @Test
+    fun `T48 - ano bissexto divide por 366 dias`() {
+        val admissao = LocalDate.of(2020, 1, 1)
+        val baixa = Ausencia(
+            id = 50,
+            tipoTurnoId = TIPO_BAIXA,
+            dataInicio = LocalDate.of(2028, 1, 1).toEpochDay(),
+            dataFim = LocalDate.of(2028, 5, 31).toEpochDay()
+        )
+
+        // 1 137,98 × 214 ÷ 366 = 665,3763 EUR (o mesmo caso do T45 daria 667,20 EUR em 2026).
+        assertEquals(
+            6_653_763L,
+            calcularSubsidioProporcional(
+                baseMil = 11_379_800L,
+                dataAdmissao = admissao,
+                ano = 2028,
+                mesPagamento = 12,
+                ausencias = listOf(baixa),
+                tiposTurno = listOf(tipoBaixa)
+            )
+        )
+        // Sem baixa e com o ano inteiro continua a ser o vencimento base, mesmo em ano bissexto.
+        assertEquals(
+            11_379_800L,
+            calcularSubsidioProporcional(11_379_800L, admissao, 2028, 12)
+        )
+    }
+
+    /**
+     * v2.2.0: o detalhe do IRS viaja com a estimativa — é dele que a conferência do recibo tira o
+     * "IRS (4,31%)" do título da rubrica. A base mensal de 1 190,07 € cai no escalão de 21,2 % da
+     * tabela I (ordem 4 da semente, escalão 5 na numeração do XLSX).
+     */
+    @Test
+    fun `T49 - a estimativa leva o escalao e a taxa do IRS`() {
+        val dezembro = YearMonth.of(2026, 12)
+        val detalhe = estimarRecibo(contexto(dezembro, dias(dezembro, 22))).detalheIrs!!
+
+        assertEquals(5, detalhe.numeroEscalao)
+        assertEquals(21_200, detalhe.taxaBasisPoints)
+        // A taxa que a linha do D02 mostra: 51,2548 € sobre 1 190,07 € = 4,31 % (431 em 0,01 %).
+        assertEquals(431, detalhe.taxaEfetivaBasisPoints)
+        assertEquals(512_548L, detalhe.valorMil)
+        // Os 410,93 € do IRS autónomo do Natal somam-se ao D02 mas não mexem na taxa: é o IRS da
+        // base mensal, e é essa a taxa efetiva que o recibo mostra ao lado do vencimento. O valor
+        // autónomo viaja no detalhe para a conferência poder dizer que a linha o inclui (v2.2.0).
+        assertEquals(431, detalhe.taxaEfetivaBasisPoints)
+        assertEquals(410_929L, detalhe.irsAutonomoSubsidiosMil)
+        assertEquals(923_477L, detalhe.valorMil + detalhe.irsAutonomoSubsidiosMil)
+        assertTrue("dezembro não tem a redução de novembro", !detalhe.reducaoNovembro2026)
+        assertEquals(null, detalhe.percentagemIrsJovem)
+    }
+
+    /** Novembro de 2026: a mesma base, com a redução de 50 % assinalada no detalhe. */
+    @Test
+    fun `T50 - em novembro de 2026 o detalhe assinala a reducao`() {
+        val novembro = YearMonth.of(2026, 11)
+        val detalhe = estimarRecibo(contexto(novembro, dias(novembro, 22))).detalheIrs!!
+
+        assertEquals(256_274L, detalhe.valorMil)
+        assertEquals(5, detalhe.numeroEscalao)
+        assertEquals(21_200, detalhe.taxaBasisPoints)
+        // A efetiva acompanha o valor reduzido: 25,6274 € sobre 1 190,07 € = 2,15 %.
+        assertEquals(215, detalhe.taxaEfetivaBasisPoints)
+        // Novembro não paga subsídios: não há IRS autónomo somado ao D02.
+        assertEquals(0L, detalhe.irsAutonomoSubsidiosMil)
+        assertTrue("novembro de 2026 no Continente tem a redução de 50 %", detalhe.reducaoNovembro2026)
+    }
+
 
     /** Tipo de folga como a app o semeia, para a projeção poder marcar dias de descanso. */
     private fun tipoFolga() = TipoTurno(

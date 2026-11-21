@@ -1,7 +1,7 @@
 {
   "versionCode": 30,
-  "versionName": "2.1.5",
+  "versionName": "2.2.0",
   "minSdk": 26,
-  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.1.5/app-github-release.apk",
-  "changelog": "IRS de novembro de 2026: a retenção na fonte passa a metade nos rendimentos pagos em novembro no Continente (Despacho n.º 12523-A/2026); a redução não se aplica acima do limite do penúltimo escalão nem nas Regiões Autónomas. Escala: férias ou baixa num dia que já era folga deixam de somar 8h ao Total Horas. Recibo: suporte a modo PDF."
+  "apkUrl": "https://github.com/halexys-dotcom/Predit/releases/download/v2.2.0/app-github-release.apk",
+  "changelog": "IRS: aplicação das tabelas de retenção de 2026 e da redução excecional de 50% em novembro de 2026 (Despacho n.º 12523-A/2026). Os subsídios de Natal e de Férias passam a ter IRS retido à parte, e o catálogo marca-os como sujeitos a Segurança Social e a IRS. Na conferência do recibo, o IRS mostra a taxa efetiva do mês — IRS (4,31%) — em vez do número do escalão, e a coluna Estimado deixa de mostrar valores antigos quando o contrato ou as tabelas mudam. O subsídio de Natal e o de férias passam a ser proporcionais aos dias de serviço, descontando os dias de baixa."
 }

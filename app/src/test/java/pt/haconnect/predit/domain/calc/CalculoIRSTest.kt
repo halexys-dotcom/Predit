@@ -196,131 +196,233 @@ class CalculoIRSTest {
     }
 
     /**
-     * T17 a T22: Despacho n.º 12523-A/2026 — redução excepcional de 50 % em Novembro de 2026.
-     *
-     * A retenção normal é a do [calcularIRS]; a redução entra depois e antes do IRS Jovem.
-     * O limite do penúltimo escalão (o último limite finito) da tabela I do Continente é
-     * 20 221,00 € (escalão 10) e na tabela VII é 20 468,00 € — varia com a tabela, por isso é
-     * lido da lista, não fixado aqui.
+     * T17 a T21: redução excecional do Despacho n.º 12523-A/2026 — novembro de 2026, Continente,
+     * 50 % da retenção normal até ao limite do penúltimo escalão da tabela do contrato. Fora
+     * dessas condições (dezembro, Açores/Madeira, escalões acima) a retenção fica inteira.
      */
     @Test
-    fun `T17 - novembro 2026 no Continente reduz o IRS a 50 por cento`() {
-        val normal = calcularIRS(11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas)
-        val irs = aplicarReducaoNovembro2026(
-            retencaoNormal = normal,
-            baseIRS = 11_900_700,
-            tabelaNumero = 1,
-            categoria = CATEGORIA_TRABALHO,
-            ano = 2026,
-            mes = 11,
-            regiao = RegiaoIRS.CONTINENTE,
-            tabelas = tabelas
+    fun `T17 - novembro de 2026 no Continente reduz a retencao a metade`() {
+        // Normal (T1): 512 548. Metade: 256 274.
+        val normal = calcularIRS(
+            11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas
+        )
+        val novembro = calcularIRSMensal(
+            11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas, mes = 11
         )
 
         assertEquals(512_548L, normal)
-        assertEquals(256_274L, irs)
-        assertEquals("25,63 €", irs.milParaEuros())
-        assertEquals("metade da retenção normal", normal / 2, irs)
+        assertEquals(256_274L, novembro)
+        assertEquals("25,63 €", novembro.milParaEuros())
     }
 
     @Test
-    fun `T18 - novembro 2026 acima do penultimo escalao mantem 100 por cento`() {
-        // 21 000,00 € está acima dos 20 221,00 € do penúltimo escalão da tabela I (escalão 11:
-        // 47,17 % · parcela 1 272,31 €) → 99 057 000 − 12 723 100 − 2 × 214 300 = 85 905 300.
-        val irs = aplicarReducaoNovembro2026(
-            retencaoNormal = calcularIRS(210_000_000, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas),
-            baseIRS = 210_000_000,
-            tabelaNumero = 1,
-            categoria = CATEGORIA_TRABALHO,
-            ano = 2026,
-            mes = 11,
-            regiao = RegiaoIRS.CONTINENTE,
-            tabelas = tabelas
+    fun `T18 - novembro de 2026 acima do penultimo escalao mantem a retencao inteira`() {
+        // Tabela I do Continente: o penúltimo escalão acaba em 20 221,00 € (202 210 000).
+        // No limite ainda há redução: 82 230 795 → 41 115 398 (metade, ao meio para cima).
+        val noLimite = calcularIRSMensal(
+            202_210_000, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas, mes = 11
+        )
+        // 25 000,00 € já cai no último escalão: retenção inteira (104 773 300 = 10 477,33 €).
+        val acima = calcularIRSMensal(
+            250_000_000, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas, mes = 11
         )
 
-        assertEquals(85_905_300L, irs)
-        assertEquals("8 590,53 €", irs.milParaEuros())
+        assertEquals(41_115_398L, noLimite)
+        assertEquals(104_773_300L, acima)
+        assertEquals(
+            "acima do penúltimo escalão não há redução",
+            calcularIRS(250_000_000, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas),
+            acima
+        )
+        assertTrue(
+            "o limite é inclusivo (<= penúltimo)",
+            temReducaoExcecionalNovembro2026(
+                202_210_000, 1, CATEGORIA_TRABALHO, 2026, 11, RegiaoIRS.CONTINENTE, tabelas
+            )
+        )
+        assertTrue(
+            "um cêntimo acima já fica de fora",
+            !temReducaoExcecionalNovembro2026(
+                202_210_001, 1, CATEGORIA_TRABALHO, 2026, 11, RegiaoIRS.CONTINENTE, tabelas
+            )
+        )
     }
 
     @Test
-    fun `T19 - novembro 2026 nos Acores nao tem reducao`() {
-        // Tabela I dos Açores, escalão 4: 14,84 % · parcela 125,22 € · 21,43 €/dependente.
-        val normal = calcularIRS(11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.ACORES, tabelas)
-        val irs = aplicarReducaoNovembro2026(
-            retencaoNormal = normal,
-            baseIRS = 11_900_700,
-            tabelaNumero = 1,
-            categoria = CATEGORIA_TRABALHO,
-            ano = 2026,
-            mes = 11,
-            regiao = RegiaoIRS.ACORES,
-            tabelas = tabelas
+    fun `T19 - Acores e Madeira ficam fora da reducao de novembro`() {
+        // Açores, escalão 4: 1 766 064 − 1 252 200 − 428 600 = 85 264.
+        // Madeira, escalão 3: 1 432 844 − 971 700 − 428 600 = 32 544.
+        val acores = calcularIRSMensal(
+            11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.ACORES, tabelas, mes = 11
+        )
+        val madeira = calcularIRSMensal(
+            11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.MADEIRA, tabelas, mes = 11
         )
 
-        assertEquals(85_264L, irs)
-        assertEquals("8,53 €", irs.milParaEuros())
-        assertEquals("a região é excepção: sem redução", normal, irs)
+        assertEquals(85_264L, acores)
+        assertEquals(32_544L, madeira)
+        assertEquals(
+            calcularIRS(11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.ACORES, tabelas),
+            acores
+        )
+        assertEquals(
+            calcularIRS(11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.MADEIRA, tabelas),
+            madeira
+        )
     }
 
     @Test
-    fun `T20 - novembro 2026 na Madeira nao tem reducao`() {
-        // Tabela I da Madeira, escalão 3: 12,04 % · parcela 97,17 € (sem dependentes):
-        // 1 190,07 × 12,04 % = 143,28 − 97,17 = 46,11 €. A Madeira tem tabelas próprias,
-        // por isso fica fora da redução — o valor é o da tabela regional, sem cortes.
-        val normal = calcularIRS(11_900_700, 1, CATEGORIA_TRABALHO, 0, 2026, RegiaoIRS.MADEIRA, tabelas)
-        val irs = aplicarReducaoNovembro2026(
-            retencaoNormal = normal,
-            baseIRS = 11_900_700,
-            tabelaNumero = 1,
-            categoria = CATEGORIA_TRABALHO,
-            ano = 2026,
-            mes = 11,
-            regiao = RegiaoIRS.MADEIRA,
-            tabelas = tabelas
+    fun `T20 - fora de novembro de 2026 a retencao mantem-se inteira`() {
+        // Dezembro do mesmo ano: a redução é só de novembro.
+        assertEquals(
+            512_548L,
+            calcularIRSMensal(
+                11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas, mes = 12
+            )
         )
-
-        assertEquals(461_144L, irs)
-        assertEquals("46,11 €", irs.milParaEuros())
-        assertEquals("a região é excepção: sem redução", normal, irs)
+        assertTrue(
+            "novembro de outro ano não tem redução",
+            !temReducaoExcecionalNovembro2026(
+                11_900_700, 1, CATEGORIA_TRABALHO, 2027, 11, RegiaoIRS.CONTINENTE, tabelas
+            )
+        )
     }
 
     @Test
-    fun `T21 - dezembro 2026 no Continente volta ao valor normal`() {
-        val normal = calcularIRS(11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas)
-        val irs = aplicarReducaoNovembro2026(
-            retencaoNormal = normal,
-            baseIRS = 11_900_700,
-            tabelaNumero = 1,
-            categoria = CATEGORIA_TRABALHO,
-            ano = 2026,
-            mes = 12,
-            regiao = RegiaoIRS.CONTINENTE,
-            tabelas = tabelas
+    fun `T21 - IRS autonomo do subsidio de Natal pago em novembro de 2026 e metade`() {
+        // Natal de 1 137,98 €, sem dependentes, escalão 3: 1 786 629 − 947 100 = 839 529.
+        // Em novembro de 2026 no Continente: 419 765 (839 529 × 50 %, ao meio para cima).
+        val normal = calcularIRS(
+            11_379_800, 1, CATEGORIA_TRABALHO, 0, 2026, RegiaoIRS.CONTINENTE, tabelas
+        )
+        val novembro = calcularIRSMensal(
+            11_379_800, 1, CATEGORIA_TRABALHO, 0, 2026, RegiaoIRS.CONTINENTE, tabelas, mes = 11
+        )
+        // Em dezembro o mesmo subsídio volta a pagar a retenção inteira.
+        val dezembro = calcularIRSMensal(
+            11_379_800, 1, CATEGORIA_TRABALHO, 0, 2026, RegiaoIRS.CONTINENTE, tabelas, mes = 12
         )
 
-        assertEquals(512_548L, irs)
-        assertEquals("51,25 €", irs.milParaEuros())
+        assertEquals(839_529L, normal)
+        assertEquals(419_765L, novembro)
+        assertEquals(839_529L, dezembro)
+        assertEquals("41,98 €", novembro.milParaEuros())
+    }
+
+    /**
+     * T22 a T27 (v2.2.0): o detalhe do IRS — escalão, taxa marginal e taxa efetiva — para a
+     * conferência do recibo mostrar debaixo do D02. [ResultadoIRS.numeroEscalao] usa a numeração do
+     * XLSX (1-based): a linha `ordemEscalao = 0` da semente (taxa 0, até 920,00 €) é o escalão 1, e
+     * a `ordemEscalao = 5` (24,1 %) é o escalão 6.
+     *
+     * A taxa efetiva é a que o recibo mostra: `valorMil × 10000 ÷ base`, em 0,01 ponto percentual.
+     */
+    @Test
+    fun `T22 - detalhe do IRS traz o escalao, a taxa marginal e a taxa efetiva`() {
+        // T1: base 1 190,07 € no escalão de 21,2 % (ordem 4 da semente, escalão 5 na tabela).
+        val detalhe = calcularIRSComDetalhe(
+            11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas
+        )
+
+        assertEquals(512_548L, detalhe.valorMil)
+        assertEquals(5, detalhe.numeroEscalao)
+        assertEquals(21_200, detalhe.taxaBasisPoints)
+        // 51,2548 € sobre 1 190,07 € = 4,3068 % → 431 (4,31 %), não os 21,2 % do escalão.
+        assertEquals(431, detalhe.taxaEfetivaBasisPoints)
+        assertTrue("21,2 % não é isenção", !detalhe.isento)
+        assertTrue("calcularIRS não passa pelo Despacho", !detalhe.reducaoNovembro2026)
+        assertEquals(null, detalhe.percentagemIrsJovem)
     }
 
     @Test
-    fun `T22 - base exatamente no limite do penultimo escalao ainda tem reducao`() {
-        // 20 221,00 € é o limite do penúltimo escalão da tabela I; a regra é "menor ou igual".
-        // Normal: 202 210 000 × 44 950 ÷ 100 000 = 90 893 395 − 8 234 000 = 82 659 395 = 8 265,94 €
-        // Metade com half-up: 41 329 697,5 → 41 329 698 = 4 132,97 €.
-        val normal = calcularIRS(202_210_000L, 1, CATEGORIA_TRABALHO, 0, 2026, RegiaoIRS.CONTINENTE, tabelas)
-        val irs = aplicarReducaoNovembro2026(
-            retencaoNormal = normal,
-            baseIRS = 202_210_000L,
-            tabelaNumero = 1,
-            categoria = CATEGORIA_TRABALHO,
-            ano = 2026,
-            mes = 11,
-            regiao = RegiaoIRS.CONTINENTE,
-            tabelas = tabelas
+    fun `T23 - detalhe no primeiro escalao da tabela e isento`() {
+        // 900,00 € cai no 1.º escalão da tabela I (taxa 0): retenção 0 por isenção.
+        val detalhe = calcularIRSComDetalhe(
+            9_000_000, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas
         )
 
-        assertEquals(82_659_395L, normal)
-        assertEquals(41_329_698L, irs)
-        assertEquals("4 132,97 €", irs.milParaEuros())
+        assertEquals(0L, detalhe.valorMil)
+        assertEquals(1, detalhe.numeroEscalao)
+        assertEquals(0, detalhe.taxaBasisPoints)
+        assertEquals(0, detalhe.taxaEfetivaBasisPoints)
+        assertTrue("taxa zero é o escalão de isenção", detalhe.isento)
     }
+
+    @Test
+    fun `T24 - detalhe mensal marca a reducao de novembro de 2026`() {
+        // T17: a mesma base, mas em novembro a retenção desce a metade; o escalão não muda.
+        val novembro = calcularIRSMensalComDetalhe(
+            11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas, mes = 11
+        )
+        val dezembro = calcularIRSMensalComDetalhe(
+            11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas, mes = 12
+        )
+
+        assertEquals(256_274L, novembro.valorMil)
+        assertTrue("novembro de 2026 tem a redução de 50 %", novembro.reducaoNovembro2026)
+        assertEquals(5, novembro.numeroEscalao)
+        assertEquals(21_200, novembro.taxaBasisPoints)
+        // A efetiva acompanha o valor: 25,6274 € sobre 1 190,07 € = 2,1534 % → 215.
+        assertEquals(215, novembro.taxaEfetivaBasisPoints)
+
+        assertEquals(512_548L, dezembro.valorMil)
+        assertTrue("dezembro não tem redução", !dezembro.reducaoNovembro2026)
+        assertEquals(431, dezembro.taxaEfetivaBasisPoints)
+    }
+
+    @Test
+    fun `T25 - detalhe mensal guarda a percentagem do IRS Jovem`() {
+        // 100 % isento no 1.º ano de rendimentos: a retenção fica a 0, mas o escalão e a taxa não
+        // mudam — o regime isenta parte da retenção, não move a base de escalão.
+        val detalhe = calcularIRSMensalComDetalhe(
+            11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas,
+            mes = 8, percentagemIrsJovem = 100
+        )
+
+        assertEquals(0L, detalhe.valorMil)
+        assertEquals(100, detalhe.percentagemIrsJovem)
+        assertEquals(5, detalhe.numeroEscalao)
+        assertEquals(21_200, detalhe.taxaBasisPoints)
+        assertEquals(0, detalhe.taxaEfetivaBasisPoints)
+        assertEquals(
+            "a mesma conta de calcularIRSMensal",
+            calcularIRSMensal(
+                11_900_700, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas,
+                mes = 8, percentagemIrsJovem = 100
+            ),
+            detalhe.valorMil
+        )
+    }
+
+    /**
+     * O caso que motivou esta correção: a base cai no escalão de 24,1 % (ordem 5), mas o IRS retido
+     * vale 7,23 % da base. A UI mostrava os 24,1 % do escalão e o recibo da empresa mostra a efetiva.
+     */
+    @Test
+    fun `T26 - taxa efetiva e bem menor do que a marginal do escalao`() {
+        // 1 400,00 €: acima de 1 212,00 € (escalão 5) e até 1 819,00 € (escalão 6, ordem 5).
+        val detalhe = calcularIRSComDetalhe(
+            14_000_000, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas
+        )
+
+        assertEquals(6, detalhe.numeroEscalao)
+        assertEquals(24_100, detalhe.taxaBasisPoints)
+        // 24,1 % de 1 400,00 = 337,40 − 193,33 − 2 × 21,43 = 101,21 € de retenção.
+        assertEquals(1_012_100L, detalhe.valorMil)
+        // 101,21 € sobre 1 400,00 € = 7,2293 % → 723 (7,23 %), e não os 24,1 % do escalão.
+        assertEquals(723, detalhe.taxaEfetivaBasisPoints)
+    }
+
+    @Test
+    fun `T27 - sem base tributavel a taxa efetiva e zero`() {
+        val detalhe = calcularIRSMensalComDetalhe(
+            0L, 1, CATEGORIA_TRABALHO, 2, 2026, RegiaoIRS.CONTINENTE, tabelas, mes = 8
+        )
+
+        assertEquals(0L, detalhe.valorMil)
+        assertEquals(0, detalhe.taxaEfetivaBasisPoints)
+        assertEquals(1, detalhe.numeroEscalao)
+        assertTrue("sem base a retenção é 0,00 €", detalhe.isento)
+    }
+
 }

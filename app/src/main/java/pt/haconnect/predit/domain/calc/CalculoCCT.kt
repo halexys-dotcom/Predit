@@ -1,6 +1,11 @@
 package pt.haconnect.predit.domain.calc
 
+import pt.haconnect.predit.domain.model.Ausencia
+import pt.haconnect.predit.domain.model.CategoriaTurno
+import pt.haconnect.predit.domain.model.TipoTurno
 import pt.haconnect.predit.domain.model.dividirArredondando
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 /**
  * Motor de cálculo do CCT. Funções puras — sem Android, sem Room.
@@ -71,3 +76,91 @@ fun valorHoraTipo(ctx: ContextoCalculo, tipo: TipoHora): Int {
     val numerador = valorHoraMil(ctx).toLong() * tipo.multiplicadorNumerador
     return dividirArredondando(numerador, tipo.multiplicadorDenominador.toLong()).toInt()
 }
+
+/** Meses de um ano civil — serve para normalizar o mês do pagamento. */
+private const val MESES_DO_ANO = 12
+
+/**
+ * Subsídio de Natal ou de férias, em unidades de 1/10000 €.
+ *
+ * Regra do utilizador (2026-11-21): o subsídio vale 1 mês de **vencimento base** para quem
+ * trabalhou o ano civil inteiro e é proporcional aos **dias de serviço** em todos os outros casos:
+ *
+ *     subsídio = base × dias de serviço ÷ dias do ano          (365, ou 366 em ano bissexto)
+ *
+ * Os dias de serviço vão do primeiro dia de serviço no ano — 1 de janeiro para quem já trabalhava
+ * no ano anterior, a [dataAdmissao] para quem entrou a meio — até ao fim do mês do pagamento, e
+ * descontam os dias cobertos por ausências que **não** contam como serviço prestado. Dessas, só a
+ * BAIXA ([CategoriaTurno.BAIXA]) desconta — é o que a empresa faz no caso real do utilizador
+ * (baixa de 18/07/2025 a 19/05/2026). As férias contam como serviço, como já contam no VENC, e as
+ * folgas não são ausências registadas. Diuturnidades, subsídio de alimentação e horas extra não
+ * entram na base: a base é o vencimento base do CCT, mais nada.
+ *
+ * Exemplos com 1 137,98 € de base, Natal pago em dezembro de 2026 (365 dias):
+ *  - ano inteiro, sem baixa: 11 379 800 (o próprio vencimento base, sem divisão);
+ *  - baixa de 1 de janeiro a 31 de maio (151 dias): 214 ÷ 365 → 667,20 € (≈ 7/12);
+ *  - admitido a 1 de julho (184 dias de serviço): 184 ÷ 365 → 573,67 € (≈ metade).
+ *
+ * A admissão posterior ao mês do pagamento devolve 0. O mês do pagamento conta até ao fim — é o
+ * que faz dezembro fechar exatamente o ano.
+ */
+fun calcularSubsidioProporcional(
+    baseMil: Long,
+    dataAdmissao: LocalDate,
+    ano: Int,
+    mesPagamento: Int,
+    ausencias: List<Ausencia> = emptyList(),
+    tiposTurno: List<TipoTurno> = emptyList()
+): Long {
+    val mes = mesPagamento.coerceIn(1, MESES_DO_ANO)
+    val ultimoDiaDoAno = LocalDate.of(ano, 12, 31)
+    val ultimoDiaDoPeriodo = minOf(
+        LocalDate.of(ano, mes, 1).plusMonths(1).minusDays(1),
+        ultimoDiaDoAno
+    )
+    // Admissão depois do período a que o subsídio diz respeito: ainda não há serviço nenhum.
+    if (dataAdmissao > ultimoDiaDoPeriodo) return 0L
+
+    val inicio = maxOf(dataAdmissao, LocalDate.of(ano, 1, 1))
+    val diasDoAno = ultimoDiaDoAno.dayOfYear
+    val diasDeServico = ChronoUnit.DAYS.between(inicio, ultimoDiaDoPeriodo).toInt() + 1
+    val diasDeBaixa = diasDeAusenciaQueNaoContam(ausencias, tiposTurno, inicio, ultimoDiaDoPeriodo)
+    val diasEfetivos = (diasDeServico - diasDeBaixa).coerceIn(0, diasDoAno)
+    // Ano inteiro sem baixa: o subsídio é o próprio vencimento base, sem passar pela divisão.
+    if (diasEfetivos >= diasDoAno) return baseMil
+    return dividirArredondando(baseMil * diasEfetivos, diasDoAno.toLong())
+}
+
+/**
+ * Dias de calendário, entre [inicio] e [fim] (inclusive), cobertos por ausências que **não** contam
+ * como tempo de serviço para o subsídio. Só a BAIXA ([CategoriaTurno.BAIXA]) desconta: as férias
+ * são tempo de serviço pago — é assim que o VENC as trata — e as folgas não são ausências
+ * registadas. A união dos dias garante que baixas sobrepostas contam uma vez só, e o recorte ao
+ * período garante que uma baixa a cavalo de dois anos só pesa no ano que lhe pertence.
+ *
+ * Sem catálogo de tipos não se desconta nada — melhor manter o subsídio do que cortá-lo por um id
+ * que não se sabe o que é (mesma regra de [temFeriasNoMesOuSeguinte]).
+ */
+private fun diasDeAusenciaQueNaoContam(
+    ausencias: List<Ausencia>,
+    tiposTurno: List<TipoTurno>,
+    inicio: LocalDate,
+    fim: LocalDate
+): Int {
+    if (ausencias.isEmpty() || tiposTurno.isEmpty()) return 0
+    val categoriasPorTipo = tiposTurno.associate { it.id to it.categoria }
+    val primeiro = inicio.toEpochDay()
+    val ultimo = fim.toEpochDay()
+    val dias = mutableSetOf<Long>()
+    for (ausencia in ausencias) {
+        if (categoriasPorTipo[ausencia.tipoTurnoId] != CategoriaTurno.BAIXA) continue
+        var dia = maxOf(ausencia.dataInicio, primeiro)
+        val ate = minOf(ausencia.dataFim, ultimo)
+        while (dia <= ate) {
+            dias.add(dia)
+            dia++
+        }
+    }
+    return dias.size
+}
+

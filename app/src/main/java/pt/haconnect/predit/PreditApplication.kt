@@ -201,8 +201,11 @@ class PreditApplication : Application() {
             RubricaEntity(0L, "DESC_DESC", "Dia descanso trabalhado", true, true, true, TipoCalculo.HORAS, true, 12),
             RubricaEntity(0L, "ACR_NOT_FER", "Acrésc. noite feriado", true, true, true, TipoCalculo.HORAS, false, 13),
             RubricaEntity(0L, "ACR_NOT_DESC", "Acrésc. noite descanso", true, true, true, TipoCalculo.HORAS, false, 14),
-            RubricaEntity(0L, "FERIAS", "Subsídio de férias", true, false, false, TipoCalculo.FIXO, false, 15),
-            RubricaEntity(0L, "NATAL", "Subsídio de Natal", true, false, false, TipoCalculo.FIXO, false, 16),
+            // 2026-11-21: os dois subsídios incidem SS e IRS. Na semente original o IRS estava a
+            // false — por engano: são matéria coletável. O IRS não vai para a base mensal, tem
+            // retenção autónoma (ver EstimadorRecibo), mas o flag do catálogo tem de dizer a verdade.
+            RubricaEntity(0L, "FERIAS", "Subsídio de férias", true, true, false, TipoCalculo.FIXO, false, 15),
+            RubricaEntity(0L, "NATAL", "Subsídio de Natal", true, true, false, TipoCalculo.FIXO, false, 16),
             // Descontos derivados: calculados sobre as bases de incidência (Fase 8.2b.1).
             // Não incidem sobre si mesmas — são descontos, não matéria colectável.
             RubricaEntity(0L, "D01", "Segurança Social (11%)", false, false, false, TipoCalculo.DERIVADO, true, 20),
@@ -251,6 +254,22 @@ class PreditApplication : Application() {
         // coluna nem tabela nova — o schema não muda).
         dao.atualizarIncidencia(
             codigo = "COMP_BAIXA",
+            incideSS = true,
+            incideIRS = true,
+            incideSindicato = false
+        )
+        // 2026-11-21: a semente marcava os subsídios de férias e de Natal como isentos de IRS por
+        // engano — são tributados em SS e IRS. Mesmo caso do COMP_BAIXA: a linha já existe em quem
+        // actualiza, por isso os flags vão por UPDATE. O IRS destes subsídios é retido à parte
+        // (autónomo), mas o catálogo tem de dizer que incidem.
+        dao.atualizarIncidencia(
+            codigo = "FERIAS",
+            incideSS = true,
+            incideIRS = true,
+            incideSindicato = false
+        )
+        dao.atualizarIncidencia(
+            codigo = "NATAL",
             incideSS = true,
             incideIRS = true,
             incideSindicato = false
